@@ -22,8 +22,8 @@ Use Python 3.12 on Windows with `requirements-lock.txt`. Renderer and release
 checks run with `python -m unittest tests test_release -q`. GUI checks use real
 Tk windows and temporary project/preferences directories. Run them on an
 interactive Windows desktop: `python -m unittest test_ui test_export_preferences -q`.
-The Windows GitHub Actions workflow performs these checks without access to the
-developer's other tools or personal character files.
+When enabled, the provided Windows GitHub Actions workflow template performs
+these checks without access to the developer's other tools or personal files.
 
 For rendering changes, compare the vector rasterizer against its reference,
 verify 1x export and integer upscaling, and inspect front/side/three-quarter
