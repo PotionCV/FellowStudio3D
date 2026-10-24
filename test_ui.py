@@ -1,0 +1,226 @@
+import tempfile,time,unittest
+from pathlib import Path
+import app,engine as E,uv_assets as U
+from pixel_ui import PixelButton
+class UITests(unittest.TestCase):
+ def test_language_switch_keeps_english_default_and_custom_project_names(self):
+  a=self.a
+  for language in ('简体中文','日本語','English'):
+   a.set_language(language);a.new();self.assertEqual(a.project['name'],'Idle')
+   a.change_base('跑步');self.assertEqual(a.project['name'],'Run')
+  a.name.set('My runner');a.set_language('简体中文')
+  self.assertEqual(a.project['name'],'My runner')
+
+ def test_user_guide_follows_current_language_and_f1(self):
+  from unittest.mock import patch
+  import i18n
+  a=self.a;original=i18n.language
+  try:
+   for language,suffix in (('en','en'),('zh','zh-CN'),('ja','ja')):
+    i18n.set_language(language)
+    with patch('webbrowser.open') as opened:
+     self.assertEqual(a.open_guide(),'break')
+     opened.assert_called_once_with((E.ROOT/'docs'/('GUIDE.'+suffix+'.html')).as_uri())
+   self.assertTrue(a.bind('<F1>'))
+  finally:i18n.set_language(original)
+
+ def setUp(self):
+  self.temp=tempfile.TemporaryDirectory();path=Path(self.temp.name)/'state.json';p=E.new_project();p['seconds']=.2;E.save(p,path);self.a=app.App(state=path);self.errors=[];self.a.report_callback_exception=lambda *e:self.errors.append(e);self.a.update()
+ def tearDown(self):
+  import gc
+  self.a.close();del self.a;gc.collect();self.temp.cleanup();self.assertEqual(self.errors,[])
+ def test_original_three_pane_workflow_and_controls(self):
+  a=self.a;self.assertEqual(len(a.panes.panes()),3);self.assertTrue(hasattr(a,'stack'));self.assertTrue(hasattr(a,'part_buttons'));self.assertEqual(len(a.cells),4)
+  a.frame=1;a.render();self.assertGreater(a.scrub.get(),0)
+  a.add('raise');self.assertEqual(a.project['layers'][0]['kind'],'raise');a.undo();self.assertEqual(a.project['layers'],[])
+  a.select('body','torso');a.edit_model();a.update();self.assertIsNotNone(a.model_editor);a.model_editor.cancel();a.set_language('简体中文');a.zoom(.25);a.update()
+ def test_follow_color_angles_export_choices_and_panel_fonts(self):
+  from pixel_ui import PixelCheck,PixelOption
+  from localized_ui import Label
+  import studio_ui as UI
+  a=self.a
+  def children(w):return [c for child in w.winfo_children() for c in [child]+children(child)]
+  self.assertFalse(any(isinstance(w,PixelCheck) and w.text=='1px' for w in children(a)))
+  yaw=next(w for w in children(a) if isinstance(w,PixelOption) and w.var is a.yaw)
+  self.assertIn('30',yaw.values);self.assertIn('60',yaw.values);yaw.pick('30');self.assertEqual(a.project['yaw'],30.)
+  a.select('body','head');a.update();follow=next(w for w in children(a.params) if isinstance(w,PixelCheck) and w.text=='跟随胸腔转动');follow.toggle()
+  self.assertFalse(a.project['controls']['head']['follow_chest'])
+  d=a.choose_outline_color();a.update();d.value.set('invalid');d.apply();self.assertTrue(d.winfo_exists());d.value.set('#24586c');d.apply()
+  self.assertEqual(a.project['render']['outline_color'],'#24586c');a.change_base('走路');self.assertEqual(a.project['render']['outline_color'],'#24586c')
+  a.export();a.update();export=next(w for w in a.winfo_children() if isinstance(w,UI.tk.Toplevel));options=[w for w in children(export) if isinstance(w,PixelOption)]
+  self.assertTrue(any(tuple(w.values)==('1x','4x','8x') for w in options));export.destroy()
+  original=a.option_get('font','Font');a.edit_textures();e=a.texture_editor;a.update();p=e.inspect_uv('head');a.update();p.destroy();e.populate();a.update()
+  self.assertEqual(a.option_get('font','Font'),original)
+  labels=[w for w in children(e) if isinstance(w,Label)];self.assertTrue(labels)
+  self.assertTrue(all(str(w.cget('font'))==str(e.ui_font) for w in labels));e.cancel();a.edit_model();a.update();e=a.model_editor
+  self.assertTrue(all(str(w.cget('font'))==str(e.ui_font) for w in children(e) if isinstance(w,Label)));e.cancel()
+  import json
+  prefs=json.loads(a.preferences_path.read_text());self.assertEqual(prefs['render']['outline_color'],'#24586c')
+ def test_head_turn_depth_and_stride_twist_controls_are_available(self):
+  from pixel_ui import PixelScale
+  a=self.a;a.select('body','head');a.update()
+  sliders=[w for w in a.params.winfo_children() if isinstance(w,PixelScale)]
+  next(w for w in sliders if w.lo==-90 and w.hi==90).command(35)
+  next(w for w in sliders if w.lo==-8 and w.hi==8).command(-2)
+  self.assertEqual(a.project['controls']['head']['turn'],35);self.assertEqual(a.project['controls']['head']['depth'],-2)
+  a.select('body','torso');a.update();sliders=[w for w in a.params.winfo_children() if isinstance(w,PixelScale)]
+  next(w for w in sliders if w.lo==-60 and w.hi==60).command(15)
+  self.assertEqual(a.project['controls']['torso']['turn'],15)
+  a.change_base('走路');a.selection=('base',None);a.show_params();a.update()
+  self.assertTrue(any(d['key']=='twist' for d in E.L.KINDS['walk'].params));a.project['base']['params']['twist']=.5
+  a.edit_model();e=a.model_editor;e.select('head');a.update();e.set_value('depth',-1.5);e.apply()
+  self.assertEqual(a.project['model']['head']['depth'],-1.5)
+ def test_shape_picker_and_negative_offsets_are_staged_linked_and_undoable(self):
+  from pixel_ui import PixelOption,PixelScale
+  a=self.a;a.edit_model();e=a.model_editor;e.select('head');a.update()
+  e.select('torso');a.update()
+  thickness=next(w for w in e.params.winfo_children() if isinstance(w,PixelScale) and w.lo==.5 and w.hi==2.)
+  thickness.set(1.3);thickness.command('1.3');self.assertEqual(e.draft['torso']['thickness'],1.3)
+  e.select('head');a.update()
+  picker=next(w for w in e.params.winfo_children() if isinstance(w,PixelOption));picker.pick(app.UI.tr('圆柱形'))
+  self.assertEqual(e.draft['head']['shape'],'cylinder');self.assertNotIn('model',a.project)
+  e.select('legR');a.update();picker=next(w for w in e.params.winfo_children() if isinstance(w,PixelOption));picker.pick(app.UI.tr('方形'))
+  e.set_value('spread',-2);e.set_value('gap',-2)
+  self.assertEqual(e.draft['legL']['shape'],'box');self.assertEqual(e.draft['legL']['spread'],-2)
+  sliders=[w for w in e.params.winfo_children() if isinstance(w,PixelScale)]
+  self.assertTrue(any(w.lo==-6 and w.hi==6 for w in sliders));e.apply();self.assertEqual(a.project['model']['head']['shape'],'cylinder');self.assertEqual(a.project['model']['torso']['thickness'],1.3)
+  a.undo();self.assertNotIn('model',a.project)
+ def test_uv_window_is_staged_and_uses_real_3d_preview(self):
+  a=self.a;a.edit_textures();e=a.texture_editor;a.update();self.assertEqual(len(e.card_photos),10);self.assertEqual(len(e.cells),4)
+  path=Path(self.temp.name)/'painted head.png';im=U.texture_image(e.project,'head');im.paste((255,0,0,255),(0,0,*im.size));im.save(path)
+  e.drop_texture('head',a.tk.call('list',str(path)));self.assertNotIn('assets3d',a.project);e.apply();a.update();self.assertTrue(a.project['assets3d']['textures']['head']['png'])
+  a.undo();self.assertNotIn('assets3d',a.project)
+ def test_model_with_textures_is_staged_preserves_motion_and_undoes_together(self):
+  import copy,model_data as M,model_editor as ME
+  from unittest.mock import patch
+  a=self.a;a.change_base('跑步');a.add('raise');before=copy.deepcopy(a.project)
+  path=E.ROOT/'examples'/'models'/'CustomModel.json';expected=M.load_resource(path)
+  a.edit_model();editor=a.model_editor
+  with patch.object(ME.filedialog,'askopenfilename',return_value=str(path)):editor.load_preset()
+  self.assertEqual(a.project,before);self.assertEqual(editor.preview_project()['assets3d'],expected['assets3d'])
+  saved=Path(self.temp.name)/'saved model.json'
+  with patch.object(ME.filedialog,'asksaveasfilename',return_value=str(saved)):editor.save_preset()
+  self.assertEqual(M.load_resource(saved),expected);editor.cancel();self.assertEqual(a.project,before)
+  a.edit_model();editor=a.model_editor
+  with patch.object(ME.filedialog,'askopenfilename',return_value=str(path)):editor.load_preset()
+  editor.apply();self.assertEqual(a.project['assets3d'],expected['assets3d']);self.assertEqual(a.project['model'],expected['model'])
+  for key in ('base','layers','controls','physics','yaw','seconds','fps'):self.assertEqual(a.project[key],before[key])
+  a.undo();self.assertEqual(a.project,before)
+  a.project['assets3d']=expected['assets3d'];a.edit_model();editor=a.model_editor
+  M.save(M.normalize(),saved)
+  with patch.object(ME.filedialog,'askopenfilename',return_value=str(saved)):editor.load_preset()
+  self.assertEqual(editor.draft_assets,expected['assets3d']);editor.cancel()
+ def test_uv_cancel_and_animation_switch_keep_resources(self):
+  a=self.a;a.edit_textures();a.texture_editor.cancel();self.assertNotIn('assets3d',a.project)
+  import rounded_scene as S
+  a.project['assets3d']=S.assets(a.project);before=a.project['assets3d'];a.change_base('跑步');self.assertEqual(a.project['assets3d'],before);self.assertEqual(a.project['base'],E.new_project('run')['base'])
+ def test_protection_brush_zoom_pan_cross_face_edit_and_copy(self):
+  from types import SimpleNamespace
+  a=self.a;a.edit_textures();e=a.texture_editor;d=e.inspect_uv('head');a.update()
+  x,y,w,h=d.resource['layout']['rects']['front'];r=d.resource['layout']['rects']['right']
+  def event(px,py,state=0):
+   ox,oy=d.offset;z=d.zoom;return SimpleNamespace(x=ox+px*z+z//2,y=oy+py*z+z//2,state=state)
+  d.set_tool('brush');d.begin(event(x+w-2,y+3));d.drag(event(r[0]+2,y+3));d.end(event(r[0]+2,y+3))
+  self.assertEqual(len(d.selection),5)
+  d.begin(event(x+w-2,y+3),erase=True);d.end(event(x+w-2,y+3));self.assertEqual(len(d.selection),4)
+  d.undo();self.assertEqual(len(d.selection),5)
+  chosen=set(d.selection);zoom=d.zoom;d.change_zoom(1);self.assertGreater(d.zoom,zoom);self.assertEqual(d.selection,chosen)
+  lines=[d.canvas.coords(item) for item in d.canvas.find_all() if d.canvas.type(item)=='line']
+  self.assertTrue(any(p[1]==p[3] and p[0]!=p[2] for p in lines));self.assertTrue(any(p[0]==p[2] and p[1]!=p[3] for p in lines))
+  origin=d.offset;d.begin_pan(SimpleNamespace(x=30,y=30));d.move_pan(SimpleNamespace(x=80,y=65));d.end_pan();self.assertEqual(d.offset,(origin[0]+50,origin[1]+35))
+  d.set_angle(25);d.add_group();self.assertEqual(d.groups[0]['faces'],['front','right']);self.assertEqual(d.groups[0]['angle'],25)
+  d.edit_group(0);d.selection.add((x+w-3,y+3));d.set_angle(30);d.add_group();self.assertEqual(len(d.groups),1);self.assertEqual(len(d.groups[0]['pixels']),6);d.apply()
+  e.copy_other_side('upperArmR');self.assertEqual(U.texture_image(e.project,'upperArmR').tobytes(),U.texture_image(e.project,'upperArmL').tobytes())
+  e.undo_texture();self.assertFalse(e.project['textures']['upperArmR'].get('png'));e.cancel()
+ def test_uv_protection_selection_is_staged_and_undoable(self):
+  from types import SimpleNamespace
+  a=self.a;a.edit_textures();e=a.texture_editor;d=e.inspect_uv('head');a.update()
+  x,y,w,h=d.resource['layout']['rects']['front'];x+=2;y+=2;ox,oy=d.offset;z=d.zoom
+  def event(px,py,state=0):return SimpleNamespace(x=ox+px*z+z//2,y=oy+py*z+z//2,state=state)
+  d.begin(event(x,y));d.end(event(x+2,y+1));self.assertEqual(len(d.selection),6)
+  d.begin(event(x+4,y,1));d.end(event(x+4,y,1));self.assertEqual(len(d.selection),7)
+  d.begin(event(x+4,y,4));d.end(event(x+4,y,4));self.assertEqual(len(d.selection),6)
+  d.add_group();self.assertEqual(len(d.groups),1);self.assertFalse(e.project['textures']['head'].get('protected_groups'))
+  d.remove_group(0);d.undo();self.assertEqual(len(d.groups),1)
+  d.apply();self.assertEqual(len(e.project['textures']['head']['protected_groups']),1);self.assertNotIn('assets3d',a.project)
+  e.undo_texture();self.assertFalse(e.project['textures']['head'].get('protected_groups'))
+  d=e.inspect_uv('head');a.update();d.selection={(x,y),(x+1,y)};d.add_group();d.apply();e.apply();self.assertEqual(len(a.project['assets3d']['textures']['head']['protected_groups']),1)
+  a.undo();self.assertNotIn('assets3d',a.project)
+ def test_current_frame_arrives_before_complete_animation_and_latest_wins(self):
+  a=self.a;events=[];accept=a.accept_preview;started=time.perf_counter()
+  def record(seq,images,project,complete=False):
+   events.append((time.perf_counter()-started,complete,project['controls'].get('armR',{}).get('raise',0),len(images)));accept(seq,images,project,complete)
+  a.accept_preview=record;a.change_base('走路');a.request_preview()
+  deadline=time.perf_counter()+20
+  while (a.future_job or a.latest_request or a.pending) and time.perf_counter()<deadline:a.update();time.sleep(.005)
+  self.assertIsNone(a.future_job);self.assertTrue(any(not event[1] and event[3]==4 for event in events));self.assertTrue(events[-1][1]);self.assertLess(events[0][0],events[-1][0])
+  print(' preview first/full:',round(events[0][0],3),round(events[-1][0],3),flush=True)
+  a.project['controls'].setdefault('armR',{})['raise']=30;a.changed();a.request_preview();a.project['controls']['armR']['raise']=65;a.changed();a.request_preview()
+  deadline=time.perf_counter()+20
+  while (a.future_job or a.latest_request or a.pending) and time.perf_counter()<deadline:a.update();time.sleep(.005)
+  self.assertEqual(a.active_project['controls']['armR']['raise'],65);self.assertTrue(events[-1][1]);self.assertEqual(events[-1][2],65)
+ def test_narrow_toolbars_keep_all_actions_inside_their_rows(self):
+  from pixel_ui import FlowBar
+  a=self.a;a.geometry('1100x850');a.zoom(.25);a.update()
+  for bar in (w for w in a.winfo_children() if isinstance(w,FlowBar)):
+   for child in bar.winfo_children():
+    self.assertEqual(child.winfo_manager(),'place')
+    self.assertLessEqual(child.winfo_x()+child.winfo_width(),bar.winfo_width()+1)
+    self.assertLessEqual(child.winfo_y()+child.winfo_height(),bar.winfo_height()+1)
+   if bar.pin_right:
+    language=next(w for w in bar.winfo_children() if getattr(w,'var',None) is a.language_var)
+    self.assertLessEqual(abs(bar.winfo_width()-language.winfo_x()-language.winfo_width()),1)
+    self.assertEqual(language.winfo_y(),0)
+  self.assertGreater(a.canvas.winfo_width(),360)
+ def test_incomplete_preview_never_rasterizes_missing_frames_on_ui_thread(self):
+  from unittest.mock import patch
+  a=self.a;seq=a.seq;images={(v,0):E.rgba(seq[0],a.project['render'],cam) for v,cam in enumerate(app.UI.VIEWS)}
+  a.revision+=1;a.accept_preview(seq,images,a.project);a.frame=1;a.photos.clear()
+  with patch.object(E,'rgba',side_effect=AssertionError('UI thread rasterized a missing frame')):a.render()
+  self.assertEqual(len(a.raw_images),4)
+  a.accept_preview(seq,{(v,1):im for (v,_),im in images.items()},a.project)
+  self.assertEqual(len(a.raw_images),8)
+ def test_export_keeps_event_loop_alive_and_blocks_duplicate_submission(self):
+  from unittest.mock import patch
+  from concurrent.futures import ProcessPoolExecutor
+  import tkinter as tk
+  a=self.a;a.export_directory=self.temp.name;a.export_pool=ProcessPoolExecutor(max_workers=1)
+  def children(w):return [c for child in w.winfo_children() for c in [child]+children(child)]
+  with patch.object(a.export_pool,'submit',wraps=a.export_pool.submit) as submitted:
+   a.export();a.update();dialog=next(w for w in a.winfo_children() if isinstance(w,tk.Toplevel))
+   start=next(w for w in children(dialog) if isinstance(w,PixelButton) and w.text=='开始导出')
+   start.invoke();start.invoke();heartbeat=[];a.after(10,lambda:heartbeat.append(True))
+   deadline=time.perf_counter()+1
+   while not heartbeat and time.perf_counter()<deadline:a.update();time.sleep(.005)
+   self.assertTrue(heartbeat);self.assertEqual(start.state,'disabled')
+   deadline=time.perf_counter()+15
+   while dialog.winfo_exists() and time.perf_counter()<deadline:a.update();time.sleep(.005)
+   self.assertFalse(dialog.winfo_exists());self.assertEqual(submitted.call_count,1)
+ def test_painting_folder_refresh_sharing_and_before_preview_are_staged(self):
+  import copy
+  a=self.a;a.edit_textures();editor=a.texture_editor;folder=Path(self.temp.name)/'paint'
+  original=copy.deepcopy(a.project);editor.start_painting(folder);a.update()
+  self.assertTrue((folder/'UV_Model.json').exists());self.assertEqual(a.project,original)
+  image=U.texture_image(editor.project,'head');image.paste((80,40,150,255),(0,0,*image.size));image.save(folder/'head.png')
+  editor.reload_textures();self.assertTrue(editor.project['textures']['head']['png']);self.assertEqual(a.project,original)
+  editor.compare_before(True);self.assertTrue(editor.before_mode);editor.compare_before(False)
+  editor.single_view.set(True);editor.draw();self.assertEqual(len(editor.cells),1);editor.single_view.set(False);editor.draw();self.assertEqual(len(editor.cells),4)
+  editor.set_shared('upperArmR',False);self.assertNotIn('upperArmR',editor.project.get('shared_textures',{}))
+  editor.undo_texture();self.assertIn('upperArmR',editor.project['shared_textures'])
+  editor.apply();self.assertTrue(a.project['assets3d']['textures']['head']['png']);a.undo();self.assertEqual(a.project,original)
+  a.edit_model();editor=a.model_editor;editor.set_value('shoulder',1.2);editor.compare_before(True);editor.compare_before(False);editor.cancel()
+  old_image=(folder/'head.png').read_bytes();a.project['model']={'head':{'size':1.2}};a.changed();a.edit_textures();editor=a.texture_editor;editor.start_painting(folder)
+  self.assertEqual(editor.match_states['head'],'mapping');editor.adapt_painting()
+  self.assertNotEqual(editor.workspace.folder,folder);self.assertEqual((folder/'head.png').read_bytes(),old_image)
+  self.assertTrue(all(editor.workspace.compatible(editor.project,p) for p in U.PARTS));editor.cancel()
+ def test_separate_png_link_refreshes_without_being_overwritten_by_workspace(self):
+  a=self.a;a.edit_textures();editor=a.texture_editor;folder=Path(self.temp.name)/'paint';editor.start_painting(folder)
+  path=Path(self.temp.name)/'head artwork.png';image=U.texture_image(editor.project,'head');image.paste((20,90,140,255),(0,0,*image.size));image.save(path)
+  editor.replace_texture('head',path);self.assertEqual(editor.project['textures']['head']['provenance'],'unknown')
+  (folder/'head.png').write_bytes(b'partial old file')
+  image.paste((150,40,10,255),(0,0,*image.size));image.save(path)
+  editor.watch_painting();editor.watch_painting()
+  self.assertEqual(U.texture_image(editor.project,'head').getpixel((0,0)),(150,40,10,255))
+  self.assertEqual(editor.match_states['head'],'updated');self.assertNotIn('assets3d',a.project);editor.cancel()
+
+if __name__=='__main__':unittest.main()

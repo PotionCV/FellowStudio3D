@@ -1,0 +1,1 @@
+Paint the PART.png files, preserving canvas size and face positions. PART_Guide.png is a separate guide: F=front, B=back, L=left, R=right, T=top, D=bottom (down). Left/right on the sheet refer to character sides. Keep UV_Model.json next to the images. Import the folder or drop one PART.png onto its matching card. Avoid smoothing/resizing. Alpha is supported.

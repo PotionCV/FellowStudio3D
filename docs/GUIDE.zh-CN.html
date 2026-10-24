@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FellowStudio3D — 使用说明</title><style>
+:root{color-scheme:light;--ink:#493c32;--paper:#fcf6e9;--line:#d8c8b0;--accent:#825018}
+*{box-sizing:border-box}body{margin:0;background:#ece4d8;color:var(--ink);font:16px/1.8 system-ui,"Yu Gothic",sans-serif}
+header{padding:14px 24px;background:#493c32;color:#fff2d4;border-bottom:4px solid #e7a34c;font-weight:700}
+.layout{max-width:1280px;margin:auto;display:grid;grid-template-columns:255px minmax(0,1fr);gap:24px;padding:28px 24px}
+nav{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow:auto;padding:16px;background:var(--paper);border:1px solid var(--line)}
+nav a{display:block;padding:5px 0;font-size:14px}main{min-width:0;background:var(--paper);padding:24px 36px;border:1px solid var(--line)}
+h1{font-size:30px;line-height:1.4;margin:0 0 16px}h2{font-size:22px;margin:40px 0 16px;padding-top:16px;border-top:2px solid var(--line);scroll-margin-top:20px}
+a{color:var(--accent);text-underline-offset:3px}a:hover{color:#a55e0d}a:focus-visible{outline:3px solid #e7a34c;outline-offset:3px}
+p{margin:14px 0}li{margin:9px 0}code{background:#e8ddc9;border:1px solid var(--line);padding:1px 5px;font-size:.9em;overflow-wrap:anywhere}strong{font-weight:750}
+@media(max-width:800px){.layout{display:block;padding:12px}nav{position:static;max-height:none;margin-bottom:16px}main{padding:20px}h1{font-size:26px}}
+@media print{header,nav{display:none}.layout{display:block;padding:0}body,main{background:white}main{border:0;padding:0}a{color:inherit}}
+</style></head><body><header>FellowStudio3D · 使用说明</header><div class="layout"><nav aria-label="使用说明"><a href="#section-1">1. 启动与试用角色</a><a href="#section-2">2. 不用关键帧的姿势和动画</a><a href="#section-3">3. 头部、躯干、IK与物理跟随</a><a href="#section-4">4. 视角与像素显示</a><a href="#section-5">5. 调整角色模型</a><a href="#section-6">6. 绘画与替换贴图</a><a href="#section-7">7. 保护小图案的像素排列</a><a href="#section-8">8. 导出序列帧</a><a href="#section-9">9. 保存、分享与恢复</a><a href="#section-10">10. 常见问题</a></nav><main><h1 id="guide-title">FellowStudio3D 使用说明</h1>
+<p><a href="GUIDE.en.html">English</a> · <a href="GUIDE.zh-CN.html">简体中文</a> · <a href="GUIDE.ja.html">日本語</a> · <a href="../README.md">项目 README</a></p>
+<h2 id="section-1">1. 启动与试用角色</h2>
+<p>完整解压 Windows 便携包，双击 <strong>FellowStudio3D.exe</strong>。不需要安装 Python。EXE、runtime 和其他文件必须放在一起；BAT 是备用启动入口。这个便携包适用于 Windows，不能直接在 macOS 上运行。</p>
+<p>右上角可切换英文、简体中文、日文，选择会保存。<strong>A− / A＋</strong> 调整界面大小。左右面板可以滚动，也可以拖动分隔条调整宽度。点击<strong>使用说明</strong>或按 <strong>F1</strong> 可离线阅读本说明。</p>
+<p>自动生成的项目名称固定使用英文（Idle、Walk、Run），不会随界面语言翻译；自己输入的名称会保留。</p>
+<p>第一次可以这样试用：</p>
+<ol>
+<li>打开<strong>角色模型 → 载入模型</strong>，选择 <code>examples/models/CustomModel.json</code>。</li>
+<li>点击<strong>应用模型</strong>，把附带的绘画角色应用到当前动画。</li>
+<li>选择<strong>走路</strong>或<strong>跑步</strong>，播放预览。</li>
+<li>点击一个视窗设为焦点，然后用 <strong>1x</strong> 导出 PNG 横向条带。</li>
+</ol>
+<p><code>DefaultModel.json</code> 可恢复默认外观。新用户初次启动看到的是默认小人，不会载入开发者的个人工作状态。</p>
+<h2 id="section-2">2. 不用关键帧的姿势和动画</h2>
+<p>先在左侧选择<strong>基础动作</strong>或预设姿势，点击编辑基础动作，调整步幅、摆臂和其他参数。动画时长、帧率和循环次数共同决定输出序列。</p>
+<p>选择身体部位，可以整体调整它在动画中的姿势。先选双臂、双腿做整体调整，再选单侧微调。<strong>摆动幅度</strong>围绕动作的平均姿势调整，不是简单地把所有角度乘大。</p>
+<p>添加叠加动作后，调整混合比例；比例为零时，这层没有影响。举手、挥手还可以设置<strong>保留原摆动</strong>。例如在跑步上叠加右臂举起，再调混合比例和保留原摆动，就能让手臂保持抬起，同时保留跑动的摆动。叠加动作可以启用或关闭，并选择适用的身体范围。</p>
+<p>切换基础动作会恢复该动作的默认参数，但保留模型、贴图和显示设置。想保留某套调整，请先保存项目。<strong>撤销 / Ctrl+Z</strong> 可撤销编辑，<strong>Ctrl+Y</strong> 重做。</p>
+<h2 id="section-3">3. 头部、躯干、IK与物理跟随</h2>
+<p>在<strong>头颈</strong>中，低头抬头、左右转头、歪头、前后位置可以独立调整。关闭<strong>跟随胸腔转动</strong>，头部就不再继承胸腔的左右扭转。走路和跑步还提供<strong>跨步扭转</strong>，控制胸腔与骨盆的反向转动。</p>
+<p>躯干可调整弯腰、身体高低、侧倾、胸腔转向、骨盆转向。开启<strong>调整身体时保持脚的位置</strong>，腿部会在可达范围内通过 IK 保持脚的位置。暂停后，可以拖动显示出的 IK 手柄调整四肢。拖不到预期位置时，检查肢体长度或减小位移。<strong>翻转肘 / 膝弯向</strong>可改变单侧弯曲方向。</p>
+<p><strong>上段松软</strong>和<strong>下段松软</strong>分别控制物理跟随。建议从小数值开始，过强可能盖过原来的动作。调参后，预览可能先显示直接姿势，再补齐物理模拟与其他帧；判断完整效果前，请等待计算结束。</p>
+<h2 id="section-4">4. 视角与像素显示</h2>
+<p>点击四视图中的一个设为焦点。正面、侧面是正交视角；斜面是水平斜视，斜俯才增加俯视角度。模型与 UV 窗口可开启<strong>单视图</strong>，也可双击视窗放大。按住<strong>查看修改前</strong>，可与打开编辑器时的外观比较。</p>
+<p>原始画布为 <strong>64 × 64 像素</strong>。预览放大不会增加绘画精度。边线固定为原始图像的 <strong>1像素</strong>，可选边线颜色或自动灰色。部位分色、交叠留缝、外边线是独立显示选项。实体相接或穿入的地方会抑制内部线，前景部位真正遮住后方部位时可以保留分界。</p>
+<h2 id="section-5">5. 调整角色模型</h2>
+<p>打开<strong>角色模型</strong>，选择部位与基础形状，再调整比例。头部支持椭圆、圆柱、圆角方形、方形，躯干与四肢也有多种形状。开启<strong>左右联动</strong>可一起修改左右肢体。</p>
+<p>肩宽、腰宽、胯宽改变正面轮廓。<strong>躯干厚度</strong>改变前后厚度，同时影响胸腹和胯部；略壮的体型可先试 <strong>1.15～1.3</strong>。新建模型默认 1.15，旧模型保持原厚度。还可以调整头部间距与前后位置、四肢长度、关节偏移和接合间距。负偏移向内或重叠，正偏移向外或分离。胯部覆盖用于填补两条腿根之间的区域。</p>
+<p>编辑先在窗口内预览，点击<strong>应用模型</strong>才写入项目，<strong>取消</strong>放弃未应用的修改。<strong>保存模型</strong>会把形体、内嵌贴图和像素保护组一起保存成可复用 JSON。载入模型只替换外观，保留当前动画；旧版只含形体的预设会保留当前贴图。</p>
+<h2 id="section-6">6. 绘画与替换贴图</h2>
+<p>贴图需要在外部像素绘画软件中绘制，目前不能直接在模型表面画画。</p>
+<ol>
+<li>先调整形体，再打开 <strong>UV贴图 → 开始 / 继续绘制</strong>，选择绘画文件夹。</li>
+<li>在绘画软件中修改各部位 PNG，不改变图片尺寸和各 UV 面的位置。<code>*_Guide.png</code> 是参考图，不要把它当作正式贴图替换。</li>
+<li>保留同目录的 <code>UV_Model.json</code>。参考图上的 F/R/B/L/T/D 分别是前/右/后/左/上/下。</li>
+<li>保存 PNG 后预览会自动刷新；保存过程中短暂损坏或不完整的图片不会替换上一次正确贴图。<strong>打开绘画文件夹</strong>可返回素材位置。</li>
+<li>单个部位可点击<strong>换图</strong>或把 PNG 拖到卡片上替换。检查预览后点击<strong>应用贴图</strong>；取消放弃本次未应用的编辑。</li>
+</ol>
+<p>卡片会提示布局是否匹配、来源未知、文件缺失或无法读取。匹配检查核对的是部位、UV布局和表面形状，不能判断五官或衣服是否画对位置。没有可靠记录但尺寸符合的 PNG 可以导入，会标为<strong>来源未知</strong>。透明区域相似并不能证明匹配。</p>
+<p>改变形状、长度、厚度可能改变 UV。原有贴图会按面自动适配，但图案可能需要重画。继续绘画前，可用<strong>适配到新绘画文件夹</strong>生成带 <code>-v2</code>、<code>-v3</code> 后缀的新副本，旧文件夹保留。单纯改变部位位置或关节间距不会改变该部位的 UV 布局。</p>
+<p>新建未绘画角色默认共用左右肢体贴图；绘画案例可能保持左右独立。在右侧肢体卡片关闭<strong>共用左侧贴图</strong>即可独立画，解除共用会保留当前图案。<strong>高级贴图操作</strong>中还有像素保护、整套导入导出和恢复功能。</p>
+<h2 id="section-7">7. 保护小图案的像素排列</h2>
+<p>从部位的高级操作或缩略图进入<strong>像素保护</strong>。选中希望在小幅运动中保持相对排列的图案，例如几个五官像素。</p>
+<ul>
+<li>使用框选或画笔；Shift 加选，Ctrl 减选，右键临时擦除选区。</li>
+<li>滚轮围绕鼠标缩放，中键或空格拖动平移；Fit 可聚焦 UV 面。</li>
+<li>点击<strong>保护所选像素</strong>创建组，也可以选择已有组编辑。当前选区为橙色，已保存组为青色。Ctrl+Z 撤销选区笔画。</li>
+<li>设置<strong>保护角度</strong>，超过角度后整组恢复普通 UV 采样。默认是 40°。</li>
+<li>先点击<strong>应用保护组</strong>，再在外层 UV 窗口点击<strong>应用贴图</strong>，才写入当前项目。</li>
+</ul>
+<p>同一组可以跨相邻 UV 面。保护不改变部位遮挡，也不会把轮廓外的像素强行显示出来，不能保证任意角度无损。尽量保护小而连贯的图案，并检查旋转和动画。保护组保存在项目、模型 JSON 和 UV 包中，单独一张 PNG 不包含保护组。</p>
+<h2 id="section-8">8. 导出序列帧</h2>
+<p>打开<strong>导出序列帧</strong>，选择目录、名称、视角、倍率和类型。如果之前没有指定其他导出视角，初始选择是焦点视图；导出前请确认。</p>
+<ul>
+<li><strong>PNG序列</strong>：每帧独立透明图片。</li>
+<li><strong>PNG横向条带</strong>：多帧横向排列的透明图片。</li>
+<li><strong>GIF</strong>：动画预览，正式像素素材建议使用 PNG。</li>
+<li><strong>JSON动作配方</strong>：可以继续编辑的项目与动画资源。</li>
+</ul>
+<p><strong>1x</strong> 每帧为 64 × 64，<strong>4x</strong> 为 256 × 256，<strong>8x</strong> 为 512 × 512，只使用最近邻整数倍放大。原始1像素边线在4x图片中占4个输出像素。</p>
+<p><strong>创建同名子文件夹</strong>默认关闭，文件直接导出到所选目录。上次目录会记住。同名输出文件不会被覆盖，冲突时请改名称或目录。导出在后台进行，请等完成提示后再使用文件。</p>
+<h2 id="section-9">9. 保存、分享与恢复</h2>
+<p><strong>保存 / Ctrl+S</strong> 将角色、贴图、保护组、动画一起写入项目 JSON。<strong>打开</strong>会载入完整项目；与保留当前动画的“载入模型”不同。把项目分享给别人时，不需要附带原贴图路径；如果还要继续绘画，请自行保留绘画文件夹。</p>
+<p>案例按用途放置：<code>examples/models</code> 是可复用外观，<code>examples/characters</code> 是中立姿势的完整角色项目，<code>examples/motions</code> 是动作配方，<code>examples/UV</code> 是默认模型模板。默认 UV 模板不一定适合改过外形的模型。</p>
+<p>自动恢复文件是 <code>user_data/studio3d_motion.json</code>，界面偏好是 <code>user_data/ui_settings.json</code>。工具目录不能写入时，会回退到 <code>%LOCALAPPDATA%\FellowStudio3D</code>。替换安装目录前请备份自己的项目 JSON。发布包不包含个人自动存档和偏好；绘画案例是专门随包提供的。</p>
+<h2 id="section-10">10. 常见问题</h2>
+<ul>
+<li><strong>EXE打不开</strong>：重新完整解压，不要只移动 EXE。如果提示启动错误，请查看本地数据目录中的 <code>startup-error.log</code>。</li>
+<li><strong>贴图无法载入</strong>：检查部位、图片尺寸和模型是否匹配；已知不兼容的文件需要适配，尺寸相同还不够。</li>
+<li><strong>转动时五官变化</strong>：为小图案建立保护组，检查保护角度；部位遮挡与原始像素分辨率仍会影响显示。</li>
+<li><strong>调参后反应慢</strong>：等待本轮计算结束后再判断物理效果；精调时可以暂停播放。</li>
+<li><strong>界面太小</strong>：点击 A＋；控件放不下时滚动面板或拖宽面板。</li>
+</ul>
+<p>目前不支持任意外部网格导入、新增骨骼和附加配件模型。源码安装与发布构建见<a href="DEVELOPMENT.md">开发说明</a>。</p></main></div></body></html>

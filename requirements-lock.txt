@@ -1,0 +1,4 @@
+# Tested Windows / CPython 3.12 environment. For flexible bounds see requirements.txt.
+numpy==2.5.3
+Pillow==12.2.0
+tkinterdnd2==0.6.4

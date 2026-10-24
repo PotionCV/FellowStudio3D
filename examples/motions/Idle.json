@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "name": "Idle",
+  "seconds": 2.0,
+  "fps": 12,
+  "base": {
+    "kind": "stand",
+    "params": {
+      "breath": 0.9,
+      "sway": 0.0
+    },
+    "cycles": 1,
+    "mix": 1.0,
+    "retain": 1.0,
+    "enabled": true,
+    "scope": "all",
+    "phase": 0.0
+  },
+  "layers": [],
+  "controls": {},
+  "physics": {},
+  "render": {
+    "parts": true,
+    "gaps": true,
+    "outline": true,
+    "perfect": true
+  },
+  "yaw": 0.0,
+  "pitch": 0.0
+}

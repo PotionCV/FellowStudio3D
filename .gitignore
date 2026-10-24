@@ -1,0 +1,29 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+dist/
+build/
+/FellowStudio3D.exe
+user_data/
+.audit/
+.pytest_cache/
+*.tmp
+*.log
+# Local sessions from older builds (never distribute painted projects).
+/ui_settings.json
+/studio3d*.json
+/studio_v2.json
+/models/
+/out/
+# Development history, screenshots and experiments are kept locally.
+/archive_first_3d/
+/comparison_reference/
+/*.png
+/*.gif
+/_*.py
+/_*.npz
+/review*.py
+/rig_legacy.py
+/examples/Default_UV/
+/examples/Rounded_UV_v2/

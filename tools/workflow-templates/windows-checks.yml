@@ -1,0 +1,14 @@
+name: Windows checks
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-lock.txt
+      - run: python -m unittest tests test_release -q
+      - run: python -m unittest test_ui test_export_preferences -q
+      - run: python tools/build_release.py

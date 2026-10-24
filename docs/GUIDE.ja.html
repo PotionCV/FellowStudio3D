@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FellowStudio3D — 使い方</title><style>
+:root{color-scheme:light;--ink:#493c32;--paper:#fcf6e9;--line:#d8c8b0;--accent:#825018}
+*{box-sizing:border-box}body{margin:0;background:#ece4d8;color:var(--ink);font:16px/1.8 system-ui,"Yu Gothic",sans-serif}
+header{padding:14px 24px;background:#493c32;color:#fff2d4;border-bottom:4px solid #e7a34c;font-weight:700}
+.layout{max-width:1280px;margin:auto;display:grid;grid-template-columns:255px minmax(0,1fr);gap:24px;padding:28px 24px}
+nav{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow:auto;padding:16px;background:var(--paper);border:1px solid var(--line)}
+nav a{display:block;padding:5px 0;font-size:14px}main{min-width:0;background:var(--paper);padding:24px 36px;border:1px solid var(--line)}
+h1{font-size:30px;line-height:1.4;margin:0 0 16px}h2{font-size:22px;margin:40px 0 16px;padding-top:16px;border-top:2px solid var(--line);scroll-margin-top:20px}
+a{color:var(--accent);text-underline-offset:3px}a:hover{color:#a55e0d}a:focus-visible{outline:3px solid #e7a34c;outline-offset:3px}
+p{margin:14px 0}li{margin:9px 0}code{background:#e8ddc9;border:1px solid var(--line);padding:1px 5px;font-size:.9em;overflow-wrap:anywhere}strong{font-weight:750}
+@media(max-width:800px){.layout{display:block;padding:12px}nav{position:static;max-height:none;margin-bottom:16px}main{padding:20px}h1{font-size:26px}}
+@media print{header,nav{display:none}.layout{display:block;padding:0}body,main{background:white}main{border:0;padding:0}a{color:inherit}}
+</style></head><body><header>FellowStudio3D · 使い方</header><div class="layout"><nav aria-label="使い方"><a href="#section-1">1. 起動とサンプルキャラクター</a><a href="#section-2">2. キーフレームを使わないポーズと動作</a><a href="#section-3">3. 頭部・胴体・IK・物理追従</a><a href="#section-4">4. ビューとピクセル表示</a><a href="#section-5">5. モデルの形を調整する</a><a href="#section-6">6. テクスチャを描く・差し替える</a><a href="#section-7">7. 小さな模様のピクセル配置を保護する</a><a href="#section-8">8. フレームを書き出す</a><a href="#section-9">9. 保存・共有・作業の復元</a><a href="#section-10">10. よくある問題</a></nav><main><h1 id="guide-title">FellowStudio3D ユーザーガイド</h1>
+<p><a href="GUIDE.en.html">English</a> · <a href="GUIDE.zh-CN.html">简体中文</a> · <a href="GUIDE.ja.html">日本語</a> · <a href="../README.md">プロジェクト README</a></p>
+<h2 id="section-1">1. 起動とサンプルキャラクター</h2>
+<p>Windows ポータブル版の ZIP をすべて展開し、<strong>FellowStudio3D.exe</strong> をダブルクリックします。Python のインストールは不要です。EXE、runtime などのファイルは同じフォルダー構成のまま使用してください。BAT は代替の起動方法です。このパッケージは Windows 用で、macOS では直接実行できません。</p>
+<p>右上のメニューで英語・簡体字中国語・日本語を切り替えられます。選択は保存されます。<strong>A− / A＋</strong> で UI の大きさを変更できます。左右のパネルはスクロールでき、境界をドラッグすると幅を変更できます。<strong>使い方</strong>または <strong>F1</strong> で、このガイドをオフラインで開けます。</p>
+<p>自動生成されるプロジェクト名は UI の言語に関係なく英語（Idle、Walk、Run）です。自分で入力した名前は維持されます。</p>
+<p>最初は次の手順をお試しください。</p>
+<ol>
+<li><strong>キャラクターモデル → モデルを読み込む</strong>から <code>examples/models/CustomModel.json</code> を選びます。</li>
+<li><strong>モデルを適用</strong>して、現在の動作にサンプルの描画済みキャラクターを適用します。</li>
+<li>歩行または走行を選択して再生します。</li>
+<li>プレビューをクリックして対象のビューを選び、<strong>1x</strong> の PNG 横並び画像を書き出します。</li>
+</ol>
+<p><code>DefaultModel.json</code> で標準の外観に戻せます。初回起動では標準の人形が表示され、開発者の個人作業データは読み込まれません。</p>
+<h2 id="section-2">2. キーフレームを使わないポーズと動作</h2>
+<p>左側で基本動作またはプリセットのポーズを選びます。基本動作の編集では、歩幅、腕振りなどのパラメーターを調整できます。長さ、フレームレート、繰り返し回数によって、出力するフレーム列が決まります。</p>
+<p>身体の部位を選ぶと、その動作全体に対する姿勢を調整できます。まず両腕・両脚をまとめて調整し、片側を選んで細かく直します。振れ幅は平均姿勢の周りの動きを変えるもので、すべての角度を単純に拡大するものではありません。</p>
+<p>動作をレイヤーとして追加し、混合の割合で影響を調整します。割合がゼロなら、そのレイヤーは影響しません。腕を上げる動作や手を振る動作では、元の揺れを残す量も調整できます。例えば走行に右腕を上げる動作を重ね、混合と元の揺れの保持量を調整すると、腕を上げたまま走行の腕振りを残せます。レイヤーの有効・無効や適用する部位も選択できます。</p>
+<p>基本動作を切り替えると、動作の調整値はその基本動作の初期値に戻ります。モデル、テクスチャ、表示設定は維持されます。調整済みの組み合わせを残すには、切り替える前にプロジェクトを保存してください。<strong>Ctrl+Z</strong> で元に戻し、<strong>Ctrl+Y</strong> でやり直せます。</p>
+<h2 id="section-3">3. 頭部・胴体・IK・物理追従</h2>
+<p>頭部では、うなずき、左右の回転、傾き、前後位置を個別に調整できます。胸の回転に追従する設定をオフにすると、胸の左右回転を頭に引き継がなくなります。歩行と走行には、胸と骨盤を逆方向に回すストライドのひねりもあります。</p>
+<p>胴体では、前後の曲げ、高さ、左右の傾き、胸と骨盤の回転を調整できます。胴体の調整時に足の位置を維持する設定をオンにすると、脚の届く範囲内で IK が足の位置を保持します。一時停止して表示中の IK ハンドルをドラッグすると、手足を調整できます。目標位置に届かない場合は、手足の長さを確認するか、移動量を小さくしてください。肘・膝の曲がる方向も反転できます。</p>
+<p>上側と下側の柔らかさは、それぞれ物理追従を調整します。まず小さい値から試してください。強すぎると意図したポーズが崩れる場合があります。調整直後は直接指定した姿勢が先に表示され、物理計算と残りのフレームが後から更新されます。動作全体を判断するときは、計算の完了を待ってください。</p>
+<h2 id="section-4">4. ビューとピクセル表示</h2>
+<p>4つのビューのいずれかをクリックして、対象のビューを選択します。正面と側面は正投影です。斜めビューは水平の斜め視点で、俯瞰ビューでは見下ろす角度が加わります。モデルと UV の編集では、<strong>単一ビュー</strong>またはビューのダブルクリックで拡大できます。変更前の比較ボタンを押している間は、編集画面を開いた時点の外観を確認できます。</p>
+<p>元の画像は <strong>64 × 64 ピクセル</strong>です。プレビューを拡大しても描画の細かさは増えません。輪郭線は常に元画像の <strong>1ピクセル</strong>で、色または自動のグレーを選べます。部位の色分け、重なりの隙間、輪郭線は独立した表示設定です。接続部などの実体が交差する場所では内部線を抑え、手前の部位が奥を隠す場合は境界線を残すことがあります。</p>
+<h2 id="section-5">5. モデルの形を調整する</h2>
+<p><strong>キャラクターモデル</strong>で部位と基本形状を選び、比率を調整します。頭部には楕円体、円柱、角丸の箱、箱があります。胴体や手足にも複数の形があります。左右の連動をオンにすると、左右の手足を同時に変更できます。</p>
+<p>肩幅、ウエスト幅、腰幅は正面の輪郭を変えます。<strong>胴体の厚み</strong>は前後方向の厚さを変え、骨盤にも適用されます。少しがっしりさせるなら <strong>1.15～1.3</strong> から試してください。新規モデルは 1.15、旧モデルは元の厚みを維持します。頭部の間隔と前後位置、手足の長さ、関節の位置、接続間隔も調整できます。負のオフセットは内側・重なり、正は外側・離れる方向です。骨盤のカバー量で脚の付け根の間を埋められます。</p>
+<p>変更はプレビュー段階では確定しません。<strong>モデルを適用</strong>で確定し、キャンセルで未適用の変更を破棄します。<strong>モデルを保存</strong>では形状、埋め込み画像、ピクセル保護グループを1つの JSON に保存します。モデルの読み込みは現在の動作を維持して外観を変更します。形状だけを含む旧プリセットでは、現在のテクスチャを維持します。</p>
+<h2 id="section-6">6. テクスチャを描く・差し替える</h2>
+<p>外部のピクセル描画ソフトを使用してください。モデル表面に直接描く機能はありません。</p>
+<ol>
+<li>先に形状を決め、<strong>UVテクスチャ → 描画を開始・再開</strong>から描画フォルダーを選びます。</li>
+<li>各部位の PNG を描画ソフトで編集します。キャンバスサイズと UV の各面の位置は変更しないでください。<code>*_Guide.png</code> は参考画像で、差し替え用ではありません。</li>
+<li><code>UV_Model.json</code> は PNG と同じ場所に残してください。ガイドの F/R/B/L/T/D は前・右・後・左・上・下です。</li>
+<li>PNG を保存するとプレビューが自動更新されます。保存途中などで読み込めない場合は、最後の正常な画像を維持します。描画フォルダーを開くボタンで素材に戻れます。</li>
+<li>個別の画像は差し替えボタン、または部位カードへの PNG のドラッグでも変更できます。確認後に<strong>画像を適用</strong>します。キャンセルでは、この画面の未適用の変更を破棄します。</li>
+</ol>
+<p>カードには、マッピングの一致、出所不明、ファイルの欠落や読み込み失敗が表示されます。一致の検査は部位、UV 配置、表面形状を比較するもので、目や服が正しい位置に描かれているかは判定しません。寸法が正しくても記録がない PNG は、出所不明として読み込めます。透明部分が似ていても一致の証拠にはなりません。</p>
+<p>形状、長さ、厚さを変えると UV が変わる場合があります。画像は面ごとに調整されますが、描き直しが必要なこともあります。描画を続ける前に、新しい描画フォルダーへ適合させる操作で <code>-v2</code>、<code>-v3</code> のコピーを作れます。元のフォルダーは残ります。部位の位置や関節の間隔だけの変更では、その部位の UV 配置は変わりません。</p>
+<p>未描画の新規キャラクターでは、左右の手足の画像を共有します。描画済みサンプルでは独立している場合があります。右側カードで左側画像との共有を解除すると、現在の絵を保ったまま独立して描けます。詳細なテクスチャ操作には、ピクセル保護、セットの読み込み・書き出し、リセットがあります。</p>
+<h2 id="section-7">7. 小さな模様のピクセル配置を保護する</h2>
+<p>部位の詳細操作またはサムネイルからピクセル保護を開きます。小さな動きの間、相対的な配置を保ちたい模様を選びます。顔の数ピクセルなどに適しています。</p>
+<ul>
+<li>矩形選択またはブラシを使用します。Shift は追加、Ctrl は除外、右ボタンは一時的な消去です。</li>
+<li>ホイールでポインターを中心に拡大縮小し、中ボタンまたは Space を押してドラッグすると移動できます。Fit で UV の面を表示範囲に収めます。</li>
+<li>選択したピクセルを保護する操作でグループを作ります。既存のグループも編集できます。選択中はオレンジ、保存済みはシアンです。Ctrl+Z で選択のストロークを戻せます。</li>
+<li>保護角度を設定します。超えるとグループ全体が通常の UV サンプリングに戻ります。初期値は 40° です。</li>
+<li>グループを適用した後、外側の UV 画面でも<strong>画像を適用</strong>して、プロジェクトに確定します。</li>
+</ul>
+<p>グループは隣接する UV 面をまたげます。ただし、他の部位による遮蔽や輪郭の外へのはみ出しは防げず、すべての角度で完全には維持できません。小さくまとまった模様を選び、回転と動作を確認してください。グループはプロジェクト・モデルの JSON と UV セットに保存されます。PNG だけには含まれません。</p>
+<h2 id="section-8">8. フレームを書き出す</h2>
+<p>書き出し画面で、保存先、名前、ビュー、倍率、種類を選びます。別の書き出しビューを指定していなければ、選択中のビューが初期値になります。実行前に確認してください。</p>
+<ul>
+<li><strong>PNG連番</strong>：透明背景の各フレーム。</li>
+<li><strong>PNG横並び画像</strong>：透明背景でフレームを横に並べた画像。</li>
+<li><strong>GIF</strong>：動作確認用。最終的なピクセル素材には PNG を推奨します。</li>
+<li><strong>JSON動作レシピ</strong>：再編集できるプロジェクト・動作データ。</li>
+</ul>
+<p><strong>1x</strong> は1フレーム 64 × 64、<strong>4x</strong> は 256 × 256、<strong>8x</strong> は 512 × 512 です。最近傍法で整数倍に拡大します。元の1ピクセルの線は、4x では出力画像の4ピクセル分になります。</p>
+<p>同名のサブフォルダーを作る設定は初期状態でオフで、選んだ保存先に直接書き出します。前回の保存先を記憶します。同名ファイルは上書きしないため、重複した場合は名前か保存先を変更してください。処理はバックグラウンドで進むので、完了表示を待ってください。</p>
+<h2 id="section-9">9. 保存・共有・作業の復元</h2>
+<p><strong>保存 / Ctrl+S</strong> は、キャラクター、画像、保護グループ、動作をプロジェクト JSON に保存します。プロジェクトを開く操作は全体を読み込みます。現在の動作を維持するモデルの読み込みとは異なります。保存した JSON を別の PC で開く際、元の PNG のパスは不要です。元画像を描き続ける場合は、描画フォルダーも別途保管してください。</p>
+<p><code>examples/models</code> は再利用する外観、<code>examples/characters</code> は中立ポーズの完全なキャラクタープロジェクト、<code>examples/motions</code> は動作レシピ、<code>examples/UV</code> は標準モデルのテンプレートです。形状変更後のモデルに標準 UV が合うとは限りません。</p>
+<p>自動保存は <code>user_data/studio3d_motion.json</code>、UI 設定は <code>user_data/ui_settings.json</code> です。インストール先が書き込み不可の場合、<code>%LOCALAPPDATA%\FellowStudio3D</code> を使用します。インストール先を置き換える前に、自分の JSON をバックアップしてください。配布 ZIP に個人の自動保存や設定は含まれません。描画済みサンプルは意図的に同梱しています。</p>
+<h2 id="section-10">10. よくある問題</h2>
+<ul>
+<li><strong>EXEが開かない</strong>：パッケージ全体を展開し直してください。EXE だけを移動しないでください。起動エラーが表示された場合は、ローカルデータフォルダーの <code>startup-error.log</code> を確認します。</li>
+<li><strong>画像が読み込めない</strong>：部位、寸法、モデルとの一致を確認します。既知の不一致には適合処理が必要で、寸法が同じだけでは不十分です。</li>
+<li><strong>回転で顔のピクセルが変わる</strong>：小さな保護グループを作り、保護角度を確認します。遮蔽と元の解像度による制約は残ります。</li>
+<li><strong>調整の反映が遅い</strong>：物理効果の確認は計算の完了を待ちます。細かく調整するときは再生を止めてください。</li>
+<li><strong>UIが小さい</strong>：A＋ を使います。収まらない場合はパネルをスクロールするか、幅を広げてください。</li>
+</ul>
+<p>任意の外部メッシュの読み込み、骨の追加、アクセサリーモデルの接続には現在対応していません。ソース版の準備と配布物の作成は<a href="DEVELOPMENT.md">開発ガイド</a>を参照してください。</p></main></div></body></html>

@@ -1,0 +1,3 @@
+numpy>=1.24,<3
+Pillow>=10,<13
+tkinterdnd2>=0.4,<1
