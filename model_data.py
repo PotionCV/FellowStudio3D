@@ -1,14 +1,17 @@
 """Portable parametric model resources. Units are source sprite pixels or ratios."""
 import copy,json,math
+import sculpt
 from pathlib import Path
+BUILTIN_MODELS=('DefaultModel.json','CustomModel.json','TaperedCylinder.json','MuzzleHead.json',
+ 'LongMuzzleHead.json','ConeHead.json','PyramidHead.json','BarrelBody.json','CurvedLimbs.json')
 DEFAULT={'version':1,'torso':{'height':1.,'shoulder':1.,'waist':1.,'hip':1.},'head':{'size':1.,'gap':0.}}
 for key in ('armL','armR','legL','legR'):
     DEFAULT[key]={'upper':5.8,'lower':5.8,'thickness':1.,'spread':0.,'vertical':0.,'gap':0.,'connected':True}
-SHAPES={'head':('ellipsoid','cylinder','rounded_box','box'),
+SHAPES={'head':('ellipsoid','cylinder','rounded_box','box','cone','pyramid'),
         'torso':('tapered','barrel','box'),
         **{key:('capsule','cylinder','box') for key in ('armL','armR','legL','legR')}}
 SHAPE_LABELS={'ellipsoid':'椭圆头','cylinder':'圆柱形','rounded_box':'圆角方形','box':'方形',
-              'tapered':'收腰躯干','barrel':'筒形躯干','capsule':'胶囊形'}
+              'tapered':'收腰躯干','barrel':'筒形躯干','capsule':'胶囊形','cone':'圆锥形','pyramid':'角锥形'}
 for part,shapes in SHAPES.items():DEFAULT[part]['shape']=shapes[0]
 DEFAULT['torso']['pelvis_depth']=2.5
 DEFAULT['torso']['thickness']=1.15
@@ -37,6 +40,12 @@ def normalize(value=None):
                 if not isinstance(v,(int,float)) or isinstance(v,bool) or not math.isfinite(v):raise ValueError('Invalid model number: '+key)
                 lo,hi=(.5,2.) if part=='torso' and key=='thickness' else ((-6,6) if part=='head' and key=='gap' else LIMITS[key])
                 result[part][key]=max(lo,min(hi,float(v)))
+        for key,label,lo,hi,step,default,group in sculpt.SPECS:
+            if key not in source:continue
+            v=source[key]
+            if not isinstance(v,(int,float)) or isinstance(v,bool) or not math.isfinite(v):raise ValueError('Invalid sculpt parameter: '+key)
+            v=max(lo,min(hi,float(v)))
+            if v!=default:result[part][key]=v
     return result
 
 def save(model,path,assets=None):

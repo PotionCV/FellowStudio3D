@@ -2,6 +2,43 @@
 LANGUAGES={'en':'English','zh':'简体中文','ja':'日本語'}
 language='en'
 ROWS=r"""
+圆锥形|Cone|円錐
+角锥形|Pyramid|角錐
+展开塑形参数|Shape details|形状の詳細
+收起塑形参数|Hide shape details|形状の詳細を閉じる
+截面比例|Section profile|断面の比率
+前后轮廓|Front / back profile|前後の輪郭
+局部凸起|Local projection|局所の突起
+顶部宽度|Top width|上部の幅
+中部宽度|Middle width|中央の幅
+底部宽度|Bottom width|下部の幅
+顶部厚度|Top depth|上部の厚み
+中部厚度|Middle depth|中央の厚み
+底部厚度|Bottom depth|下部の厚み
+前侧顶部（px）|Upper front (px)|前面上部 (px)
+前侧中部（px）|Middle front (px)|前面中央 (px)
+前侧底部（px）|Lower front (px)|前面下部 (px)
+后侧顶部（px）|Upper back (px)|背面上部 (px)
+后侧中部（px）|Middle back (px)|背面中央 (px)
+后侧底部（px）|Lower back (px)|背面下部 (px)
+中段弯曲（px）|Curve (px)|中央の曲がり (px)
+凸起长度（px）|Projection length (px)|突起の長さ (px)
+凸起宽度|Projection width|突起の幅
+凸起高度|Projection height|突起の高さ
+凸起上下位置|Projection height offset|突起の上下位置
+凸起末端宽度|Tip fullness|先端の幅
+播放方式|Playback|再生方法
+循环|Loop|ループ
+播放一次|Play once|1回再生
+保持末帧|Hold last frame|最後の姿勢を維持
+时间与融合设置|Timing and blend|タイミングと合成
+开始位置|Start position|開始位置
+占整段比例|Active duration|動作の長さ
+淡入淡出|Fade in / out|フェード
+挥手部位|Waving arm|手を振る腕
+双侧配合|Both sides|左右の連携
+同步|Together|同時
+交替|Alternating|交互
 使用说明|User guide|使い方
 按住看修改前|Hold: before|長押しで変更前
 单视图|Single view|単一ビュー
@@ -250,6 +287,108 @@ CATALOG.update({
  'en':'Negative offsets move sockets inward or overlap joints; positive values move outward or separate them. Lengths use source pixels.',
  'ja':'負の値で関節を内側へ、接合を重ねます。正の値で外側へ、間隔を広げます。長さは元画像のpx単位です。'}
 })
+
+# Game actions and reusable motion resources.
+for row in '''姿势层|Pose layer|ポーズレイヤー
+起跳与落地|Jump and land|ジャンプと着地
+刺击|Thrust|突き
+挥击|Swing attack|振り攻撃
+踢击|Kick|キック
+受击|Hit reaction|被弾
+倒地|Fall|倒れる
+起身|Get up|起き上がる
+翻滚|Roll|ローリング
+攀爬循环|Climb cycle|登るループ
+原地转身|Turn in place|その場で振り向く
+动作案例…|Motion examples…|動作のサンプル…
+载入姿势…|Load pose…|ポーズを読み込む…
+保存姿势…|Save pose…|ポーズを保存…
+使用当前帧姿势|Capture current pose|現在のポーズを取得
+保持地面接触|Keep ground contact|地面との接触を維持
+显示贴图|Show textures|テクスチャを表示
+总帧数|Frames|総フレーム数
+画幅 Y（px）|Frame Y (px)|画面 Y (px)
+整体朝向|Whole-body facing|全身の向き
+整体朝向转动全身；胸腔和骨盆分别扭转。锁脚时脚的位置保持。|Facing turns the whole character; chest and pelvis twist separately. Foot locking keeps the feet in place.|全身の向きと胸・骨盤のひねりは別です。足の固定中は足位置を保ちます。
+结束位置|End position|終了位置
+接触方式|Contact mode|接地方法
+踢腿方式|Kick style|キックの種類
+摆踢|Swing kick|振り上げキック
+踹腿|Push kick|前蹴り
+扭腰回正|Waist twist|腰ひねり
+扭腰角度（度）|Twist angle (deg)|ひねり角度 (度)
+骨盆跟随|Pelvis follow|骨盤の追従
+后仰 / 弯腰（度）|Back / forward bend (deg)|後屈 / 前屈 (度)
+前倾 / 后仰（度）|Forward / backward lean (deg)|前傾 / 後傾 (度)
+双腿开合（度）|Leg spread (deg)|脚の開閉 (度)
+骨盆 / 上身先行|Pelvis / upper-body lead|骨盤 / 上半身の先行
+侧向弯曲|Side bend|横方向の曲げ
+前后屈伸|Forward / backward joint bend|前後方向の関節曲げ
+负值后仰，正值弯腰。|Negative bends backward; positive bends forward.|負は後屈、正は前屈です。
+双腿开合：负值内收，正值外展。|Leg spread: negative brings legs inward; positive opens them.|脚の開閉：負は内側、正は外側です。
+摆动幅度为负值时，围绕原姿态反向摆动。|Negative motion range reverses movement around the original pose.|振り幅が負の場合、元の姿勢を中心に動きを反転します。
+取放物品|Pick up / put down|拾う・置く
+取放方向|Action direction|動作の方向
+从地上捧起|Pick up|拾い上げる
+放回地面|Put down|地面に置く
+取物弯腰（度）|Reach bend (deg)|拾うときのお辞儀 (度)
+取物下蹲|Reach crouch|拾うときのしゃがみ
+向前够取（度）|Forward reach (deg)|前へ伸ばす角度 (度)
+举起高度（度）|Lift height (deg)|持ち上げる高さ (度)
+举起屈肘（度）|Lift elbow bend (deg)|持ち上げるときの肘の曲げ (度)
+双手间距（度）|Hand spacing (deg)|両手の間隔 (度)
+够到物品的时刻|Reach timing|物に触れる時点
+举手方向|Raise direction|腕を上げる方向
+向两侧|Sideways|横へ
+向前|Forward|前へ
+屈肘（度）|Elbow bend (deg)|肘の曲げ (度)
+高举时手肘会逐渐伸直；取物下蹲会按模型比例适配。|Elbows straighten for overhead lifts. Ground reach adapts to body proportions.|高く上げるほど肘を伸ばします。拾う姿勢は体型に合わせて調整します。
+需要完整身体带动时，将作用部位设为“相关部位”。|Choose All relevant parts to include the full body follow-through.|体全体を連動させるには、作用部位を「関連部位」にしてください。
+跟随基础动作|Follow base motion|基本動作に従う
+地面翻滚|Ground roll|地上ローリング
+空中翻滚|Aerial roll|空中回転
+叠加选定部位的改动，原动画保留。|Adds changes to selected parts while keeping the base motion.|選択部位の変化を加算し、元の動作を保ちます。
+动作侧|Action side|動作する側
+右侧|Right|右
+左侧|Left|左
+双侧|Both|両側
+上半身|Upper body|上半身
+下半身|Lower body|下半身
+融合方式|Blend mode|合成方法
+姿态与摆动|Pose and motion|姿勢と動き
+替换选中部位|Replace selected parts|選択部位を置換
+叠加变化|Add changes|変化を加算
+跳跃高度（px）|Jump height (px)|ジャンプの高さ (px)
+准备下蹲|Preparation crouch|準備のしゃがみ
+腾空收腿|Airborne tuck|空中で脚を畳む
+准备时间|Preparation time|準備時間
+落地时间|Landing time|着地時間
+腾空前倾|Airborne lean|空中の前傾
+攻击幅度|Attack reach|攻撃の大きさ
+攻击仰角|Attack elevation|攻撃の仰角
+蓄力时间|Anticipation time|溜め時間
+蓄力幅度|Wind-up amount|溜め動作の大きさ
+发力时间|Strike time|攻撃時間
+身体带动|Body follow-through|体の連動
+横扫 / 下劈|Sweep / overhead|横振り / 振り下ろし
+受击强度|Impact strength|衝撃の強さ
+受力方向（度）|Impact direction (deg)|衝撃方向 (度)
+冲击时间|Impact time|衝撃時間
+恢复程度|Recovery amount|回復量
+倒地方向（度）|Fall direction (deg)|倒れる方向 (度)
+失衡准备|Loss of balance|崩れの準備
+蜷缩程度|Curl amount|体を丸める
+翻滚方向（度）|Roll direction (deg)|転がる方向 (度)
+移动距离（px）|Travel distance (px)|移動距離 (px)
+攀爬幅度|Climbing reach|登る動きの幅
+手脚张开|Hand / foot spacing|手足の間隔
+身体起伏|Body bob|体の上下動
+转身角度|Turn angle|旋回角度
+上身先行|Upper-body lead|上半身を先行
+移动方向（度）|Travel direction (deg)|移動方向 (度)
+脚步间距|Stance width|足の間隔
+支撑时间比例|Support time|支持時間の割合'''.splitlines():
+ zh,en,ja=row.split('|');CATALOG[zh]={'zh':zh,'en':en,'ja':ja}
 
 # Painting file validation messages.
 CATALOG.update({'Use a PNG image': {'en': 'Use a PNG image', 'zh': '请选择 PNG 图片', 'ja': 'PNG画像を選択してください'}, 'PNG size does not match. Prepare painting files for this model.': {'en': 'PNG size does not match. Prepare painting files for this model.', 'zh': 'PNG 尺寸不匹配，请为当前模型生成绘画素材。', 'ja': 'PNGサイズが一致しません。現在のモデル用に描画素材を作成してください。'}, 'Choose the painting PNG, not the guide image.': {'en': 'Choose the painting PNG, not the guide image.', 'zh': '请选择绘画 PNG，不要选择参考线图片。', 'ja': 'ガイド画像ではなく描画用PNGを選択してください。'}, 'This texture belongs to another body part.': {'en': 'This texture belongs to another body part.', 'zh': '这张贴图属于其他身体部位。', 'ja': 'この画像は別の部位用です。'}, 'This texture uses another model surface or UV layout. Adapt the painting files first.': {'en': 'This texture uses another model surface or UV layout. Adapt the painting files first.', 'zh': '这张贴图的模型表面或 UV 布局不匹配，请先生成适配副本。', 'ja': 'モデル表面またはUV配置が異なります。先に調整コピーを作成してください。'}, 'Choose a FellowStudio3D painting folder': {'en': 'Choose a FellowStudio3D painting folder', 'zh': '请选择本工具生成的绘画文件夹', 'ja': '本ツールの描画フォルダーを選択してください'}, 'This painting folder uses another model. Prepare a new folder for the current appearance.': {'en': 'This painting folder uses another model. Prepare a new folder for the current appearance.', 'zh': '绘画文件夹对应其他模型，请为当前外形生成新的素材文件夹。', 'ja': '別のモデル用フォルダーです。現在の形状用に新しい描画フォルダーを作成してください。'}, 'This UV pack belongs to different model surfaces. Restore the matching appearance or adapt the painting files first.': {'en': 'This UV pack belongs to different model surfaces. Restore the matching appearance or adapt the painting files first.', 'zh': '这套贴图对应其他表面形状，请恢复匹配外形或先适配绘画文件。', 'ja': '表面形状が異なります。対応する形状に戻すか描画素材を調整してください。'}})

@@ -1,0 +1,40 @@
+{
+  "type": "FellowStudioPose",
+  "version": 1,
+  "pose": {
+    "armL": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "armR": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "legL": [
+      -6.0,
+      4.0,
+      50.0,
+      -100.0
+    ],
+    "legR": [
+      6.0,
+      -4.0,
+      50.0,
+      -100.0
+    ],
+    "lean": 12.0,
+    "rot": 0.0,
+    "dx": 0.0,
+    "dy": 4.0,
+    "chest_yaw": 0.0,
+    "pelvis_yaw": 0.0,
+    "head": 0.0,
+    "head_pitch": 0.0,
+    "head_yaw": 0.0,
+    "head_depth": 0.0
+  }
+}

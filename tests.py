@@ -138,7 +138,7 @@ class Studio3DTests(unittest.TestCase):
    p['model']['head']['shape']=shape
    frames=[E.rgba(E.poses(p)[0],p['render'],cam) for cam in ((0,0),(45,30),(90,0))]
    seen.append(b''.join(a.tobytes() for a in frames))
-  self.assertEqual(len(set(seen)),4)
+  self.assertEqual(len(set(seen)),len(M.SHAPES['head']))
   for part in ('torso','armR','legL'):
    results=[]
    for shape in M.SHAPES[part]:
@@ -176,8 +176,14 @@ class Studio3DTests(unittest.TestCase):
    self.assertEqual(p['base']['kind'],kind)
    # New 3D yaw/depth channels extend the original recipes; existing limb,
    # timing, layer-mixing and body-height channels must stay unchanged.
-   original=[{k:v for k,v in pose.items() if k not in ('head_yaw','head_depth','head_follow_chest','chest_yaw','pelvis_yaw')} for pose in E.authored(p)]
-   self.assertEqual(original,ref['poses'])
+   excluded={'head_yaw','head_depth','head_follow_chest','chest_yaw','pelvis_yaw'}
+   # Idle breathing now plants feet instead of lifting the whole character.
+   # Its new root/leg behavior is covered by the foot-contact regressions.
+   if kind=='stand':excluded.update(('dy','legL','legR','_foot_targets','_breath_ik','_breath_dy'))
+   if kind=='bounce':excluded.add('_ground')
+   original=[{k:v for k,v in pose.items() if k not in excluded} for pose in E.authored(p)]
+   expected=[{k:v for k,v in pose.items() if k not in excluded} for pose in ref['poses']]
+   self.assertEqual(original,expected)
  def test_head_depth_and_yaw_controls_are_independent(self):
   import model_data as M
   pose=E.norm({});pose['_model']=M.normalize();g0=S.geometry(pose)

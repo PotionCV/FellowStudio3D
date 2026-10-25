@@ -1,0 +1,79 @@
+{
+  "version": 2,
+  "name": "CombatStraightPunch",
+  "seconds": 1.5,
+  "fps": 16,
+  "base": {
+    "kind": "stand",
+    "params": {
+      "breath": 0.6,
+      "sway": 0
+    },
+    "cycles": 1,
+    "mix": 1.0,
+    "retain": 1.0,
+    "enabled": true,
+    "scope": "all",
+    "phase": 0.0,
+    "blend": "add"
+  },
+  "layers": [
+    {
+      "kind": "thrust",
+      "params": {
+        "reach": 1,
+        "angle": 0,
+        "windup": 1,
+        "prepare": 0.22,
+        "release": 0.15,
+        "twist": 1
+      },
+      "cycles": 1,
+      "mix": 1.0,
+      "retain": 0.0,
+      "enabled": true,
+      "scope": "all",
+      "phase": 0.0,
+      "blend": "add",
+      "mode": "once",
+      "side": "right"
+    }
+  ],
+  "controls": {
+    "torso": {
+      "turn": -12,
+      "hips_turn": 15,
+      "height": 1,
+      "lean": 5
+    },
+    "arms": {
+      "forward": 30,
+      "fold": 85,
+      "raise": -5
+    },
+    "armR": {
+      "forward": 25,
+      "offset": [
+        0,
+        0,
+        0,
+        -15
+      ]
+    },
+    "head": {
+      "turn": -20,
+      "follow_chest": false
+    }
+  },
+  "physics": {},
+  "render": {
+    "parts": true,
+    "textures": true,
+    "gaps": true,
+    "outline": true,
+    "perfect": true
+  },
+  "yaw": 25,
+  "pitch": 0.0,
+  "playback": "once"
+}

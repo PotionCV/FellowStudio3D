@@ -16,7 +16,11 @@
       "size": 0.8,
       "gap": -2.75,
       "shape": "cylinder",
-      "depth": 0.0
+      "depth": 0.0,
+      "front_top": 2.75,
+      "front_mid": -0.25,
+      "front_bottom": 0.75,
+      "bulge_length": 1.25
     },
     "armL": {
       "upper": 3.8,
@@ -82,7 +86,11 @@
         "vertical": 0.25
       },
       "head": {
+        "bulge_length": 1.25,
         "depth": 0.0,
+        "front_bottom": 0.75,
+        "front_mid": -0.25,
+        "front_top": 2.75,
         "gap": -2.75,
         "shape": "cylinder",
         "size": 0.8
@@ -123,40 +131,40 @@
         "layout": {
           "rects": {
             "back": [
-              39,
-              14,
+              47,
+              18,
               13,
               12
             ],
             "bottom": [
-              14,
-              26,
+              18,
+              30,
               13,
-              12
+              16
             ],
             "front": [
-              14,
-              14,
+              18,
+              18,
               13,
               12
             ],
             "left": [
               2,
-              14,
-              12,
+              18,
+              16,
               12
             ],
             "right": [
-              27,
-              14,
-              12,
+              31,
+              18,
+              16,
               12
             ],
             "top": [
-              14,
+              18,
               2,
               13,
-              12
+              16
             ]
           },
           "size": [
@@ -165,71 +173,71 @@
           ]
         },
         "name": "head.png",
-        "png": "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAACdUlEQVR4nO2ZMUgcQRSG/xtWsDmsDiWpIoKNVxgrG88qkCIc6cRCO1sLsRCEIKQNEuwkTSzShpBCCCKaTkUX0cYr7ISTq2QQBIvI3Dlzs+PsZm/P271z3tfsmzczb+a9ebP37g4g3CaXdOLbial/rc45Of6beL1O4T2XoUJh8ImuVrtGt+N1wnGzr5sDwTrlfJJxPReAlwCD4zA4DoPjMDgOg+MwOA5rZ3LcAqebC6FcO7V9nEInbedb/b7hhXVwzpWcz+cDOtlO4qTNRpjdNPDCOmybsekWp/vrz697d7H64trNJACcc+vJhLH6oYC52fd1eW42auQ2Pv+uRdoy100rKF7YJmxt83TLpXFMLPxUuuPNj0rW9bufJgH41iyxkWZGeFGd0RnQH0hzE5s+yl5W18CL6pSbkiern6pk43BKyfo10PXl0tOXXJTNzOsAzrk6LZG+N1dV+Ls7+DbTdECkv2BtZTrwlJh6OV4g7Ah7wm7jejTX/N97J5UMyBvpeHlxrmQZBKEbHh3Dm+ERAHuN5+2RGhfQVxrj9QDqNmxrZhoAbpyC2KS+WT0oryrr2FkGUFnH1r6v+sulqtLrdvT5sm2rOVIPwGLgpdWUf+379fQVm5VyGIMHp81GxDjdjpDFx6mNuJ8a7ZCTwveld7FL4eJQX6AtT3Lg9ZDSifttXh/BWfUenWT+y59kpfB8ixNlwMxg2JBOt7pGV/8sXnx0XDh3VvVVRSgR2bD1Yzsw9kX+L1B8dE46a+tz4geRouFsLzj/rH+N9ZLTOgyOw+A4DI7D4DgMjsPgOCzrDRAEQRAEQRAEQRAEQRAEQRAEQRAEUuEBBKndkCJJFpgAAAAASUVORK5CYII=",
+        "png": "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAChUlEQVR4nO2aPWgUQRTH//dYIc2R6kjQyiCkMYWmssmlEizksJMUSWebQiwEQQRbCWInNqawFbEISAiJXZS4SGy8wk44uUoWQbBQ5i4zzs7Nzu1t9jYL7/3g2J333r15782bu7kPQOBNoyxHV5dX/k76nE9H70ubvyjRtBy3WnMjsn7/B+oGgTlRFSvv6urUCVRV8kXsqoDAHAJzCMwhMIfAHAJzCMwhMIfAHAJzqExnec/4dfos0DjN5/kiZ/2zTt79DiIKGSdJkho3m02vzpZPmmTIT0hXFlFIGZo0S7e5OjO4Pt3/nUtXZI6pFSA5qXhoJUI8uNnC+tqNwf36WshyB4/f9nP5zIqlrOJEocnGyd3V7bSvYPnOayM7en7L3NvyvYfXAMTeLhlH2V0R5THK1wEzqTZ38cnz+J32NojyGOkgslbU5tmHFXNvbwNb3mn72ziP/8rOAUmSmIdu25/fe4NHvLeLF7fTwav2Vzy6v5q6aly5ttcof8qvnmO4TdJx5H0tKqUDmp7W+/b1y0jQtm5h8TIuLlwCsD+8/vpo9Cl5d2jvFtGeQ/nKiqOSAiSeauugdLK+wM93t7B7D0B3C9sHsdF32j0jd/3ZPmxZ6BxSegE2R16k0uM3B7FpWxWkPc5i7vDz/8EYW9efGqu31RBF3kVcGvrm5d3rhY/CS/PnUmO9irMX5o1M7WvfNjru/UGVbDx55z8KbziKSdEFdIvhQyd92jlr9cvQ0kniKrnjXmxOhBrVDduvdlK2dYDAnKhsh3p19Wr7dHWCpuXYTbaOyU/1/wF1TtqGwBwCcwjMITCHwBwCcwjMITCHwBw66wAEQRAEQRAEQRAEQRAEAZXyD6rT6M5/HyUYAAAAAElFTkSuQmCC",
         "protected_groups": [
           {
             "angle": 40.0,
             "face": "front",
             "pixels": [
               [
-                16,
-                18
-              ],
-              [
-                16,
-                19
-              ],
-              [
-                16,
-                20
-              ],
-              [
-                16,
-                21
-              ],
-              [
-                16,
+                20,
                 22
               ],
               [
-                17,
-                18
+                20,
+                23
               ],
               [
-                17,
-                19
+                20,
+                24
               ],
               [
-                17,
-                20
+                20,
+                25
               ],
               [
-                17,
-                21
+                20,
+                26
               ],
               [
-                17,
+                21,
                 22
               ],
               [
-                18,
-                18
+                21,
+                23
               ],
               [
-                18,
-                19
+                21,
+                24
               ],
               [
-                18,
-                20
+                21,
+                25
               ],
               [
-                18,
-                21
+                21,
+                26
               ],
               [
-                18,
+                22,
                 22
+              ],
+              [
+                22,
+                23
+              ],
+              [
+                22,
+                24
+              ],
+              [
+                22,
+                25
+              ],
+              [
+                22,
+                26
               ]
             ]
           },
@@ -238,64 +246,64 @@
             "face": "front",
             "pixels": [
               [
-                22,
-                18
-              ],
-              [
-                22,
-                19
-              ],
-              [
-                22,
-                20
-              ],
-              [
-                22,
-                21
-              ],
-              [
-                22,
+                26,
                 22
               ],
               [
-                23,
-                18
+                26,
+                23
               ],
               [
-                23,
-                19
+                26,
+                24
               ],
               [
-                23,
-                20
+                26,
+                25
               ],
               [
-                23,
-                21
+                26,
+                26
               ],
               [
-                23,
+                27,
                 22
               ],
               [
-                24,
-                18
+                27,
+                23
               ],
               [
-                24,
-                19
+                27,
+                24
               ],
               [
-                24,
-                20
+                27,
+                25
               ],
               [
-                24,
-                21
+                27,
+                26
               ],
               [
-                24,
+                28,
                 22
+              ],
+              [
+                28,
+                23
+              ],
+              [
+                28,
+                24
+              ],
+              [
+                28,
+                25
+              ],
+              [
+                28,
+                26
               ]
             ]
           },
@@ -304,44 +312,45 @@
             "face": "front",
             "pixels": [
               [
-                19,
-                23
+                23,
+                27
               ],
               [
-                19,
-                24
+                23,
+                28
               ],
               [
-                19,
-                25
+                23,
+                29
               ],
               [
-                20,
-                23
+                24,
+                27
               ],
               [
-                20,
-                24
+                24,
+                28
               ],
               [
-                20,
-                25
+                24,
+                29
               ],
               [
-                21,
-                23
+                25,
+                27
               ],
               [
-                21,
-                24
+                25,
+                28
               ],
               [
-                21,
-                25
+                25,
+                29
               ]
             ]
           }
-        ]
+        ],
+        "provenance": "adapted"
       },
       "torso": {
         "layout": {
@@ -812,7 +821,7 @@
           ]
         },
         "name": "upperArmL.png",
-        "png": "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABTklEQVR4nO3XMU7DMBgF4Jen7mFEYmNhYeIaSCw9AgdgQpwBMXEAjsCCxDWYunTJhtSRnKCoUo0ikwQCwQl+75OqtI5T9f2xHRcwbcWQzm9PN9uv+hxc3A76zqkR4ghxhDhCHCGOEEeII8QVQzY5KaXaUC26TpRHh5/a6tcNJKZA2Qj/eP/Q2p5tAcoo/PLqMusisPkhDhfC7459/f6zRd/JcOfbivAT1XrV2n58copZjIB6v8iF4CF0ODanQl/Irtd3rpnFIriM5n08CuKnwZgBUhehCG9e7s63YSiGOd4sQl/4v3B2/VwkHwHVPkwIGU+BZviphmyyrXAdFSEOn+1ToFqvPlblHHd+v/4zVGV09zsLkFvI0UZAlWFhCHGEOEIcIa4Y0nm3XZ7LFnYshDhCHCGOEEeII8QR4jj1DzAzMzMzMzMzMzMzMzOk8Q4SVouXxbGG1wAAAABJRU5ErkJggg==",
+        "png": "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABdElEQVR4nO3XMU7DMBQG4D+PMCM2JCSGLl2QkLgGEkuPwAFgQdwBJg7AERhA6jWYWFiyITGSGVBQRJ9qGTc0qLabvv+TqiROHPl37MQFyLaib4X3x6um63yDn9O7p9e9752DwDiBcQLjBMYJjBMYJzBOYJys+oZF/7VVVsWiFd7O/t6vi+vXt0TNmq8oVayVpYQK3fD3t3fB8k0hf4WfnJ9tdCeIe+CH0/Dttuu6ISu7TuqTD3XCf1Qvz8Hy0fgQazEC6tlLToNraN26U6Er5KLfMnXWYgRMAkPfPfa/BqtseHuvre15sw5GY8RU6M7TzUmjQ1HnuPvEU4RXbgeoo4uH+J/BahZGQ/pTwA0fc8h+fXwi+0qw9jrBDx9TaATEUvoFbTidCilXfv4ISNUJ0rdCjjd18g6oModMOQWKvhXar8Uy1x1fTgfxt1BgnMA4gXEC48ohv8FXQWCcwDiBcZK7AUREREREREREREREREREhPi+AUtFj6JV8lBpAAAAAElFTkSuQmCC",
         "protected_groups": [
           {
             "face": "left",
@@ -1043,7 +1052,8 @@
               ]
             ]
           }
-        ]
+        ],
+        "provenance": "unknown"
       },
       "lowerArmL": {
         "layout": {
@@ -1237,7 +1247,8 @@
           ]
         },
         "name": "upperArmR.png",
-        "png": "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABBElEQVR4nO3ZPQoCMRAF4LcPey0FOxsbK68heBvxDOJtBK9hZWOTTrDUEyh2ovtjxI2a975yNpvNDLMh7AKmrYgZfFovLk1jerNl1JzfRogjxBHiCHGEOEIcIY4QV8QcclJKdaAixBHiOlUXuoP+U+x8OEKiA7olydfFs+yANoT9rjQ+HI2RTQFCRZKv3pO6GJ2y4O1dj9kD3km6ym2ulEXg/YPrkk2RfJtzvtQB4aH6dbt+ykX+3DkgZJJ8aQFySq6VDgiZFYgKSX6sA0KGhSHEEeIIcYS4ImbwdjVt/Gw2mW/8b/CfEOIIcYQ4QhwhjhDHby/AzMzMzMzMzMzMzMzMkMYVYYhFx1TW9p0AAAAASUVORK5CYII="
+        "png": "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABRklEQVR4nO3YMU7DQBAF0O+PqREdEhJFmjRUXAOJ2yDuALdB4hpUNGlcIEVKieuAggxYiRbbYU12HGf+k9KMveudcbyeBBDfstgBb493q67jK3wfPr25j557CIRzhHOEc4RzhHOEc4RzhHPc9YRZfG81qKytwzs5P/t1cjlfGC1r3VHWUnWWbAo2Jd8VHzPGJnloRWCf5A6pCLnlxYrZS2N8Mr3EXhSgnC/+fXfbkvzrGOti5H0GhW+DPkm3qeY6Ol4v62IyhckeUPwkse1VlzL5Jq/F7OtjsgkWW4qwGa/OTZX8x/Idg3eCZVCEMPmUNh+B1PIwUCVXb0SWnV/4DbAqAmMHpL771riPSVo+AlnsgOeH686/xWtXt0+j+FlIOEc4RzhHOJePeQffBcI5wjnCOQ69ABERERERERERERERERERQXqfVfJefk35u7oAAAAASUVORK5CYII=",
+        "provenance": "unknown"
       },
       "lowerArmR": {
         "layout": {

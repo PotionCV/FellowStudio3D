@@ -6,9 +6,38 @@ import engine as E,rounded_scene as S
 ROOT=Path(__file__).resolve().parent
 
 class ReleaseTests(unittest.TestCase):
+ def test_itch_archive_is_flat_has_actions_and_recomputed_hashes(self):
+  import hashlib,tomllib
+  from tools.build_itch_release import build
+  with tempfile.TemporaryDirectory() as folder:
+   portable=Path(folder)/'portable.zip';out=Path(folder)/'itch.zip'
+   files={'runtime/pythonw.exe':b'fake-runtime','launch.py':b'# launcher','docs/GUIDE.en.html':b'<p>guide</p>','VERSION':b'0.2.0\n','SHA256.json':b'{}'}
+   with zipfile.ZipFile(portable,'w') as z:
+    for name,data in files.items():z.writestr('FellowStudio3D/'+name,data)
+   build(portable,out)
+   with zipfile.ZipFile(out) as z:
+    self.assertFalse(any(name.startswith('FellowStudio3D/') for name in z.namelist()))
+    actions=tomllib.loads(z.read('.itch.toml').decode())['actions'];self.assertEqual(actions[0]['args'],['-I','launch.py'])
+    for action in actions:self.assertIn(action['path'],z.namelist())
+    for name,digest in json.loads(z.read('SHA256.json')).items():self.assertEqual(hashlib.sha256(z.read(name)).hexdigest(),digest)
+   with self.assertRaises(FileExistsError):build(portable,out)
+   with zipfile.ZipFile(portable,'a') as z:z.writestr('FellowStudio3D/../outside',b'bad')
+   with self.assertRaises(ValueError):build(portable,Path(folder)/'bad.zip')
+
+ def test_custom_character_and_model_contain_the_same_portable_painted_appearance(self):
+  import model_data as M,uv_assets as U
+  character=E.load(ROOT/'examples/characters/CustomCharacter.json')
+  model=M.load_resource(ROOT/'examples/models/CustomModel.json')
+  self.assertEqual(character['model'],model['model']);self.assertEqual(character['assets3d'],model['assets3d'])
+  for part in U.PARTS:
+   texture=model['assets3d']['textures'][part];self.assertTrue(texture.get('png'),part)
+   self.assertFalse({'source_path','path','workspace'} & set(texture))
+   self.assertEqual(U.texture_image(model['assets3d'],part).size,tuple(texture['layout']['size']))
+
  def test_published_motion_defaults_match_examples_without_personal_appearance(self):
   for kind,title in (('walk','Walk'),('run','Run')):
    expected=json.loads((ROOT/'examples/motions'/(title+'.json')).read_text(encoding='utf-8'))
+   expected['render'].setdefault('textures',True)
    actual=E.new_project(kind,name=title)
    self.assertEqual(actual,expected)
    self.assertFalse({'model','assets3d','auto_name_key'} & set(actual))
@@ -41,7 +70,7 @@ class ReleaseTests(unittest.TestCase):
    root=Path(td)/'Character tool with spaces';root.mkdir();(root/'runtime').mkdir()
    build_launcher(root/'FellowStudio3D.exe');(root/'launch.py').write_text('# test entry',encoding='utf-8')
    source=root/'Probe.cs'
-   source.write_text('using System;using System.IO;using System.Diagnostics;class Probe { static void Main(string[] args) { File.WriteAllLines(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"probe.txt"),new[]{Environment.CurrentDirectory,string.Join("|",args),Process.GetCurrentProcess().Id.ToString()}); } }',encoding='utf-8')
+   source.write_text('using System;using System.IO;using System.Diagnostics;class Probe { static void Main(string[] args) { string path=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"probe.txt"); File.WriteAllLines(path+".tmp",new[]{Environment.CurrentDirectory,string.Join("|",args),Process.GetCurrentProcess().Id.ToString()}); File.Move(path+".tmp",path); } }',encoding='utf-8')
    compiler=Path(os.environ['WINDIR'])/'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
    subprocess.run([str(compiler),'/nologo','/target:winexe','/out:'+str(root/'runtime/pythonw.exe'),str(source)],check=True)
    subprocess.run([str(root/'FellowStudio3D.exe')],cwd=td,check=True,timeout=10)
@@ -88,7 +117,14 @@ class ReleaseTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as td:
    out=Path(td)/'source.zip';builder.build(out)
    with zipfile.ZipFile(out) as z:
-    files=z.namelist();self.assertFalse(any('/user_data/' in name or 'studio3d_motion.json' in name or '_audit' in name or '/archive_first_3d/' in name for name in files));z.extractall(Path(td)/'clean checkout')
+    files=z.namelist();self.assertFalse(any('/user_data/' in name or 'studio3d_motion.json' in name or '_audit' in name or '/archive_first_3d/' in name for name in files))
+    from motion_resources import BUILTIN_MOTIONS
+    prefix='FellowStudio3D/examples/motions/'
+    self.assertEqual({name[len(prefix):] for name in files if name.startswith(prefix) and name.endswith('.json')},set(BUILTIN_MOTIONS))
+    from model_data import BUILTIN_MODELS
+    prefix='FellowStudio3D/examples/models/'
+    self.assertEqual({name[len(prefix):] for name in files if name.startswith(prefix) and name.endswith('.json')},set(BUILTIN_MODELS))
+    z.extractall(Path(td)/'clean checkout')
    clean=Path(td)/'clean checkout'/'FellowStudio3D'
    result=subprocess.check_output([sys.executable,'-c',"import engine as E; p=E.new_project('walk'); p['seconds']=.2; print(E.rgba(E.poses(p)[0],p['render']).shape)"],cwd=clean,text=True)
    self.assertIn('(64, 64, 4)',result)

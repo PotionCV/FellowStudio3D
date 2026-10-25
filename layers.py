@@ -68,7 +68,7 @@ class Stand(Layer):
     hint = '永远是底下那一层。它让小人活着：轻轻地呼吸。'
     claims = ('dy', 'head')
     params = (P('breath', '呼吸', 0.0, 2.0, 0.9, 0.05, unit='×'),
-              P('sway', '重心晃', 0.0, 2.0, 0.0, 0.05, unit='×'))
+              P('sway', '重心晃', -2.0, 2.0, 0.0, 0.05, unit='×'))
     TOUCH = {'breath': ('dy',), 'sway': ('head',)}
 
     @classmethod
@@ -79,7 +79,9 @@ class Stand(Layer):
     def at(cls, t, p, yaw):
         b = p['breath'] * (0.5 - 0.5 * math.cos(TAU * t))
         s = p['sway'] * math.sin(TAU * t)
-        return {'dy': -b, 'head': s * 0.5}
+        # Rest is the highest reachable pose; breathing compresses the legs.
+        # Raising a straight-legged root would make planted feet unreachable.
+        return {'dy': b, 'head': s * 0.5}
 
 
 # ================================================================ 走 / 跑
@@ -117,10 +119,11 @@ class Gait(Layer):
     add = ('neck', 'head')        # 脱力的头/脖子是"加一手"，不接管站姿的呼吸
     params = (P('stride', '步幅', 0.0, 2.0, 1.0, unit='×'),
               P('knee', '抬腿', 0.0, 2.0, 1.0, unit='×'),
-              P('swing', '摆臂', 0.0, 2.0, 1.0, unit='×'),
+              P('swing', '摆臂', -2.0, 2.0, 1.0, unit='×'),
               P('bob', '上下颠', 0.0, 2.0, 1.0, unit='×'),
               P('elbow', '肘弯', 0.0, 2.0, 1.0, 0.05, hide=True, unit='×'),
-              P('twist','跨步扭转',0.0,2.0,1.0,.05,unit='×'))
+              P('twist','跨步扭转',-2.0,2.0,1.0,.05,unit='×'))
+    params += (P('direction','移动方向（度）',-180,180,0,15),P('stance','脚步间距',.4,1.8,1.,.05),P('support','支撑时间比例',.3,.75,.5,.025))
 
     TOUCH = {'stride': ('legL', 'legR'), 'knee': ('legL', 'legR'),
              'swing': ('armL', 'armR'), 'bob': ('dy',),
@@ -292,7 +295,7 @@ class Wave(Layer):
     claims = ('armR',)
     params = (P('raise', '举多高', 40.0, 175.0, 140.0, 2.0, unit='°'),
               P('times', '挥几下', 1, 4, 2, 1, unit=' 次'),
-              P('amp', '摆多开', 4.0, 45.0, 22.0, 1.0, unit='°'))
+              P('amp', '摆多开', -45.0, 45.0, 22.0, 1.0, unit='°'))
 
     @classmethod
     def at(cls, t, p, yaw):
@@ -311,14 +314,18 @@ class RaiseArms(Layer):
     kind, label, period = 'raise', '举手', 24
     hint = '两只手举起来。和「站姿」叠在一起就是"站着举东西"。'
     claims = ('armL', 'armR')
-    params = (P('up', '举多高', 0.0, 175.0, 150.0, 2.0, unit='°'),
-              P('open', '分开', 0.0, 60.0, 10.0, 1.0, unit='°'))
+    params = (P('up', '举多高', -175.0, 175.0, 150.0, 2.0, unit='°'),
+              P('open', '分开', -60.0, 60.0, 10.0, 1.0, unit='°'),
+              P('fold','屈肘（度）',-135.,135.,0.,2.,unit='°'))
 
     @classmethod
     def at(cls, t, p, yaw):
         u, o = p['up'], p['open']
-        return {'armL': (-u - o * 0.35, -8.0, 0.0, 0.0),
-                'armR': (u + o * 0.35, 8.0, 0.0, 0.0)}
+        if p.get('_plane')=='front':
+            lateral=o if abs(u)<=90 else -o
+            return {'armL':(-lateral,0.,u,p.get('fold',0.)), 'armR':(lateral,0.,u,p.get('fold',0.))}
+        return {'armL': (-u - o * 0.35, -8.0-p.get('fold',0.), 0.0, 0.0),
+                'armR': (u + o * 0.35, 8.0+p.get('fold',0.), 0.0, 0.0)}
 
 
 class ShakeHead(Layer):
@@ -326,7 +333,7 @@ class ShakeHead(Layer):
     hint = '左右摇头。叠加层 —— 走路、挥手都照做，它只管头。'
     claims = ('head_side',)
     add = ('head_side',)
-    params = (P('amp', '幅度', 0.0, 4.0, 2.6, 0.1, unit='×'),
+    params = (P('amp', '幅度', -4.0, 4.0, 2.6, 0.1, unit='×'),
               P('times', '摇几下', 1, 4, 2, 1, unit=' 次'))
 
     @classmethod
@@ -340,7 +347,7 @@ class Nod(Layer):
     hint = '上下点头。也是叠加层。'
     claims = ('head', 'off_head')
     add = ('head', 'off_head')
-    params = (P('amp', '幅度', 0.0, 1.0, 0.6, 0.05, unit='×'),
+    params = (P('amp', '幅度', -1.0, 1.0, 0.6, 0.05, unit='×'),
               P('times', '点几下', 1, 4, 2, 1, unit=' 次'))
 
     @classmethod
@@ -354,7 +361,7 @@ class Bow(Layer):
     kind, label, period = 'bow', '弯腰', 14
     hint = '弯下去再起来。只动上身，手该干嘛干嘛。'
     claims = ('lean', 'dy')
-    params = (P('deep', '弯多少', 0.0, 45.0, 28.0, 1.0, unit='°'),
+    params = (P('deep', '后仰 / 弯腰（度）', -70.0, 70.0, 28.0, 1.0, unit='°'),
               P('hold', '停一下', 0.0, 0.6, 0.15, 0.05, unit='×'))
 
     @classmethod
@@ -369,7 +376,7 @@ class Stretch(Layer):
     hint = '伸个懒腰：手举高、身子往后仰，再放下来。'
     claims = ('armL', 'armR', 'lean')
     params = (P('open', '伸多开', 0.0, 1.0, 0.85, 0.05, unit='×'),
-              P('back', '后仰', 0.0, 18.0, 7.0, 1.0, unit='°'))
+              P('back', '前倾 / 后仰（度）', -45.0, 45.0, 7.0, 1.0, unit='°'))
     TOUCH = {'open': ('armL', 'armR'), 'back': ('lean',)}
 
     @classmethod
@@ -389,16 +396,20 @@ class Squat(Layer):
     kind, label, period = 'squat', '蹲下', 16
     hint = '蹲下去再站起来。'
     claims = ('legL', 'legR', 'dy', 'lean')
-    params = (P('deep', '蹲多深', 0.0, 1.0, 0.75, 0.05, unit='×'),)
+    params = (P('deep', '蹲多深', 0.0, 1.0, 0.75, 0.05, unit='×'),
+              P('spread','双腿开合（度）',-30.,65.,0.,1.,unit='°'))
 
     @classmethod
     def at(cls, t, p, yaw):
         u = 0.5 - 0.5 * math.cos(TAU * t)
         d = p['deep'] * u
-        return {'legL': (0.0, 0.0, 55.0*d, -110.0*d),
-                'legR': (0.0, 0.0, 55.0*d, -110.0*d),
-                'dy': 12.0*(1-math.cos(math.radians(55*d))),
+        spread=p.get('spread',0.)*u
+        result={'legL': (-spread, 0.0, 55.0*d, -110.0*d),
+                'legR': (spread, 0.0, 55.0*d, -110.0*d),
+                'dy': 12.0*(1-math.cos(math.radians(55*d))*math.cos(math.radians(spread))),
                 'lean': 6.0 * d}
+        if abs(spread)>1e-8:result.update(_ground=True,_feet_ground=True)
+        return result
 
 
 class Bounce(Layer):
@@ -431,3 +442,6 @@ for _C in (Stand, Walk, Run, Wave, RaiseArms, ShakeHead, Nod, Bow, Stretch, Squa
 # 菜单里按这个顺序排（好懂的在前，底座单独拎出来）
 MENU = ('walk', 'run', 'wave', 'raise', 'stretch', 'squat', 'bounce',
         'bow', 'shake', 'nod')
+from game_actions import CLASSES
+KINDS.update({C.kind:C for C in CLASSES})
+MENU += tuple(C.kind for C in CLASSES if C.kind!='pose')

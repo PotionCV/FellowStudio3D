@@ -1,0 +1,129 @@
+{
+  "version": 2,
+  "name": "RunAim",
+  "seconds": 1.0,
+  "fps": 12,
+  "base": {
+    "kind": "run",
+    "params": {
+      "stride": 0.7000000000000001,
+      "knee": 0.8,
+      "swing": 2.0,
+      "bob": 1.5,
+      "elbow": 1.0
+    },
+    "cycles": 1.0,
+    "mix": 1.0,
+    "retain": 1.0,
+    "enabled": true,
+    "scope": "all",
+    "phase": 0.0
+  },
+  "layers": [
+    {
+      "kind": "pose",
+      "params": {},
+      "cycles": 1,
+      "mix": 1.0,
+      "retain": 0.25,
+      "enabled": true,
+      "scope": "arms",
+      "phase": 0.0,
+      "blend": "posture",
+      "mode": "loop",
+      "pose": {
+        "armL": [
+          -15.0,
+          10.0,
+          65.0,
+          30.0
+        ],
+        "armR": [
+          12.0,
+          -3.0,
+          85.0,
+          5.0
+        ],
+        "legL": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "legR": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "lean": 0.0,
+        "rot": 0.0,
+        "dx": 0.0,
+        "dy": 0.0,
+        "chest_yaw": 0.0,
+        "pelvis_yaw": 0.0,
+        "head": 0.0,
+        "head_pitch": 0.0,
+        "head_yaw": 0.0,
+        "head_depth": 0.0
+      },
+      "ground": false
+    }
+  ],
+  "controls": {
+    "armL": {},
+    "armR": {},
+    "arms": {
+      "range": 0.9,
+      "bend": 5.0,
+      "forward": -21.0,
+      "raise": 7.0
+    },
+    "legL": {},
+    "legR": {},
+    "torso": {
+      "lean": 1.0,
+      "height": 0.0
+    },
+    "legs": {
+      "range": 1.2,
+      "bend": 10.0,
+      "forward": 2.0
+    },
+    "head": {
+      "nod": -8.0
+    },
+    "body": {
+      "range": 1.0
+    }
+  },
+  "physics": {
+    "armL": {
+      "lower": 0.6,
+      "bounce": 0.25
+    },
+    "armR": {
+      "lower": 0.6,
+      "upper": 0.0,
+      "bounce": 0.25
+    },
+    "legL": {
+      "lower": 0.5
+    },
+    "legR": {
+      "lower": 0.5
+    },
+    "head": {
+      "strength": 0.45
+    }
+  },
+  "render": {
+    "parts": true,
+    "textures": true,
+    "gaps": true,
+    "outline": true,
+    "perfect": true
+  },
+  "yaw": 0.0,
+  "pitch": 0.0
+}

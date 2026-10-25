@@ -10,18 +10,27 @@ ROOT=Path(__file__).resolve().parents[1]
 MODULES=('app','core3d','data_paths','engine','fellow','gaitdata','i18n','layers',
  'localized_ui','model_data','model_editor','outline_color','pixel_protection',
  'pixel_ui','preview_worker','protection_editor','rig','rounded_scene','studio_ui','paint_workspace',
- 'texture_editor','uv_assets','uv_i18n','uv_panel_legacy')
-PUBLIC=('README.md','LICENSE','THIRD_PARTY_NOTICES.md','requirements.txt','requirements-lock.txt',
+ 'texture_editor','uv_assets','uv_i18n','uv_panel_legacy','game_actions','motion_timing','motion_resources','sculpt')
+PUBLIC=('README.md','LICENSE','VERSION','THIRD_PARTY_NOTICES.md','requirements.txt','requirements-lock.txt',
  'FellowStudio3D.bat','FellowStudio3D.ico','launch.py','Boutique9.ttf','Boutique9_Bold.ttf','Boutique9_OFL.txt',
  '.gitignore','.gitattributes')
 
 def copy_application(dest,source=False):
     dest.mkdir(parents=True,exist_ok=True)
     files=[*(f'{name}.py' for name in MODULES),*PUBLIC]
-    if source:files += ['tests.py','test_ui.py','test_export_preferences.py','test_release.py']
+    if source:files += ['tests.py','test_ui.py','test_export_preferences.py','test_release.py','test_extensions.py']
     for name in files:shutil.copy2(ROOT/name,dest/name)
-    for name in ('source','defaults','docs','examples/motions','examples/UV','examples/models','examples/characters'):
+    for name in ('source','defaults','docs','examples/poses','examples/UV','examples/characters'):
         shutil.copytree(ROOT/name,dest/name)
+    sys.path.insert(0,str(ROOT))
+    from motion_resources import BUILTIN_MOTIONS
+    from model_data import BUILTIN_MODELS
+    for name in (*BUILTIN_MODELS,'README.md'):
+        target=dest/'examples/models'/name;target.parent.mkdir(parents=True,exist_ok=True)
+        shutil.copy2(ROOT/'examples/models'/name,target)
+    for name in (*BUILTIN_MOTIONS,'README.md'):
+        target=dest/'examples/motions'/name;target.parent.mkdir(parents=True,exist_ok=True)
+        shutil.copy2(ROOT/'examples/motions'/name,target)
     if source:
         shutil.copytree(ROOT/'fixtures',dest/'fixtures')
         shutil.copytree(ROOT/'tools',dest/'tools',ignore=shutil.ignore_patterns('__pycache__'))

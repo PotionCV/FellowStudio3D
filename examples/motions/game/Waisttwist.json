@@ -1,0 +1,36 @@
+{
+  "version": 2,
+  "name": "Waist twist",
+  "seconds": 2.0,
+  "fps": 12,
+  "base": {
+    "kind": "twist",
+    "params": {
+      "angle": 60,
+      "hips": 0.45,
+      "prepare": 0.22,
+      "release": 0.18
+    },
+    "cycles": 1,
+    "mix": 1.0,
+    "retain": 0.0,
+    "enabled": true,
+    "scope": "all",
+    "phase": 0.0,
+    "blend": "add",
+    "mode": "once"
+  },
+  "layers": [],
+  "controls": {},
+  "physics": {},
+  "render": {
+    "parts": true,
+    "textures": true,
+    "gaps": true,
+    "outline": true,
+    "perfect": true
+  },
+  "yaw": 0.0,
+  "pitch": 0.0,
+  "playback": "once"
+}

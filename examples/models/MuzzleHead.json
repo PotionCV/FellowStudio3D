@@ -1,0 +1,618 @@
+{
+  "type": "FellowStudioModel",
+  "version": 2,
+  "model": {
+    "version": 1,
+    "torso": {
+      "height": 1.0,
+      "shoulder": 1.0,
+      "waist": 1.0,
+      "hip": 1.0,
+      "shape": "tapered",
+      "pelvis_depth": 2.5,
+      "thickness": 1.15
+    },
+    "head": {
+      "size": 0.85,
+      "gap": 0.0,
+      "shape": "rounded_box",
+      "depth": 0.0,
+      "bulge_length": 4.5,
+      "bulge_tip": 0.65
+    },
+    "armL": {
+      "upper": 5.8,
+      "lower": 5.8,
+      "thickness": 1.0,
+      "spread": 0.0,
+      "vertical": 0.0,
+      "gap": 0.0,
+      "connected": true,
+      "shape": "capsule"
+    },
+    "armR": {
+      "upper": 5.8,
+      "lower": 5.8,
+      "thickness": 1.0,
+      "spread": 0.0,
+      "vertical": 0.0,
+      "gap": 0.0,
+      "connected": true,
+      "shape": "capsule"
+    },
+    "legL": {
+      "upper": 5.8,
+      "lower": 5.8,
+      "thickness": 1.0,
+      "spread": 0.0,
+      "vertical": 0.0,
+      "gap": 0.0,
+      "connected": true,
+      "shape": "capsule"
+    },
+    "legR": {
+      "upper": 5.8,
+      "lower": 5.8,
+      "thickness": 1.0,
+      "spread": 0.0,
+      "vertical": 0.0,
+      "gap": 0.0,
+      "connected": true,
+      "shape": "capsule"
+    }
+  },
+  "assets3d": {
+    "model": {
+      "armL": {
+        "connected": true,
+        "gap": 0.0,
+        "lower": 5.8,
+        "shape": "capsule",
+        "spread": 0.0,
+        "thickness": 1.0,
+        "upper": 5.8,
+        "vertical": 0.0
+      },
+      "armR": {
+        "connected": true,
+        "gap": 0.0,
+        "lower": 5.8,
+        "shape": "capsule",
+        "spread": 0.0,
+        "thickness": 1.0,
+        "upper": 5.8,
+        "vertical": 0.0
+      },
+      "head": {
+        "bulge_length": 4.5,
+        "bulge_tip": 0.65,
+        "depth": 0.0,
+        "gap": 0.0,
+        "shape": "rounded_box",
+        "size": 0.85
+      },
+      "legL": {
+        "connected": true,
+        "gap": 0.0,
+        "lower": 5.8,
+        "shape": "capsule",
+        "spread": 0.0,
+        "thickness": 1.0,
+        "upper": 5.8,
+        "vertical": 0.0
+      },
+      "legR": {
+        "connected": true,
+        "gap": 0.0,
+        "lower": 5.8,
+        "shape": "capsule",
+        "spread": 0.0,
+        "thickness": 1.0,
+        "upper": 5.8,
+        "vertical": 0.0
+      },
+      "torso": {
+        "height": 1.0,
+        "hip": 1.0,
+        "pelvis_depth": 2.5,
+        "shape": "tapered",
+        "shoulder": 1.0,
+        "thickness": 1.15,
+        "waist": 1.0
+      },
+      "version": 1
+    },
+    "textures": {
+      "head": {
+        "layout": {
+          "rects": {
+            "back": [
+              52,
+              20,
+              14,
+              13
+            ],
+            "bottom": [
+              20,
+              33,
+              14,
+              18
+            ],
+            "front": [
+              20,
+              20,
+              14,
+              13
+            ],
+            "left": [
+              2,
+              20,
+              18,
+              13
+            ],
+            "right": [
+              34,
+              20,
+              18,
+              13
+            ],
+            "top": [
+              20,
+              2,
+              14,
+              18
+            ]
+          },
+          "size": [
+            128,
+            64
+          ]
+        },
+        "name": "Default",
+        "png": null
+      },
+      "torso": {
+        "layout": {
+          "rects": {
+            "back": [
+              32,
+              11,
+              12,
+              18
+            ],
+            "bottom": [
+              11,
+              29,
+              12,
+              9
+            ],
+            "front": [
+              11,
+              11,
+              12,
+              18
+            ],
+            "left": [
+              2,
+              11,
+              9,
+              18
+            ],
+            "right": [
+              23,
+              11,
+              9,
+              18
+            ],
+            "top": [
+              11,
+              2,
+              12,
+              9
+            ]
+          },
+          "size": [
+            64,
+            64
+          ]
+        },
+        "name": "Default",
+        "png": null
+      },
+      "upperArmL": {
+        "layout": {
+          "rects": {
+            "back": [
+              20,
+              8,
+              6,
+              12
+            ],
+            "bottom": [
+              8,
+              20,
+              6,
+              6
+            ],
+            "front": [
+              8,
+              8,
+              6,
+              12
+            ],
+            "left": [
+              2,
+              8,
+              6,
+              12
+            ],
+            "right": [
+              14,
+              8,
+              6,
+              12
+            ],
+            "top": [
+              8,
+              2,
+              6,
+              6
+            ]
+          },
+          "size": [
+            32,
+            32
+          ]
+        },
+        "name": "Default",
+        "png": null
+      },
+      "lowerArmL": {
+        "layout": {
+          "rects": {
+            "back": [
+              20,
+              8,
+              6,
+              11
+            ],
+            "bottom": [
+              8,
+              19,
+              6,
+              6
+            ],
+            "front": [
+              8,
+              8,
+              6,
+              11
+            ],
+            "left": [
+              2,
+              8,
+              6,
+              11
+            ],
+            "right": [
+              14,
+              8,
+              6,
+              11
+            ],
+            "top": [
+              8,
+              2,
+              6,
+              6
+            ]
+          },
+          "size": [
+            32,
+            32
+          ]
+        },
+        "name": "Default",
+        "png": null
+      },
+      "thighL": {
+        "layout": {
+          "rects": {
+            "back": [
+              20,
+              8,
+              6,
+              12
+            ],
+            "bottom": [
+              8,
+              20,
+              6,
+              6
+            ],
+            "front": [
+              8,
+              8,
+              6,
+              12
+            ],
+            "left": [
+              2,
+              8,
+              6,
+              12
+            ],
+            "right": [
+              14,
+              8,
+              6,
+              12
+            ],
+            "top": [
+              8,
+              2,
+              6,
+              6
+            ]
+          },
+          "size": [
+            32,
+            32
+          ]
+        },
+        "name": "Default",
+        "png": null
+      },
+      "shinL": {
+        "layout": {
+          "rects": {
+            "back": [
+              20,
+              8,
+              6,
+              11
+            ],
+            "bottom": [
+              8,
+              19,
+              6,
+              6
+            ],
+            "front": [
+              8,
+              8,
+              6,
+              11
+            ],
+            "left": [
+              2,
+              8,
+              6,
+              11
+            ],
+            "right": [
+              14,
+              8,
+              6,
+              11
+            ],
+            "top": [
+              8,
+              2,
+              6,
+              6
+            ]
+          },
+          "size": [
+            32,
+            32
+          ]
+        },
+        "name": "Default",
+        "png": null
+      },
+      "upperArmR": {
+        "layout": {
+          "rects": {
+            "back": [
+              20,
+              8,
+              6,
+              12
+            ],
+            "bottom": [
+              8,
+              20,
+              6,
+              6
+            ],
+            "front": [
+              8,
+              8,
+              6,
+              12
+            ],
+            "left": [
+              2,
+              8,
+              6,
+              12
+            ],
+            "right": [
+              14,
+              8,
+              6,
+              12
+            ],
+            "top": [
+              8,
+              2,
+              6,
+              6
+            ]
+          },
+          "size": [
+            32,
+            32
+          ]
+        },
+        "name": "Default",
+        "png": null,
+        "protected_groups": []
+      },
+      "lowerArmR": {
+        "layout": {
+          "rects": {
+            "back": [
+              20,
+              8,
+              6,
+              11
+            ],
+            "bottom": [
+              8,
+              19,
+              6,
+              6
+            ],
+            "front": [
+              8,
+              8,
+              6,
+              11
+            ],
+            "left": [
+              2,
+              8,
+              6,
+              11
+            ],
+            "right": [
+              14,
+              8,
+              6,
+              11
+            ],
+            "top": [
+              8,
+              2,
+              6,
+              6
+            ]
+          },
+          "size": [
+            32,
+            32
+          ]
+        },
+        "name": "Default",
+        "png": null,
+        "protected_groups": []
+      },
+      "thighR": {
+        "layout": {
+          "rects": {
+            "back": [
+              20,
+              8,
+              6,
+              12
+            ],
+            "bottom": [
+              8,
+              20,
+              6,
+              6
+            ],
+            "front": [
+              8,
+              8,
+              6,
+              12
+            ],
+            "left": [
+              2,
+              8,
+              6,
+              12
+            ],
+            "right": [
+              14,
+              8,
+              6,
+              12
+            ],
+            "top": [
+              8,
+              2,
+              6,
+              6
+            ]
+          },
+          "size": [
+            32,
+            32
+          ]
+        },
+        "name": "Default",
+        "png": null,
+        "protected_groups": []
+      },
+      "shinR": {
+        "layout": {
+          "rects": {
+            "back": [
+              20,
+              8,
+              6,
+              11
+            ],
+            "bottom": [
+              8,
+              19,
+              6,
+              6
+            ],
+            "front": [
+              8,
+              8,
+              6,
+              11
+            ],
+            "left": [
+              2,
+              8,
+              6,
+              11
+            ],
+            "right": [
+              14,
+              8,
+              6,
+              11
+            ],
+            "top": [
+              8,
+              2,
+              6,
+              6
+            ]
+          },
+          "size": [
+            32,
+            32
+          ]
+        },
+        "name": "Default",
+        "png": null,
+        "protected_groups": []
+      }
+    },
+    "shared_textures": {
+      "lowerArmR": "lowerArmL",
+      "shinR": "shinL",
+      "thighR": "thighL",
+      "upperArmR": "upperArmL"
+    }
+  }
+}

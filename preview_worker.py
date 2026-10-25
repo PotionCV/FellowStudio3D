@@ -16,21 +16,30 @@ def compile_preview(project):
  seq=E.poses(project)
  return seq,{key:value for i in range(len(seq)) for key,value in frame_images(seq,project.get('render'),i).items()}
 def progressive_preview(project,revision,frame=0):
+ try:return _progressive_preview(project,revision,frame)
+ except E.PreviewCancelled:return None
+
+def _progressive_preview(project,revision,frame):
  if not current(revision):return None
  # Pose controls first; don't make the user wait for the entire spring warm-up.
- draft=E.authored(project);bundle=S.assets(project)
- for pose in draft:pose['_assets3d']=bundle
+ cancel=lambda:not current(revision)
+ motion={k:v for k,v in project.items() if k not in ('name','render','export_view','auto_name_key','assets3d','camera_y')}
+ authored=E.authored(motion,cancel);bundle=S.assets(project)
+ def visible(seq):
+  return [dict(pose,_assets3d=bundle,**({'_camera_y':project['camera_y']} if project.get('camera_y') else {})) for pose in seq]
+ draft=visible(authored)
  frame%=len(draft);settings=project.get('render')
  images=frame_images(draft,settings,frame)
  if not current(revision):return None
  if _progress is not None:_progress.put((revision,draft,dict(images),False))
- seq=E.poses(project)
+ physical=E.physical(authored,motion,cancel)
+ seq=draft if physical is authored else visible(physical)
  if not current(revision):return None
- images=frame_images(seq,settings,frame)
+ if seq is not draft:images=frame_images(seq,settings,frame)
  if _progress is not None:_progress.put((revision,seq,dict(images),True))
- for i in range(len(seq)):
+ for offset in range(1,len(seq)):
   if not current(revision):return None
-  if i!=frame:
-   chunk=frame_images(seq,settings,i);images.update(chunk)
-   if _progress is not None:_progress.put((revision,seq,chunk,True))
+  i=(frame+offset)%len(seq)
+  chunk=frame_images(seq,settings,i);images.update(chunk)
+  if _progress is not None:_progress.put((revision,seq,chunk,True))
  return seq,images

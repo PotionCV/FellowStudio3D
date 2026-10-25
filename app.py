@@ -78,12 +78,14 @@ class App(UI.App):
   self.future_job=(revision,project,self.executor.submit(progressive_preview,project,revision,self.frame));self.after(15,self.poll_preview)
  def accept_preview(self,seq,images,project,complete=False):
   same=getattr(self,'accepted_revision',None)==self.revision
+  redraw=not same or complete or any(index==self.frame for view,index in images)
   if same:
    self.raw_images.update(images)
    touched=set(images);self.photos={k:v for k,v in self.photos.items() if (k[0],k[1]) not in touched}
   else:
    self.accepted_revision=self.revision;self.raw_images=dict(images);self.photos.clear()
-  self.seq=seq;self.active_project=project;self.preview_incomplete=not complete;self.layout_key=None;self.frame%=len(seq);self.render()
+  self.seq=seq;self.active_project=project;self.preview_incomplete=not complete;self.frame%=len(seq)
+  if redraw:self.layout_key=None;self.render()
   if complete:self.status.set('动作已更新 · 点击视图切换焦点，导出默认跟随焦点')
   else:self.status.set('正在更新动作… 可继续调整')
  def poll_preview(self):

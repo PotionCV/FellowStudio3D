@@ -59,6 +59,7 @@ class App(tk.Tk):
         project=E.new_project(kind)
         if hasattr(self,'parts'):project['render']=self.current_display()
         if self.project.get('model') is not None:project['model']=copy.deepcopy(self.project['model'])
+        if 'camera_y' in self.project:project['camera_y']=self.project['camera_y']
         project['auto_name_key']=E.ACTIONS[kind]
         return project
 
@@ -75,17 +76,18 @@ class App(tk.Tk):
         self.button(options,'导出序列帧',self.export,True).pack(side='right',padx=8)
         self.button(options,'角色模型',self.edit_model).pack(side='left',padx=8)
         self.parts=tk.BooleanVar(value=self.project.get('render',{}).get('parts',True));self.gaps=tk.BooleanVar(value=self.project.get('render',{}).get('gaps',True))
+        self.textures=tk.BooleanVar(value=self.project.get('render',{}).get('textures',True))
         self.outline=tk.BooleanVar(value=self.project.get('render',{}).get('outline',True))
         self.outline_color=tk.StringVar(value=self.project.get('render',{}).get('outline_color','auto'))
         self.button(options,'边线颜色',self.choose_outline_color).pack(side='right',padx=4)
-        for t,v in [('外边线',self.outline),('交叠留缝',self.gaps),('部位分色',self.parts)]:PixelCheck(options,text=t,variable=v,command=self.display).pack(side='right',padx=4)
+        for t,v in [('外边线',self.outline),('交叠留缝',self.gaps),('部位分色',self.parts),('显示贴图',self.textures)]:PixelCheck(options,text=t,variable=v,command=self.display).pack(side='right',padx=4)
         body=tk.PanedWindow(self,orient='horizontal',bg='#8d7257',bd=0,sashwidth=14,sashpad=2,showhandle=True,handlesize=22,handlepad=16,opaqueresize=False);self.panes=body;body.pack(fill='both',expand=True,padx=8)
         body.bind('<ButtonRelease-1>',lambda e:self.after_idle(self.remember_panel_widths))
         body.bind('<Configure>',lambda e:self.fit_panels(e.width))
         left_shell=tk.Frame(body,bg=PANEL);self.left=left_shell;body.add(left_shell,minsize=200,width=round(340*self.ui_scale),stretch='never')
         self.left_scroll=ScrollPanel(left_shell);self.left_scroll.pack(fill='both',expand=True);left=self.left_scroll.content
         self.label(left,'基础动作',fg=DIM).pack(fill='x',padx=10,pady=(12,5))
-        self.base_name=tk.StringVar();self.base_menu=PixelOption(left,self.base_name,*E.ACTIONS.values(),command=self.change_base);self.base_menu.configure(bd=0,highlightthickness=0,bg=FIELD);self.base_menu.pack(fill='x',padx=10)
+        self.base_name=tk.StringVar();self.base_menu=PixelOption(left,self.base_name,*[v for k,v in E.ACTIONS.items() if k!='pose'],command=self.change_base);self.base_menu.configure(bd=0,highlightthickness=0,bg=FIELD);self.base_menu.pack(fill='x',padx=10)
         self.button(left,'调整基础动作',lambda:self.select('base',0)).pack(fill='x',padx=10,pady=5)
         self.button(left,'从姿势开始…',self.choose_pose).pack(fill='x',padx=10)
         self.label(left,'叠加动作',fg=DIM).pack(fill='x',padx=10,pady=(18,5))
@@ -95,8 +97,9 @@ class App(tk.Tk):
         add_value=tk.StringVar(value='＋ 添加')
         def add_selected(label):
             key=next(k for k,v in E.ACTIONS.items() if v==label);self.add(key);add_value.set('＋ 添加')
-        PixelOption(r,add_value,*[E.ACTIONS[k] for k in ('raise','wave','bow','nod','shake','stretch','squat','bounce')],command=add_selected).pack(side='left',fill='x',expand=True)
+        PixelOption(r,add_value,*[E.ACTIONS[k] for k in ('pose','raise','wave','bow','nod','shake','stretch','squat','bounce','thrust','swing','kick','hit','jump','fall','getup','roll','climb','turn')],command=add_selected).pack(side='left',fill='x',expand=True)
         self.button(left,'移除',self.remove).pack(fill='x',padx=10,pady=(0,5))
+        self.button(left,'动作案例…',self.load_motion_resource).pack(fill='x',padx=10,pady=4)
         self.label(left,'整体控制',fg=DIM).pack(fill='x',padx=10,pady=(18,5))
         grid=tk.Frame(left);grid.pack(fill='x',padx=8);self.part_buttons={}
         for i,(k,t) in enumerate(E.LABELS.items()):
@@ -108,6 +111,10 @@ class App(tk.Tk):
         self.handles=tk.BooleanVar(value=True);PixelCheck(viewbar,text='IK 手柄',variable=self.handles,command=self.render,bg=BG).pack(side='left')
         self.label(viewbar,'朝向',bg=BG,fg=DIM).pack(side='left',padx=(10,0))
         self.yaw=tk.StringVar(value=str(int(self.project.get('yaw',0))));PixelOption(viewbar,self.yaw,*[str(v) for v in sorted(set(range(0,360,30))|set(range(0,360,45)))],command=self.turn).pack(side='left')
+        self.label(viewbar,'画幅 Y（px）',bg=BG,fg=DIM).pack(side='left',padx=(10,4))
+        self.camera_y=tk.StringVar(value=str(int(self.project.get('camera_y',0))))
+        self.camera_entry=PixelEntry(viewbar,textvariable=self.camera_y,width=4,bg=FIELD);self.camera_entry.pack(side='left')
+        self.camera_entry.field.bind('<Return>',self.set_camera_y);self.camera_entry.field.bind('<FocusOut>',self.set_camera_y)
         exportbar=FlowBar(center,compact=True,bg=BG);exportbar.pack(fill='x',pady=(0,8))
         self.ab=self.button(exportbar,'按住看基础',lambda:None);self.ab.pack(side='right')
         self.label(exportbar,'导出视角',bg=BG,fg=DIM).pack(side='right',padx=4)
@@ -118,9 +125,14 @@ class App(tk.Tk):
         bar=FlowBar(center,compact=True,bg=BG);bar.pack(fill='x',pady=8)
         self.playbtn=self.button(bar,'▶ 播放',self.play,True);self.playbtn.pack(side='left')
         self.button(bar,'◀',lambda:self.step(-1)).pack(side='left',padx=5);self.button(bar,'▶',lambda:self.step(1)).pack(side='left')
-        self.time_label=tk.StringVar();self.label(bar,'一轮',bg=BG).pack(side='left',padx=(12,4))
+        self.time_label=tk.StringVar();self.label(bar,'总帧数',bg=BG).pack(side='left',padx=(12,4))
         self.seconds=tk.StringVar(value=str(self.project.get('seconds',2)))
-        PixelOption(bar,self.seconds,'0.5','1.0','1.5','2.0','3.0','4.0','6.0','8.0',command=self.duration).pack(side='left')
+        self.frame_count=tk.StringVar(value=str(max(1,min(120,round(self.project.get('seconds',2)*self.project.get('fps',12))))))
+        self.frame_entry=PixelEntry(bar,textvariable=self.frame_count,width=4,bg=FIELD);self.frame_entry.pack(side='left')
+        self.frame_entry.field.bind('<Return>',self.set_frame_count);self.frame_entry.field.bind('<FocusOut>',self.set_frame_count)
+        self.label(bar,'FPS',bg=BG).pack(side='left',padx=(8,4))
+        self.fps_value=tk.StringVar(value=str(self.project.get('fps',12)))
+        PixelOption(bar,self.fps_value,*map(str,(6,8,10,12,15,20,24,30,60)),command=self.set_fps).pack(side='left')
         UI.Label(bar,textvariable=self.time_label,bg=BG,fg=DIM).pack(side='right')
         self.scrub=PixelScale(center,from_=0,to=1000,showvalue=False,orient='horizontal',bd=0,highlightthickness=0,bg=BG,troughcolor=FIELD,command=self.seek);self.scrub.pack(fill='x')
         right_shell=tk.Frame(body,bg=PANEL);self.right=right_shell;body.add(right_shell,minsize=240,width=round(400*self.ui_scale),stretch='never')
@@ -194,7 +206,7 @@ class App(tk.Tk):
         dst.append(copy.deepcopy(self.project));self.project=src.pop();self.sync();self.changed()
     def current_display(self):
         if hasattr(self,'parts'):
-            result=dict(parts=self.parts.get(),gaps=self.gaps.get(),outline=self.outline.get(),perfect=True)
+            result=dict(parts=self.parts.get(),textures=self.textures.get(),gaps=self.gaps.get(),outline=self.outline.get(),perfect=True)
             if self.outline_color.get()!='auto':result['outline_color']=self.outline_color.get()
             return result
         return copy.deepcopy(self.project.get('render',{}))
@@ -203,6 +215,9 @@ class App(tk.Tk):
         self.project['render']=self.current_display()
         self.name.set(self.project['name']);self.seconds.set(str(self.project['seconds']));self.yaw.set(str(int(self.project.get('yaw',0))))
         self.parts.set(self.project['render'].get('parts',True));self.gaps.set(self.project['render'].get('gaps',True));self.outline.set(self.project['render'].get('outline',True));self.selection=selection or ('body','arms');self.refresh_lists();self.show_params()
+        self.textures.set(self.project['render'].get('textures',True))
+        self.frame_count.set(str(max(1,min(120,round(self.project['seconds']*self.project.get('fps',12))))));self.fps_value.set(str(self.project.get('fps',12)))
+        self.camera_y.set(str(int(self.project.get('camera_y',0))))
     def rename(self):
         self.project['name']=self.name.get()
         if self.project.get('auto_name_key') and self.project['name']!=E.automatic_name(self.project['auto_name_key']):self.project.pop('auto_name_key',None)
@@ -274,7 +289,31 @@ class App(tk.Tk):
     def add(self,kind):
         self.snapshot();e=E.entry(kind)
         if kind=='raise':e['scope']='armR'
+        if kind=='pose':
+            import motion_resources as MR
+            e['pose']=MR.pose_channels(self.seq[self.frame]);e['scope']='upper'
         self.project['layers'].append(e);self.selection=('layer',len(self.project['layers'])-1);self.refresh_lists();self.show_params();self.changed()
+    def load_motion_resource(self):
+        import motion_resources as MR
+        path=filedialog.askopenfilename(parent=self,initialdir=E.ROOT/'examples'/'motions',filetypes=[(tr('动作配方'),'*.json')])
+        if not path:return
+        try:project=MR.apply_motion(self.project,E.load(path))
+        except Exception as ex:messagebox.showerror(tr('动作配方'),str(ex),parent=self);return
+        self.snapshot();self.stop();self.project=project;self.frame=0;self.sync(('base',0));self.changed()
+    def pose_resource(self,e,action):
+        import motion_resources as MR
+        try:
+            if action=='capture':pose=MR.pose_channels(self.seq[self.frame])
+            elif action=='load':
+                path=filedialog.askopenfilename(parent=self,initialdir=E.ROOT/'examples'/'poses',filetypes=[(tr('姿势层'),'*.json')])
+                if not path:return
+                pose=MR.load_pose(path)
+            else:
+                path=filedialog.asksaveasfilename(parent=self,defaultextension='.json',initialfile='Pose.json',filetypes=[(tr('姿势层'),'*.json')])
+                if path:MR.save_pose(e.get('pose',{}),path)
+                return
+            self.snapshot();e['pose']=pose;self.show_params();self.changed()
+        except Exception as ex:messagebox.showerror(tr('姿势层'),str(ex),parent=self)
     def remove(self):
         if self.selection[0]!='layer':return
         self.snapshot();self.project['layers'].pop(self.selection[1]);self.selection=('body','arms');self.refresh_lists();self.show_params();self.changed()
@@ -292,19 +331,26 @@ class App(tk.Tk):
             def choose(key=key,name=name):
                 self.snapshot();self.project['pose']=E.norm(E.F.POSES[key]);self.project['base']=E.entry('stand');self.project['layers']=[];self.project['controls']={};self.project['physics']={};self.project['name']=E.automatic_name(name);self.project['auto_name_key']=name;self.sync();self.changed();w.destroy()
             self.button(w,name,choose).grid(row=i//3,column=i%3,padx=8,pady=8,sticky='ew')
-    def slide(self,label,obj,key,lo,hi,default=0,step=1):
+    def slide(self,label,obj,key,lo,hi,default=0,step=1,onchange=None):
         f=tk.Frame(self.params);f.pack(fill='x',padx=12,pady=5)
         value=tk.StringVar(value=f'{obj.get(key,default):g}');f.columnconfigure(0,weight=1);self.label(f,label,wrap=True,justify='left').grid(row=0,column=0,sticky='ew',padx=(0,8));UI.Label(f,textvariable=value,fg=DIM,width=6,anchor='e').grid(row=0,column=1,sticky='ne')
         s=PixelScale(self.params,from_=lo,to=hi,resolution=step,orient='horizontal',showvalue=False,bd=0,highlightthickness=0,troughcolor=FIELD,activebackground=ACC)
         s.set(obj.get(key,default));s.pack(fill='x',padx=12)
         s.bind('<ButtonPress-1>',lambda e:self.snapshot(),add='+')
         s.bind('<KeyPress>',lambda e:self.snapshot(),add='+')
-        def update(v):obj[key]=float(v);value.set(f'{float(v):g}');self.changed()
+        def update(v):
+            number=float(v)
+            if key=='start' and 'end' in obj:number=min(number,obj['end']-.025)
+            if key=='end':number=max(number,obj.get('start',0)+.025)
+            if number!=float(v):s.set(number)
+            obj[key]=number;value.set(f'{number:g}')
+            if onchange:onchange()
+            self.changed()
         s.configure(command=update)
     def note(self,text):self.label(self.params,text,fg=DIM,font=self.caption_font,justify='left',wrap=True).pack(fill='x',padx=12,pady=8)
     def choice(self,label,obj,key,options):
         self.note(label);reverse={v:k for k,v in options.items()};v=tk.StringVar(value=options.get(obj.get(key),next(iter(options.values()))))
-        def change(x):self.snapshot();obj[key]=reverse[x];self.changed()
+        def change(x):self.snapshot();obj[key]=reverse[x];self.changed();self.after_idle(self.show_params)
         PixelOption(self.params,v,*options.values(),command=change).pack(fill='x',padx=12)
     def show_params(self):
         for c in self.params.winfo_children():c.destroy()
@@ -313,15 +359,51 @@ class App(tk.Tk):
             if kind=='layer' and key>=len(self.project['layers']):return
             e=self.project['base'] if kind=='base' else self.project['layers'][key];C=E.L.KINDS[e['kind']]
             self.param_title.set(('基础 · ' if kind=='base' else '叠加 · ')+C.label)
+            self.choice('播放方式',self.project if kind=='base' else e,'playback' if kind=='base' else 'mode',{'loop':'循环','once':'播放一次','hold':'保持末帧'})
+            if e['kind']=='roll':self.choice('接触方式',e,'contact',{'auto':'跟随基础动作','ground':'地面翻滚','air':'空中翻滚'})
+            if e['kind']=='kick':self.choice('踢腿方式',e,'style',{'swing':'摆踢','push':'踹腿'})
+            if e['kind']=='raise':self.choice('举手方向',e,'plane',{'side':'向两侧','front':'向前'})
+            if e['kind']=='lift':self.choice('取放方向',e,'operation',{'pickup':'从地上捧起','putdown':'放回地面'})
+            if e['kind']=='lift':self.note('高举时手肘会逐渐伸直；取物下蹲会按模型比例适配。')
+            if e['kind']=='bow':self.note('负值后仰，正值弯腰。')
+            if e['kind']=='squat':self.note('双腿开合：负值内收，正值外展。')
+            if e['kind']=='pose':
+                for label,action in (('载入姿势…','load'),('保存姿势…','save'),('使用当前帧姿势','capture')):
+                    self.button(self.params,label,lambda action=action:self.pose_resource(e,action)).pack(fill='x',padx=12,pady=4)
+                if e.get('scope','all') in ('all','lower','legs'):
+                    self.pose_ground=tk.BooleanVar(master=self,value=e.get('ground',False))
+                    def ground_changed():self.snapshot();e['ground']=self.pose_ground.get();self.changed()
+                    PixelCheck(self.params,text='保持地面接触',variable=self.pose_ground,command=ground_changed).pack(fill='x',padx=12,pady=6)
+            if getattr(C,'unilateral',False):
+                self.choice('动作侧',e,'side',{'right':'右侧','left':'左侧','both':'双侧'})
+                if e.get('side')=='both':self.choice('双侧配合',e,'alternating',{False:'同步',True:'交替'})
+            if e['kind']=='wave':
+                # Legacy scope=armL was a broken filter; make it a true mirrored action.
+                e.setdefault('side',{'armL':'left','arms':'both'}.get(e.get('scope'),'right'))
+                if e.get('scope') in ('armL','armR','arms'):e['scope']='all'
+                self.choice('挥手部位',e,'side',{'right':'右臂','left':'左臂','both':'双臂'})
+                if e.get('side')=='both':self.choice('双侧配合',e,'alternating',{False:'同步',True:'交替'})
             if kind=='layer':
+                e.setdefault('blend','posture' if e['kind'] in ('raise','wave') else 'add')
                 self.button(self.params,'暂时关闭' if e.get('enabled',True) else '启用动作',lambda:self.toggle_layer(e)).pack(fill='x',padx=12)
                 self.slide('影响比例',e,'mix',0,1,1,.05)
-                if e['kind'] in ('raise','wave'):
-                    self.slide('保留原摆动',e,'retain',0,1,1,.05);self.choice('作用部位',e,'scope',{'all':'相关部位','armL':'左臂','armR':'右臂','arms':'双臂'})
-                self.note('姿态和摆动分别混合。比例为 0 时完全回到原动作。')
+                if e.get('blend') in ('posture','replace'):
+                    self.slide('保留原摆动',e,'retain',0,1,1,.05)
+                self.choice('作用部位',e,'scope',{'all':'相关部位','upper':'上半身','lower':'下半身','head':'头颈','torso':'腰 / 躯干','armL':'左臂','armR':'右臂','arms':'双臂','legs':'双腿','legL':'左腿','legR':'右腿'})
+                self.note('叠加选定部位的改动，原动画保留。' if e.get('blend')=='add' else '姿态和摆动分别混合。比例为 0 时完全回到原动作。')
+                if e['kind'] in ('thrust','swing','kick'):self.note('需要完整身体带动时，将作用部位设为“相关部位”。')
             for d in C.params:
                 if not d.get('hide'):self.slide(d['label'],e['params'],d['key'],d['lo'],d['hi'],d['dflt'],d['step'])
-            if e['kind'] not in ('raise',):self.slide('这一轮做几次',e,'cycles',1,8,1,1)
+            if e['kind'] not in ('raise','pose') and (E.MT.mode(self.project) if kind=='base' else e.get('mode',E.MT.mode(self.project)))=='loop':self.slide('这一轮做几次',e,'cycles',1,8,1,1)
+            if kind=='layer':
+                self.button(self.params,'时间与融合设置',self.toggle_motion_details).pack(fill='x',padx=12,pady=6)
+                if getattr(self,'motion_details',False):
+                    self.choice('融合方式',e,'blend',{'posture':'姿态与摆动','replace':'替换选中部位','add':'叠加变化'})
+                    start,span=E.MT.interval(e);timing=dict(start=min(.95,start),end=max(.025,min(1,start+span)))
+                    def timing_changed():e.update(timing);e.pop('span',None)
+                    self.slide('开始位置',timing,'start',0,.95,0,.025,onchange=timing_changed)
+                    self.slide('结束位置',timing,'end',.025,1,1,.025,onchange=timing_changed)
+                    self.slide('淡入淡出',e,'fade',0,.4,0,.025)
             self.note('直接调动作的整体感觉，不需要编辑关键帧。')
         else:
             self.param_title.set('整体控制 · '+E.LABELS[key]);c=self.project['controls'].setdefault(key,{})
@@ -332,7 +414,9 @@ class App(tk.Tk):
                     def follow_changed():self.snapshot();c['follow_chest']=follow.get();self.changed()
                     PixelCheck(self.params,text='跟随胸腔转动',variable=follow,command=follow_changed).pack(fill='x',padx=12,pady=8)
                 else:
+                    self.slide('整体朝向',self.project,'yaw',0,360,0,1,onchange=lambda:self.yaw.set(str(int(self.project.get('yaw',0)))))
                     self.slide('弯腰 / 后仰',c,'lean',-40,70);self.slide('身体高低',c,'height',-8,8,0,.25);self.slide('左右倾斜',c,'tilt',-30,30);self.slide('胸腔转向',c,'turn',-60,60);self.slide('骨盆转向',c,'hips_turn',-45,45)
+                    self.note('整体朝向转动全身；胸腔和骨盆分别扭转。锁脚时脚的位置保持。')
                 if key=='torso':
                     pin=tk.BooleanVar(value=c.get('pin_feet',True));self.pin_var=pin
                     def pin_changed():self.snapshot();c['pin_feet']=pin.get();self.changed()
@@ -340,7 +424,9 @@ class App(tk.Tk):
                     self.note('脚部锁定受腿长限制；小幅调整身体高低时更自然。')
             else:
                 self.slide('抬起 / 放下',c,'raise',-90,160);self.slide('前伸 / 后摆',c,'forward',-90,90)
-                self.slide('弯曲',c,'bend',-100,100);self.slide('摆动幅度',c,'range',0,2,1,.05)
+                self.slide('侧向弯曲',c,'bend',-100,100);self.slide('前后屈伸',c,'fold',-135,135)
+                self.slide('摆动幅度',c,'range',-2,2,1,.05)
+                self.note('摆动幅度为负值时，围绕原姿态反向摆动。')
                 self.note('摆幅围绕动作的平均姿势变化；抬起手臂也会保留原来的摆动。')
                 if key in E.LIMBS:
                     self.button(self.params,'翻转肘 / 膝弯向',lambda:self.reverse_bend(key)).pack(fill='x',padx=12,pady=6)
@@ -355,6 +441,7 @@ class App(tk.Tk):
                 self.slide('回弹',phy,'bounce',0,1,.4,.05)
                 self.note('先用较小松软程度。强度为 0 时恢复原动作，导出与预览使用同一模拟结果。')
             elif key in ('arms','legs','body'):self.note('物理跟随请选左 / 右单个部位设置。')
+    def toggle_motion_details(self):self.motion_details=not getattr(self,'motion_details',False);self.show_params()
     def reverse_bend(self,key):
         self.snapshot();p=self.seq[self.frame];c=self.project['controls'].setdefault(key,{});o=c.setdefault('offset',[0,0,0,0]);o[1]-=2*p[key][1];o[3]-=2*p[key][3];self.changed()
     def toggle_layer(self,e):
@@ -367,6 +454,21 @@ class App(tk.Tk):
         from outline_color import OutlineColorDialog
         return OutlineColorDialog(self)
     def duration(self,v):self.snapshot();self.project['seconds']=float(v);self.changed()
+    def set_frame_count(self,event=None):
+        old=max(1,min(120,round(self.project['seconds']*self.project.get('fps',12))))
+        try:value=int(self.frame_count.get());assert 1<=value<=120
+        except (ValueError,AssertionError):self.frame_count.set(str(old));return
+        if value==old:return
+        self.snapshot();self.stop();self.project['seconds']=value/self.project.get('fps',12);self.seconds.set(str(self.project['seconds']));self.frame=0;self.changed()
+    def set_fps(self,value):
+        count=max(1,min(120,round(self.project['seconds']*self.project.get('fps',12))))
+        self.snapshot();self.stop();self.project['fps']=int(value);self.project['seconds']=count/int(value);self.seconds.set(str(self.project['seconds']));self.frame=0;self.changed()
+    def set_camera_y(self,event=None):
+        old=int(self.project.get('camera_y',0))
+        try:value=int(self.camera_y.get());assert -64<=value<=64
+        except (ValueError,AssertionError):self.camera_y.set(str(old));return
+        if value==old:return
+        self.snapshot();self.project['camera_y']=value;self.changed()
     def turn(self,v):self.snapshot();self.project['yaw']=float(v);self.changed()
     def photo(self,v,i):
         size=self.cells[v][2];key=(v,i,size,self.compare)
@@ -463,16 +565,19 @@ class App(tk.Tk):
         self.render()
     def play(self):
         if self.playing:self.stop();self.render();return
+        if E.MT.mode(self.project)!='loop' and self.frame==len(self.seq)-1:self.frame=0
         self.playing=True;self.layout_key=None;self.started=time.perf_counter()-self.frame/self.project['fps'];self.playbtn.configure(text='■ 暂停');self.tick()
     def stop(self):
         self.playing=False;self.playbtn.configure(text='▶ 播放')
         if self.play_job:self.after_cancel(self.play_job);self.play_job=None
     def tick(self):
         if not self.playing:return
-        frame=int((time.perf_counter()-self.started)*self.project['fps'])%len(self.seq)
+        frame,finished=E.MT.preview_frame(time.perf_counter()-self.started,self.project['fps'],len(self.seq),self.project)
+        if finished:self.frame=frame;self.stop();self.render();return
         if frame!=self.frame:self.frame=frame;self.render()
         self.play_job=self.after(15,self.tick)
-    def step(self,d):self.stop();self.frame=(self.frame+d)%len(self.seq);self.render()
+    def step(self,d):
+        self.stop();self.frame=(self.frame+d)%len(self.seq) if E.MT.mode(self.project)=='loop' else max(0,min(len(self.seq)-1,self.frame+d));self.render()
     def seek(self,v):
         if not self.seq:return
         self.stop();self.frame=min(len(self.seq)-1,int(float(v)/1000*len(self.seq)));self.render()

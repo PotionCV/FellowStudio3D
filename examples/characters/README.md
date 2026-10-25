@@ -13,3 +13,7 @@ Both use neutral idle motion. They do not contain UI preferences, source-image
 paths or the author's working motion edits. Opening an example does not change
 the example file; use Save to keep your own version. New installations still
 start with the default character, not CustomCharacter.
+
+The curated CustomCharacter and CustomModel share the same updated model,
+painted PNGs and pixel protection groups. Appearance changes do not replace
+the neutral example animation or introduce local file dependencies.

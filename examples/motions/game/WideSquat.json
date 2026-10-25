@@ -1,0 +1,32 @@
+{
+  "version": 2,
+  "name": "Wide Squat",
+  "seconds": 2.0,
+  "fps": 12,
+  "base": {
+    "kind": "squat",
+    "params": {
+      "deep": 0.75,
+      "spread": 35
+    },
+    "cycles": 1,
+    "mix": 1.0,
+    "retain": 1.0,
+    "enabled": true,
+    "scope": "all",
+    "phase": 0.0,
+    "blend": "add"
+  },
+  "layers": [],
+  "controls": {},
+  "physics": {},
+  "render": {
+    "parts": true,
+    "textures": true,
+    "gaps": true,
+    "outline": true,
+    "perfect": true
+  },
+  "yaw": 0.0,
+  "pitch": 0.0
+}

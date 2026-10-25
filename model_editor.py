@@ -6,6 +6,7 @@ from concurrent.futures import ProcessPoolExecutor
 from PIL import Image,ImageTk
 import engine as E
 import model_data as MD
+import sculpt
 from preview_worker import compile_preview,init_progress,progressive_preview,frame_images
 from pixel_ui import PixelButton,PixelOption,PixelScale,PixelCheck,ScrollPanel,FlowBar
 import localized_ui as UI
@@ -89,11 +90,19 @@ class ModelEditor(tk.Toplevel):
         elif self.part=='head':specs=[('size','头部大小',.6,1.6,.05),('gap','头部间距',-6,6,.25),('depth','头部前后位置（px）',-8,8,.25)]
         else:
             specs=[('upper','上段长度（px）',2,12,.2),('lower','下段长度（px）',2,12,.2),('thickness','肢体粗细',.5,1.6,.05),('spread','关节内外偏移（px）',-6,6,.25),('vertical','关节上下偏移（px）',-4,4,.25),('gap','接合间距（px）',-6,6,.25)]
+        self.button(self.params,'收起塑形参数' if getattr(self,'sculpt_open',False) else '展开塑形参数',self.toggle_sculpt).pack(fill='x',padx=12,pady=8)
+        if getattr(self,'sculpt_open',False):
+            tabs={'profile':'截面比例','contour':'前后轮廓','bulge':'局部凸起'}
+            self.sculpt_tab=getattr(self,'sculpt_tab','profile');self.sculpt_var=tk.StringVar(master=self,value=tr(tabs[self.sculpt_tab]))
+            def choose_tab(value):self.sculpt_tab=next(k for k,v in tabs.items() if tr(v)==value);self.show_params()
+            PixelOption(self.params,self.sculpt_var,*[tr(v) for v in tabs.values()],command=choose_tab).pack(fill='x',padx=12,pady=4)
+            specs += [(k,label,lo,hi,step) for k,label,lo,hi,step,default,group in sculpt.SPECS if group==self.sculpt_tab]
         for key,label,lo,hi,step in specs:
             row=tk.Frame(self.params,bg=PANEL);row.pack(fill='x',padx=12,pady=(8,0));row.columnconfigure(0,weight=1)
             UI.Label(row,text=label,wrap=True,anchor='w',justify='left').grid(row=0,column=0,sticky='ew')
-            value=tk.StringVar(master=self,value=f'{self.draft[self.part][key]:g}');UI.Label(row,textvariable=value,width=5,anchor='e').grid(row=0,column=1,sticky='ne')
-            control=PixelScale(self.params,from_=lo,to=hi,resolution=step);control.set(self.draft[self.part][key]);control.pack(fill='x',padx=12)
+            current=self.draft[self.part].get(key,sculpt.DEFAULTS.get(key,0))
+            value=tk.StringVar(master=self,value=f'{current:g}');UI.Label(row,textvariable=value,width=5,anchor='e').grid(row=0,column=1,sticky='ne')
+            control=PixelScale(self.params,from_=lo,to=hi,resolution=step);control.set(current);control.pack(fill='x',padx=12)
             def update(v,k=key,out=value):out.set(f'{float(v):g}');self.set_value(k,float(v))
             control.configure(command=update)
         if self.part in E.LIMBS:
@@ -101,10 +110,11 @@ class ModelEditor(tk.Toplevel):
             PixelCheck(self.params,text='贴合接合',variable=self.connected,command=lambda:self.set_value('connected',self.connected.get())).pack(fill='x',padx=12,pady=8)
         self.button(self.params,'重置这个部位',self.reset_part).pack(fill='x',padx=12,pady=10)
         UI.Label(self.params,text='偏移可为负：关节向内、接合重叠；正值向外、分离。长度按原始像素计算。',wraplength=360,anchor='w',justify='left',fg='#8a7967').pack(fill='x',padx=12,pady=8)
+    def toggle_sculpt(self):self.sculpt_open=not getattr(self,'sculpt_open',False);self.show_params()
     def set_value(self,key,value):
         self.draft[self.part][key]=value
         if self.link.get() and self.part in E.LIMBS:
-            other=self.part[:-1]+('R' if self.part.endswith('L') else 'L');self.draft[other][key]=value
+            other=self.part[:-1]+('R' if self.part.endswith('L') else 'L');self.draft[other][key]=-value if key=='curve' else value
         self.request_preview()
     def reset_part(self):
         self.draft[self.part]=copy.deepcopy(MD.DEFAULT[self.part])
@@ -221,11 +231,13 @@ class ModelEditor(tk.Toplevel):
     def toggle_play(self):
         self.stop_job(self.play_job);self.play_job=None
         self.playing=not self.playing;self.play_button.configure(text='■ 暂停' if self.playing else '▶ 播放')
+        if self.playing and E.MT.mode(self.source)!='loop' and self.frame==len(self.seq)-1:self.frame=0
         if self.playing:self.started=time.perf_counter()-self.frame/self.source['fps'];self.tick()
         else:self.draw()
     def tick(self):
         if not self.playing:return
-        frame=int((time.perf_counter()-self.started)*self.source['fps'])%len(self.seq)
+        frame,finished=E.MT.preview_frame(time.perf_counter()-self.started,self.source['fps'],len(self.seq),self.source)
+        if finished:self.frame=frame;self.playing=False;self.play_button.configure(text='▶ 播放');self.draw();return
         if frame!=self.frame:self.frame=frame;self.draw()
         self.play_job=self.later(30,self.tick)
     def seek(self,value):

@@ -1,0 +1,61 @@
+{
+  "version": 2,
+  "name": "JumpKick",
+  "seconds": 1.5,
+  "fps": 24,
+  "base": {
+    "kind": "jump",
+    "params": {
+      "height": 7,
+      "crouch": 0.55,
+      "tuck": 0.5,
+      "prepare": 0.2,
+      "landing": 0.25,
+      "forward": 8
+    },
+    "cycles": 1,
+    "mix": 1.0,
+    "retain": 0.0,
+    "enabled": true,
+    "scope": "all",
+    "phase": 0.0,
+    "blend": "add",
+    "mode": "once"
+  },
+  "layers": [
+    {
+      "kind": "kick",
+      "params": {
+        "reach": 1,
+        "angle": 0,
+        "prepare": 0.22,
+        "release": 0.15,
+        "twist": 1
+      },
+      "cycles": 1,
+      "mix": 1.0,
+      "retain": 0.0,
+      "enabled": true,
+      "scope": "all",
+      "phase": 0.0,
+      "blend": "replace",
+      "mode": "once",
+      "side": "right",
+      "start": 0.2,
+      "end": 0.75
+    }
+  ],
+  "controls": {},
+  "physics": {},
+  "render": {
+    "parts": true,
+    "textures": true,
+    "gaps": true,
+    "outline": true,
+    "perfect": true
+  },
+  "yaw": 0.0,
+  "pitch": 0.0,
+  "playback": "once",
+  "camera_y": 6
+}

@@ -57,6 +57,8 @@ def surface_record(project,part):
    limb=('arm' if 'Arm' in part else 'leg')+part[-1];data=model[limb]
    segment='upper' if part.startswith(('upper','thigh')) else 'lower'
    geometry={k:data[k] for k in ('shape','thickness',segment)}
+  import sculpt
+  if part!='torso':geometry.update(sculpt.record(model['head'] if part=='head' else data))
  else:geometry=model
  return {'layout':project['textures'][part]['layout'],'geometry':geometry,'mapping':2}
 

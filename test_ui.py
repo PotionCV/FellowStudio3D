@@ -3,6 +3,125 @@ from pathlib import Path
 import app,engine as E,uv_assets as U
 from pixel_ui import PixelButton
 class UITests(unittest.TestCase):
+ def test_signed_bow_squat_spread_and_joint_controls(self):
+  from pixel_ui import PixelScale
+  a=self.a;a.change_base('弯腰');a.update()
+  scale=next(w for w in a.params.winfo_children() if isinstance(w,PixelScale) and w.lo==-70 and w.hi==70)
+  scale.command(-35);self.assertEqual(a.project['base']['params']['deep'],-35)
+  a.change_base('蹲下');a.update()
+  scale=next(w for w in a.params.winfo_children() if isinstance(w,PixelScale) and w.lo==-30 and w.hi==65)
+  scale.command(35);self.assertEqual(a.project['base']['params']['spread'],35)
+  a.select('body','arms');a.update()
+  scale=next(w for w in a.params.winfo_children() if isinstance(w,PixelScale) and w.lo==-135 and w.hi==135)
+  scale.command(-60);self.assertEqual(a.project['controls']['arms']['fold'],-60)
+  scale=next(w for w in a.params.winfo_children() if isinstance(w,PixelScale) and w.lo==-2 and w.hi==2)
+  scale.command(-1);self.assertEqual(a.project['controls']['arms']['range'],-1)
+
+ def test_custom_idle_thrust_and_body_drive_refresh_without_waiting_for_all_frames(self):
+  import copy,model_data as M
+  a=self.a;a.project.update(M.load_resource(E.ROOT/'examples/models/CustomModel.json'))
+  a.project.update(seconds=2,fps=12);a.change_base('站姿');events=[];accept=a.accept_preview
+  def record(seq,images,project,complete=False):
+   events.append((a.revision,time.perf_counter(),complete));accept(seq,images,project,complete)
+  a.accept_preview=record
+  def first():
+   deadline=time.perf_counter()+8
+   while not any(e[0]==a.revision for e in events) and time.perf_counter()<deadline:a.update();time.sleep(.003)
+   self.assertTrue(any(e[0]==a.revision for e in events))
+   return next(t for rev,t,complete in events if rev==a.revision)
+  first();a.add('thrust');start=time.perf_counter();first_add=first()-start;changes=[]
+  for value in (.8,1.2,1.4):
+   a.project['layers'][0]['params']['twist']=value;start=time.perf_counter();a.changed();changes.append(first()-start)
+  print(' custom idle + thrust first / drive edits:',round(first_add,3),[round(v,3) for v in changes],flush=True)
+  self.assertLess(first_add,2.5);self.assertLess(max(changes),2.5)
+  deadline=time.perf_counter()+25
+  while (a.future_job or a.latest_request or a.pending) and time.perf_counter()<deadline:a.update();time.sleep(.003)
+  self.assertIsNone(a.future_job);self.assertEqual(a.active_project['layers'][0]['params']['twist'],1.4)
+
+ def test_twist_lift_overhead_and_raise_direction_controls(self):
+  from pixel_ui import PixelOption,PixelScale
+  a=self.a;a.change_base('扭腰回正');a.update();self.assertEqual(a.project['base']['kind'],'twist')
+  scale=next(w for w in a.params.winfo_children() if isinstance(w,PixelScale) and w.lo==-120 and w.hi==120)
+  scale.command(-80);self.assertEqual(a.project['base']['params']['angle'],-80)
+  a.change_base('取放物品');a.update();self.assertEqual(a.project['playback'],'hold')
+  option=next(w for w in a.params.winfo_children() if isinstance(w,PixelOption) and '放回地面' in w.values)
+  option.pick('放回地面');a.update();self.assertEqual(a.project['base']['operation'],'putdown')
+  scale=next(w for w in a.params.winfo_children() if isinstance(w,PixelScale) and w.lo==0 and w.hi==180)
+  scale.command(180);self.assertEqual(a.project['base']['params']['height'],180)
+  a.add('raise');a.update();self.assertEqual(a.project['layers'][-1]['plane'],'front')
+  option=next(w for w in a.params.winfo_children() if isinstance(w,PixelOption) and '向两侧' in w.values)
+  option.pick('向两侧');a.update();self.assertEqual(a.project['layers'][-1]['plane'],'side')
+  a.add('thrust');a.update()
+  self.assertTrue(any(isinstance(w,PixelScale) and w.lo==-3 and w.hi==3 for w in a.params.winfo_children()))
+  scales=[w for w in a.params.winfo_children() if isinstance(w,PixelScale) and w.lo==0 and w.hi==1.5]
+  scales[-1].command(1.25);self.assertEqual(a.project['layers'][-1]['params']['windup'],1.25)
+
+ def test_kick_style_switch_on_base_and_layer(self):
+  from pixel_ui import PixelOption
+  a=self.a;a.change_base('踢击');a.update()
+  option=next(w for w in a.params.winfo_children() if isinstance(w,PixelOption) and '踹腿' in w.values)
+  option.pick('踹腿');a.update();self.assertEqual(a.project['base']['style'],'push')
+  a.add('kick');a.update()
+  option=next(w for w in a.params.winfo_children() if isinstance(w,PixelOption) and '踹腿' in w.values)
+  option.pick('踹腿');a.update();self.assertEqual(a.project['layers'][-1]['style'],'push')
+  option=next(w for w in a.params.winfo_children() if isinstance(w,PixelOption) and '摆踢' in w.values)
+  option.pick('摆踢');a.update();self.assertEqual(a.project['layers'][-1]['style'],'swing')
+
+ def test_combat_facing_has_one_degree_control_separate_from_pelvis(self):
+  from pixel_ui import PixelScale
+  a=self.a;a.select('body','torso');a.update()
+  sliders=[w for w in a.params.winfo_children() if isinstance(w,PixelScale)]
+  facing=next(w for w in sliders if w.lo==0 and w.hi==360);facing.command(17)
+  hips=next(w for w in sliders if w.lo==-45 and w.hi==45);hips.command(25)
+  self.assertEqual(a.project['yaw'],17);self.assertEqual(a.yaw.get(),'17')
+  self.assertEqual(a.project['controls']['torso']['hips_turn'],25)
+  self.assertEqual(E.authored(a.project)[0]['pelvis_yaw'],25)
+ def test_frame_count_fps_texture_preferences_and_end_position(self):
+  import json
+  from pixel_ui import PixelScale
+  a=self.a;a.frame_count.set('18');a.set_frame_count();self.assertEqual(len(E.authored(a.project)),18)
+  a.set_fps('24');self.assertEqual(a.project['fps'],24);self.assertEqual(len(E.authored(a.project)),18);self.assertEqual(a.project['seconds'],.75)
+  a.frame_count.set('0');a.set_frame_count();self.assertEqual(a.frame_count.get(),'18')
+  a.camera_y.set('6');a.set_camera_y();self.assertEqual(a.project['camera_y'],6)
+  a.parts.set(True);a.textures.set(False);a.display();a.change_base('跑步');a.update()
+  self.assertTrue(a.project['render']['parts']);self.assertFalse(a.project['render']['textures'])
+  self.assertEqual(a.project['camera_y'],6)
+  self.assertFalse(json.loads(a.preferences_path.read_text())['render']['textures'])
+  a.add('wave');self.assertEqual(a.project['layers'][-1]['blend'],'add')
+  a.motion_details=True;a.show_params();a.update();e=a.project['layers'][-1]
+  # The two interval sliders share validated absolute positions.
+  scales=[w for w in a.params.winfo_children() if isinstance(w,PixelScale)]
+  end=next(w for w in scales if w.lo==.025 and w.hi==1);end.command(.6)
+  start=next(w for w in scales if w.lo==0 and w.hi==.95);start.command(.2)
+  self.assertAlmostEqual(e['start'],.2);self.assertAlmostEqual(e['end'],.6);self.assertNotIn('span',e)
+  end.command(.1);self.assertGreater(e['end'],e['start'])
+ def test_game_layers_masks_pose_resources_and_playback_controls(self):
+  from unittest.mock import patch
+  from pixel_ui import PixelOption
+  a=self.a
+  for label,kind in (('起跳与落地','jump'),('倒地','fall'),('翻滚','roll')):
+   a.change_base(label);a.update();self.assertEqual(a.project['base']['kind'],kind)
+   options=[w for w in a.params.winfo_children() if isinstance(w,PixelOption)]
+   self.assertTrue(any('保持末帧' in w.values for w in options))
+  a.add('swing');a.update();e=a.project['layers'][-1]
+  option=next(w for w in a.params.winfo_children() if isinstance(w,PixelOption) and '左侧' in w.values)
+  option.pick('双侧');a.update();self.assertEqual(e['side'],'both')
+  self.assertTrue(any('交替' in w.values for w in a.params.winfo_children() if isinstance(w,PixelOption)))
+  a.toggle_motion_details();a.update()
+  self.assertTrue(any('替换选中部位' in w.values for w in a.params.winfo_children() if isinstance(w,PixelOption)))
+  a.add('pose');a.update();e=a.project['layers'][-1];self.assertNotIn('_assets3d',e['pose'])
+  e['scope']='lower';a.show_params();a.update();a.pose_ground.set(True)
+  next(w for w in a.params.winfo_children() if getattr(w,'text',None)=='保持地面接触').command()
+  self.assertTrue(e['ground'])
+  with patch('studio_ui.filedialog.askopenfilename',return_value=str(E.ROOT/'examples/poses/Carry.json')):a.pose_resource(e,'load')
+  self.assertIn('armR',e['pose']);a.undo();a.update()
+  appearance=a.project.get('model');display=a.project['render'].copy()
+  with patch('studio_ui.filedialog.askopenfilename',return_value=str(E.ROOT/'examples/motions/game/Jump.json')):a.load_motion_resource()
+  self.assertEqual(a.project['base']['kind'],'jump');self.assertEqual(a.project.get('model'),appearance);self.assertEqual(a.project['render'],display)
+  a.edit_model();a.update();editor=a.model_editor;editor.select('head');editor.toggle_sculpt();a.update();editor.set_value('top_width',1.4)
+  self.assertEqual(editor.draft['head']['top_width'],1.4);editor.cancel()
+  a.edit_model();a.update();editor=a.model_editor;editor.select('armL');editor.link.set(True);editor.set_value('curve',1.5)
+  self.assertEqual(editor.draft['armR']['curve'],-1.5);editor.cancel()
  def test_language_switch_keeps_english_default_and_custom_project_names(self):
   a=self.a
   for language in ('简体中文','日本語','English'):

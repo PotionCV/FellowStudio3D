@@ -1,0 +1,39 @@
+{
+  "version": 2,
+  "name": "Push Kick",
+  "seconds": 2.0,
+  "fps": 12,
+  "base": {
+    "kind": "kick",
+    "params": {
+      "reach": 1,
+      "angle": 0,
+      "prepare": 0.22,
+      "release": 0.15,
+      "twist": 1
+    },
+    "cycles": 1,
+    "mix": 1.0,
+    "retain": 0.0,
+    "enabled": true,
+    "scope": "all",
+    "phase": 0.0,
+    "blend": "add",
+    "mode": "once",
+    "side": "right",
+    "style": "push"
+  },
+  "layers": [],
+  "controls": {},
+  "physics": {},
+  "render": {
+    "parts": true,
+    "textures": true,
+    "gaps": true,
+    "outline": true,
+    "perfect": true
+  },
+  "yaw": 0.0,
+  "pitch": 0.0,
+  "playback": "once"
+}

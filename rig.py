@@ -279,17 +279,34 @@ if __name__ == '__main__':
 
 
 
+def _limb_tip_projector(pose,key,target_views):
+    """Build FK and cameras once; only joint angles vary inside an IK solve."""
+    import numpy as np
+    root=S.limb_chain(pose,key)[0]
+    limb=F.model_geometry(pose)['limbs'][key]
+    scales=tuple(pose.get('arm_scale' if key.startswith('arm') else 'leg_scale',(1,1)))
+    length1=limb['gap']+limb['lengths'][0]*scales[0];length2=limb['lengths'][1]*scales[1]
+    transform=S.root_rotation(pose)
+    transform=transform@S.rx(pose.get('lean',0))@S.ry(pose.get('chest_yaw',0)) if key.startswith('arm') else transform@S.ry(pose.get('pelvis_yaw',0))
+    camera=np.concatenate([np.array((S.ry(yaw)[0],-S.ry(yaw)[1])) for yaw,target in target_views])
+    matrix=camera@transform
+    origin=camera@root+np.tile((31.5,55.5+math.floor(pose.get('_camera_y',0)+.5)),len(target_views))
+    def positions(spec):
+        lat,bend,sag,sbend=spec
+        return origin+matrix@(S.direction(lat,sag)*length1+S.direction(lat+bend,sag+sbend)*length2)
+    return positions
+
 def solve_multi(pose, key, target_views):
     """Fit a limb in two anatomical views so foot locking isn't camera-dependent."""
     import numpy as np
     q=np.array(spec4(pose[key]),dtype=float)
     if abs(q[3])<1:q[2]+=10;q[3]-=20
-    def positions(spec):
-        return np.array([v for yaw,target in target_views for v in chain(dict(pose,yaw=yaw,pitch=0),key,spec)[3]])
+    positions=_limb_tip_projector(pose,key,target_views)
     goal=np.array([v for yaw,target in target_views for v in target])
-    for _ in range(25):
+    precise=bool(pose.get('_breath_ik'))
+    for _ in range(60 if precise else 25):
         current=positions(q);error=goal-current
-        if np.linalg.norm(error)<.05:break
+        if np.linalg.norm(error)<(.003 if precise else .05):break
         cols=[]
         for j in (0,2,3):
             probe=q.copy();probe[j]+=.25;cols.append((positions(probe)-current)/.25)
@@ -327,13 +344,14 @@ import rounded_scene as S
 from core3d import project as project3d
 
 def _project(pose,point):
- q=project3d(np.array([point]),pose.get('yaw',0),pose.get('pitch',0))[0];return flip_pt((float(q[0]),float(q[1])),pose.get('flip'))
+ q=project3d(np.array([point]),pose.get('yaw',0),pose.get('pitch',0))[0];return flip_pt((float(q[0]),float(q[1])+math.floor(pose.get('_camera_y',0)+.5)),pose.get('flip'))
 def chain(pose,key,spec=None):
  p=dict(pose)
  if spec is not None:p[key]=spec
  result=S.limb_chain(p,key)
  # chain historically returns unmirrored points; joints handles final flip.
- return tuple(tuple(project3d(np.array([point]),pose.get('yaw',0),pose.get('pitch',0))[0][:2]) for point in result)
+ offset=np.array((0.,math.floor(pose.get('_camera_y',0)+.5)))
+ return tuple(tuple(project3d(np.array([point]),pose.get('yaw',0),pose.get('pitch',0))[0][:2]+offset) for point in result)
 def joints(pose):return {key:{name:_project(pose,point) for name,point in chain.items()} for key,chain in S.geometry(pose)[1].items()}
 def _rig(pose,key):
  limb=F.model_geometry(pose)['limbs'][key];scales=tuple(pose.get('arm_scale' if key.startswith('arm') else 'leg_scale',(1,1)))
@@ -348,5 +366,5 @@ _solve_multi_uncached=solve_multi
 @lru_cache(maxsize=512)
 def _locked_leg(pose_key,key,target_key):return _solve_multi_uncached(_json.loads(pose_key),key,_json.loads(target_key))
 def solve_multi(pose,key,target_views):
- relevant={k:pose[k] for k in (key,'_model','leg_scale','pelvis','pelvis_yaw','rot','dx','dy','off_legL','off_legR','flip') if k in pose}
+ relevant={k:pose[k] for k in (key,'_model','_camera_y','_breath_ik','leg_scale','pelvis','pelvis_yaw','rot','body_pitch','body_axis','body_pivot','dx','dy','dz','off_legL','off_legR','flip') if k in pose}
  return list(_locked_leg(_json.dumps(relevant,sort_keys=True,default=lambda v:v.tolist()),key,_json.dumps(target_views,default=lambda v:v.tolist())))

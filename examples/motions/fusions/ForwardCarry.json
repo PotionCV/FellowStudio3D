@@ -1,0 +1,49 @@
+{
+  "version": 2,
+  "name": "ForwardCarry",
+  "seconds": 2.0,
+  "fps": 12,
+  "base": {
+    "kind": "stand",
+    "params": {
+      "breath": 0,
+      "sway": 0.0
+    },
+    "cycles": 1,
+    "mix": 1.0,
+    "retain": 1.0,
+    "enabled": true,
+    "scope": "all",
+    "phase": 0.0,
+    "blend": "add"
+  },
+  "layers": [
+    {
+      "kind": "raise",
+      "params": {
+        "up": 45,
+        "open": 8,
+        "fold": 80
+      },
+      "cycles": 1,
+      "mix": 1.0,
+      "retain": 1.0,
+      "enabled": true,
+      "scope": "all",
+      "phase": 0.0,
+      "blend": "add",
+      "plane": "front"
+    }
+  ],
+  "controls": {},
+  "physics": {},
+  "render": {
+    "parts": true,
+    "textures": true,
+    "gaps": true,
+    "outline": true,
+    "perfect": true
+  },
+  "yaw": 0.0,
+  "pitch": 0.0
+}

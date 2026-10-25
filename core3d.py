@@ -187,7 +187,7 @@ def raster_reference(triangles,textures,cam,settings,selected=None,connections=N
   z=w0*a[2]+w1*b[2]+w2*c[2];region=depth[y0:y1+1,x0:x1+1];hit=(w0>=-1e-7)&(w1>=-1e-7)&(w2>=-1e-7)
   if not hit.any():continue
   tex=textures[part];coord=w0[...,None]*uv[0]+w1[...,None]*uv[1]+w2[...,None]*uv[2];ix=np.clip(np.floor(coord[...,0]+.5).astype(int),0,tex.shape[1]-1);iy=np.clip(np.floor(coord[...,1]+.5).astype(int),0,tex.shape[0]-1);color=tex[iy,ix].copy()
-  if not settings['colors']:color[...,:3]=255
+  if not settings.get('material_colors',settings['colors']):color[...,:3]=255
   hit &= color[...,3]>=128
   if part_depth is not None:
    layer=part_depth[U.PARTS.index(part),y0:y1+1,x0:x1+1];layer[hit]=np.maximum(layer[hit],z[hit])
@@ -334,7 +334,7 @@ def raster(triangles,textures,cam,settings,selected=None,connections=None,stable
    return {'origin':points[0],'matrix':(points[1:]-points[0]).T}
   frames[part]={**data,**project_frame(data['frame'])}
   if 'group_frames' in data:frames[part]['reference_frames']=[project_frame(f) for f in data['group_frames']]
- textures,patches=prepare(triangles,q,textures,protection,settings['colors'],frames)
+ textures,patches=prepare(triangles,q,textures,protection,settings.get('material_colors',settings['colors']),frames)
  low=np.maximum(0,np.floor(q[:,:,:2].min(axis=1)).astype(int));high=np.minimum(n-1,np.ceil(q[:,:,:2].max(axis=1)).astype(int));wh=np.maximum(0,high-low+1);areas=wh[:,0]*wh[:,1]
  a,b,c=q[:,0],q[:,1],q[:,2];den=(b[:,1]-c[:,1])*(a[:,0]-c[:,0])+(c[:,0]-b[:,0])*(a[:,1]-c[:,1]);areas[np.abs(den)<1e-8]=0
  ids=np.repeat(np.arange(len(q)),areas);count=len(ids)
@@ -349,7 +349,7 @@ def raster(triangles,textures,cam,settings,selected=None,connections=None,stable
   mask=sample_parts==p
   if not mask.any():continue
   tex=textures[part];co=coords[mask];ix=np.clip(np.floor(co[:,0]+.5).astype(int),0,tex.shape[1]-1);iy=np.clip(np.floor(co[:,1]+.5).astype(int),0,tex.shape[0]-1);color[mask]=tex[iy,ix]
- if not settings['colors']:color[:,:3]=255
+ if not settings.get('material_colors',settings['colors']):color[:,:3]=255
  opaque=color[:,3]>=128;pixel=(y*n+x)[opaque];z=z[opaque];color=color[opaque];sample_parts=sample_parts[opaque]
  part_depth=None
  if settings['outline'] or settings['gaps']:

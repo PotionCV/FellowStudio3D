@@ -4,6 +4,8 @@
 
 - `app.py`, `studio_ui.py`: desktop workflow and background preview coordination.
 - `engine.py`, `layers.py`, `rig.py`: motion composition, physics and IK.
+- `game_actions.py`, `motion_timing.py`: staged actions and shared playback timing.
+- `sculpt.py`, `motion_resources.py`: seam-consistent shaping and portable poses.
 - `rounded_scene.py`, `core3d.py`: meshes, UV mapping and 64px depth rasterizer.
 - `model_editor.py`, `texture_editor.py`, `protection_editor.py`: staged editors.
 - `pixel_ui.py`, `localized_ui.py`, `i18n.py`, `uv_i18n.py`: pixel controls and text.
@@ -19,7 +21,7 @@ both archive types. Historical prototype folders are not dependencies.
 ## Checking changes
 
 Use Python 3.12 on Windows with `requirements-lock.txt`. Renderer and release
-checks run with `python -m unittest tests test_release -q`. GUI checks use real
+checks run with `python -m unittest tests test_extensions test_release -q`. GUI checks use real
 Tk windows and temporary project/preferences directories. Run them on an
 interactive Windows desktop: `python -m unittest test_ui test_export_preferences -q`.
 When enabled, the provided Windows GitHub Actions workflow template performs
@@ -48,6 +50,11 @@ independent sides. Additional meshes, attachment points and skeleton topology
 require a separate resource-design change; this painting workflow adds no new bones.
 
 ## Clean archives
+
+Motion recipes shipped in archives are listed in `motion_resources.BUILTIN_MOTIONS`.
+Keep this list synchronized with `tools/build_v02_examples.py` when adding an
+official example. User-saved recipes beside the examples remain local unless
+explicitly added to that list.
 
 An optional GitHub Actions workflow is provided at
 `tools/workflow-templates/windows-checks.yml`. To enable hosted checks, copy it
@@ -83,3 +90,12 @@ Existing debug screenshots, prototypes and local sessions are intentionally
 preserved on the developer's machine but ignored by Git and the builder. Always
 review `git status` before committing. Do not publish the entire parent tools
 folder or bundle another tool's Git checkout.
+
+For itch.io, first verify a Windows archive, then run:
+
+```powershell
+python tools/build_itch_release.py dist/FellowStudio3D-v0.2.0-Windows-x64.zip --output dist/FellowStudio3D-v0.2.0-itch-Windows-x64.zip
+```
+
+This produces a flat archive with itch launch/manual actions and a new hash
+manifest. Only registered model and motion examples enter the release archive.

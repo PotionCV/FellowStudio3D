@@ -1,0 +1,75 @@
+{
+  "version": 2,
+  "name": "RunJumpRoll",
+  "seconds": 1.5,
+  "fps": 16,
+  "base": {
+    "kind": "run",
+    "params": {
+      "stride": 0.7000000000000001,
+      "knee": 0.8,
+      "swing": 2.0,
+      "bob": 1.5,
+      "elbow": 1.0
+    },
+    "cycles": 1.0,
+    "mix": 1.0,
+    "retain": 1.0,
+    "enabled": true,
+    "scope": "all",
+    "phase": 0.0
+  },
+  "layers": [
+    {
+      "kind": "jump",
+      "params": {
+        "height": 10,
+        "crouch": 0.55,
+        "tuck": 0.3,
+        "prepare": 0.2,
+        "landing": 0.25,
+        "forward": 8
+      },
+      "cycles": 1,
+      "mix": 1.0,
+      "retain": 0.0,
+      "enabled": true,
+      "scope": "all",
+      "phase": 0.0,
+      "blend": "add",
+      "mode": "once"
+    },
+    {
+      "kind": "roll",
+      "params": {
+        "direction": 0,
+        "curl": 0.8,
+        "distance": 0
+      },
+      "cycles": 1,
+      "mix": 1.0,
+      "retain": 0.15,
+      "enabled": true,
+      "scope": "all",
+      "phase": 0.0,
+      "blend": "replace",
+      "mode": "once",
+      "start": 0.2,
+      "end": 0.75,
+      "contact": "auto"
+    }
+  ],
+  "controls": {},
+  "physics": {},
+  "render": {
+    "parts": true,
+    "textures": true,
+    "gaps": true,
+    "outline": true,
+    "perfect": true
+  },
+  "yaw": 0.0,
+  "pitch": 0.0,
+  "playback": "once",
+  "camera_y": 8
+}

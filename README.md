@@ -17,6 +17,17 @@ guide for the current interface language. All three guides cover the same workfl
 
 [Development and release guide](docs/DEVELOPMENT.md)
 
+Version 0.2.0 adds tapered profiles and projecting faces, portable
+pose layers, regional/timed blending, staged game actions and once/hold playback.
+Try **Motion examples…** for editable recipes, or **Character model → Load model**
+for the new shape examples. Existing Walk/Run defaults remain available.
+
+It also adds waist twists, push kicks, pickup/put-down and overhead lifting,
+real attack wind-up poses, signed directional controls and leg spread for squats.
+Preview edits cancel obsolete work and reuse the motion calculation; IK joint
+probes no longer rebuild the model on every iteration.
+See [v0.2.0 release notes](docs/RELEASE-v0.2.0.md).
+
 ## Start
 
 [Download the Windows portable ZIP](https://github.com/PotionCV/FellowStudio3D/releases/latest)
