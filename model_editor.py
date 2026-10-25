@@ -7,6 +7,7 @@ from PIL import Image,ImageTk
 import engine as E
 import model_data as MD
 import sculpt
+import plush,plush_editor
 from preview_worker import compile_preview,init_progress,progressive_preview,frame_images
 from pixel_ui import PixelButton,PixelOption,PixelScale,PixelCheck,ScrollPanel,FlowBar
 import localized_ui as UI
@@ -67,6 +68,7 @@ class ModelEditor(tk.Toplevel):
         self.scrub=PixelScale(center,from_=0,to=1000,resolution=1,bg=BG,command=self.seek);self.scrub.pack(fill='x')
         shell=tk.Frame(body,bg=PANEL);body.add(shell,width=round(410*self.ui_scale),minsize=320,stretch='never')
         self.scroll=ScrollPanel(shell);self.scroll.pack(fill='both',expand=True);content=self.scroll.content
+        plush_editor.structure_control(self,content)
         grid=tk.Frame(content,bg=PANEL);grid.pack(fill='x',padx=8,pady=8);grid.columnconfigure((0,1),weight=1,uniform='parts');self.part_buttons={}
         for i,(key,name) in enumerate(PARTS.items()):
             b=PixelButton(grid,text=name,compact=True,command=lambda k=key:self.select(k));b.grid(row=i//2,column=i%2,sticky='ew',padx=3,pady=3);self.part_buttons[key]=b
@@ -77,10 +79,13 @@ class ModelEditor(tk.Toplevel):
         while node is not None:
             if isinstance(node,ScrollPanel):return node.wheel(event)
             node=getattr(node,'master',None)
-    def select(self,key):self.part=key;self.show_params();self.draw()
+    def select(self,key):self.part='torso' if key=='head' and plush.active(self.draft) else key;self.show_params();self.draw()
     def show_params(self):
+        if plush.active(self.draft) and self.part=='head':self.part='torso'
+        plush_editor.refresh(self)
         for child in self.params.winfo_children():child.destroy()
         for key,b in self.part_buttons.items():b.accent=key==self.part;b.draw()
+        if plush.active(self.draft) and self.part=='torso':plush_editor.panel(self);return
         UI.Label(self.params,text=PARTS[self.part],fg=INK,anchor='w').pack(fill='x',padx=12,pady=8)
         UI.Label(self.params,text='基础形状',anchor='w').pack(fill='x',padx=12,pady=(6,2))
         choices={tr(MD.SHAPE_LABELS[key]):key for key in MD.SHAPES[self.part]}
@@ -108,6 +113,9 @@ class ModelEditor(tk.Toplevel):
         if self.part in E.LIMBS:
             self.connected=tk.BooleanVar(master=self,value=self.draft[self.part]['connected'])
             PixelCheck(self.params,text='贴合接合',variable=self.connected,command=lambda:self.set_value('connected',self.connected.get())).pack(fill='x',padx=12,pady=8)
+        if self.part=='head':
+            import attachment_editor
+            attachment_editor.mount(self)
         self.button(self.params,'重置这个部位',self.reset_part).pack(fill='x',padx=12,pady=10)
         UI.Label(self.params,text='偏移可为负：关节向内、接合重叠；正值向外、分离。长度按原始像素计算。',wraplength=360,anchor='w',justify='left',fg='#8a7967').pack(fill='x',padx=12,pady=8)
     def toggle_sculpt(self):self.sculpt_open=not getattr(self,'sculpt_open',False);self.show_params()
@@ -121,7 +129,11 @@ class ModelEditor(tk.Toplevel):
         if self.link.get() and self.part in E.LIMBS:
             other=self.part[:-1]+('R' if self.part.endswith('L') else 'L');self.draft[other]=copy.deepcopy(MD.DEFAULT[other])
         self.show_params();self.request_preview()
-    def reset_all(self):self.draft=MD.normalize();self.show_params();self.request_preview()
+    def reset_all(self):
+        self.draft=MD.normalize()
+        for key in ('last_plush_body','structure_assets'):
+            if hasattr(self,key):delattr(self,key)
+        self.show_params();self.request_preview()
     def request_preview(self):
         self.revision+=1
         if hasattr(self,'preview_control'):self.preview_control.value=self.revision
@@ -163,7 +175,7 @@ class ModelEditor(tk.Toplevel):
     def model_status(self):
         import rounded_scene as S,uv_assets as U
         before=self.draft_assets or S.assets(self.source);after=S.assets(self.preview_project())
-        if any(before['textures'][p].get('png') and U.surface_record(before,p)!=U.surface_record(after,p) for p in U.PARTS):
+        if any(before['textures'][p].get('png') and U.surface_record(before,p)!=U.surface_record(after,p) for p in U.parts(after) if p in before['textures']):
             return '贴图已适配新外形；按住查看修改前，继续绘画前请生成新素材。'
         return '模型修改仅在应用后写入当前项目'
     def receive_preview(self,seq,raw):

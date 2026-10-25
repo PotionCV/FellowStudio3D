@@ -2,6 +2,39 @@
 LANGUAGES={'en':'English','zh':'简体中文','ja':'日本語'}
 language='en'
 ROWS=r"""
+身体结构|Body structure|体の構造
+一体布偶|Seamless mascot|一体型マスコット
+分体人形|Separate head / body|頭と胴体が分離
+主体|Main body|本体
+整体高度（px）|Total height (px)|全体の高さ (px)
+上部宽度（px）|Upper width (px)|上部の幅 (px)
+肚子宽度（px）|Belly width (px)|お腹の幅 (px)
+底部宽度（px）|Base width (px)|底部の幅 (px)
+主体厚度（px）|Body depth (px)|本体の厚み (px)
+头身一起动|Move head and body together|頭と体を一緒に動かす
+上部柔和转动|Upper-body flexibility|上部の柔らかい回転
+头身使用连续外形和一张贴图。四肢与耳朵保持独立。|Head and torso share one continuous surface and texture. Limbs and ears stay separate.|頭と胴体は連続した形と1枚の画像を共有します。手足と耳は独立しています。
+附属部件|Attachments|追加パーツ
+位置按头部比例；尺寸按原始像素。耳朵固定跟随头部。|Positions use head proportions; sizes use source pixels. Ears follow the head rigidly.|位置は頭部の比率、寸法は元画像のピクセル単位です。耳は頭部に固定して追従します。
+人耳|Human ears|人の耳
+猫耳|Cat ears|猫耳
+长耳|Long ears|長い耳
+左侧|Left|左
+右侧|Right|右
+编辑耳朵参数|Edit ear shape|耳の形状を編集
+收起耳朵参数|Hide ear details|耳の詳細を閉じる
+删除这一只|Remove ear|この耳を削除
+删除这一对|Remove pair|両耳を削除
+左右位置|Side position|左右位置
+上下位置|Height position|上下位置
+前后位置|Depth position|前後位置
+耳根宽度（px）|Root width (px)|根元の幅 (px)
+耳朵长度（px）|Ear length (px)|耳の長さ (px)
+耳朵厚度（px）|Ear depth (px)|耳の厚み (px)
+耳尖宽度|Tip width|先端の幅
+向外张开|Outward angle|外向きの角度
+前后倾斜|Forward lean|前後の傾き
+耳朵扭转|Ear twist|耳のひねり
 圆锥形|Cone|円錐
 角锥形|Pyramid|角錐
 展开塑形参数|Shape details|形状の詳細

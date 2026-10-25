@@ -87,6 +87,10 @@ Shoulder, waist and hip width affect the front silhouette. **Torso thickness** c
 
 Edits are staged. **Apply model** commits them; **Cancel** discards them. **Save model** stores the model, embedded textures and pixel protection groups in one reusable JSON. Loading it changes appearance while keeping the current animation. Older shape-only presets preserve the current textures.
 
+**Head → Attachments** adds Human ears, Cat ears or Long ears as a mirrored pair. Select an ear, then open **Edit ear shape** for signed side/height/depth positions, root width, length, depth, tip width and three rotation controls. Positions are relative to the sculpted head; ear dimensions use source pixels. Disable **Link left / right** for an asymmetric ear, or remove one ear or the pair. Ears follow head animation rigidly. After **Apply model**, the UV editor shows an extra card for each ear; the right shares the left texture by default. Turn sharing off to paint independently. Ear meshes, textures and protection groups travel with the model/project. If an existing painting folder predates the ears, create an adapted painting copy to add their PNG templates.
+
+**Body structure → Seamless mascot** replaces Head and Torso with one **Main body** panel. Five controls set total height, upper width, belly width, base width and depth. The surface is continuous from crown to belly, with no neck seam; arms, legs and ears remain separate. **Move head and body together** is enabled by default. Disable it to allow soft upper-body nods/turns, then adjust flexibility. Existing chest, pelvis, limb, IK and motion controls remain available. The UV window uses one Main body card instead of separate head/torso cards. Save the model to carry its body settings, textures and protection groups together. Switching structure changes the body UV layout; prepare a new painting folder for that structure. `examples/models/PlushModel.json` is an unpainted starting model. Your existing separate-head models retain their original geometry and UVs.
+
 ## 6. Paint and replace textures
 
 In **Character model → Shape details**, Section profile adjusts top/middle/bottom width and depth independently. Front / back profile adjusts the contours and curve. Local projection adds an adjustable face or muzzle. Tapering changes the actual mesh, not only the joints. Cone and Pyramid are additional head bases. Try TaperedCylinder, MuzzleHead, LongMuzzleHead, BarrelBody and CurvedLimbs in `examples/models`. Set the shape before painting: adaptation after shape edits may need manual touch-up.
@@ -146,4 +150,4 @@ Autosave is `user_data/studio3d_motion.json`; local preferences are `user_data/u
 - **An edit looks delayed:** wait for the current calculation to finish before judging physics. Pause playback while making precise changes.
 - **The interface is too small:** use A＋; scroll the side panel or widen it if controls no longer fit.
 
-Arbitrary external mesh import, additional bones and attached accessory models are not currently available. See [Development guide](DEVELOPMENT.md) for source setup and release building.
+Ear attachments currently follow the head rigidly. Arbitrary external mesh import, additional bones and independent ear physics are not currently available. See [Development guide](DEVELOPMENT.md) for source setup and release building.

@@ -17,6 +17,15 @@ guide for the current interface language. All three guides cover the same workfl
 
 [Development and release guide](docs/DEVELOPMENT.md)
 
+[Current feature inventory / 当前功能清单](docs/FEATURES.zh-CN.md) ·
+[Iteration reports / 迭代报告](docs/ITERATION-REPORT.zh-CN.md)
+
+The source branch now also includes human/cat/long ears with linked editing and
+their own texture cards, and a seamless mascot body with five shape controls,
+soft upper-body movement and one body UV. Try `examples/models/PlushModel.json`.
+These additions postdate the packaged v0.2.0 release; use the current source to
+try them. Near-contact chin/chest outlines have also been refined.
+
 Version 0.2.0 adds tapered profiles and projecting faces, portable
 pose layers, regional/timed blending, staged game actions and once/hold playback.
 Try **Motion examples…** for editable recipes, or **Character model → Load model**

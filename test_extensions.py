@@ -5,6 +5,180 @@ import numpy as np
 import engine as E,model_data as M,rounded_scene as S
 
 class ExtensionTests(unittest.TestCase):
+ def plush_model(self):
+  return M.normalize({'structure':'plush',**{limb:{'upper':3,'lower':3,'gap':0} for limb in E.LIMBS}})
+
+ def test_plush_structure_validates_and_leaves_old_models_unchanged(self):
+  import plush as P
+  self.assertNotIn('structure',M.normalize());self.assertNotIn('body',M.normalize())
+  model=self.plush_model();self.assertEqual(model['body'],P.DEFAULT)
+  for bad in ({'structure':'other'},{'structure':'plush','body':[]},{'structure':'plush','body':{'depth':float('nan')}},{'structure':'plush','body':{'head_link':1}}):
+   with self.assertRaises(ValueError):M.normalize(bad)
+  model=M.normalize({'structure':'plush','body':{'height':100,'upper_width':-10}})
+  self.assertEqual(model['body']['height'],46);self.assertEqual(model['body']['upper_width'],12)
+
+ def test_plush_body_is_one_closed_continuous_surface_during_deformation(self):
+  import plush as P
+  model=self.plush_model()
+  for motion in ({},{'lean':65,'chest_yaw':45,'pelvis_yaw':-30},{'head_yaw':55,'head_pitch':-25}):
+   model['body']['head_link']=False;pose={'_model':model,**motion};triangles=S.pose_meshes(pose)[1]
+   self.assertFalse(any(p in ('head','torso') for p,f,v,uv in triangles))
+   edges={}
+   for part,face,points,uv in triangles:
+    if part!='body':continue
+    self.assertTrue(np.isfinite(points).all())
+    for a,b in ((0,1),(1,2),(2,0)):
+     edge=tuple(sorted((tuple(np.round(points[a],7)),tuple(np.round(points[b],7)))))
+     if edge[0]!=edge[1]:edges[edge]=edges.get(edge,0)+1
+   self.assertTrue(edges);self.assertEqual(set(edges.values()),{2})
+
+ def test_plush_width_and_depth_change_front_and_side_without_a_neck(self):
+  import plush as P
+  model=self.plush_model();base=P.mesh(model)[0]
+  cloud=np.concatenate([v for f,v in base]);width=np.ptp(cloud[:,0]);depth=np.ptp(cloud[:,2])
+  model['body'].update(upper_width=34,belly_width=36,depth=28)
+  cloud=np.concatenate([v for f,v in P.mesh(model)[0]])
+  self.assertGreater(np.ptp(cloud[:,0]),width);self.assertGreater(np.ptp(cloud[:,2]),depth)
+  widths=[P.profile(model['body'],t)[0] for t in (.45,.55,.65,.75,.85)]
+  self.assertGreater(min(widths),max(widths)*.85)
+
+ def test_plush_head_link_and_soft_upper_turn_are_explicit(self):
+  model=self.plush_model();plain={'_model':model};turned=dict(plain,head_yaw=60,head_pitch=30)
+  def body(q):return np.concatenate([v for p,f,v,uv in S.pose_meshes(q)[1] if p=='body'])
+  np.testing.assert_allclose(body(plain),body(turned))
+  model['body']['head_link']=False
+  a=body(plain);b=body(turned);self.assertGreater(np.max(abs(a-b)),1)
+  import plush as P
+  np.testing.assert_allclose(P.deform(np.array([[0,0,0]]),plain),P.deform(np.array([[0,0,0]]),turned))
+
+ def test_plush_uv_resources_export_protection_and_portable_model_roundtrip(self):
+  import uv_assets as U,attachments as A
+  model=self.plush_model();A.add_pair(model,'cat');bundle=S.assets({'model':model})
+  self.assertEqual(U.parts(bundle)[0],'body');self.assertNotIn('head',bundle['textures']);self.assertNotIn('torso',bundle['textures'])
+  x,y,w,h=bundle['textures']['body']['layout']['rects']['front'];im=U.texture_image(bundle,'body');im.putpixel((x+w//2,y+5),(1,2,3,255))
+  bundle['textures']['body'].update(png=U.encode(im),protected_groups=[{'face':'front','pixels':[[x+w//2,y+5]],'angle':35}])
+  with tempfile.TemporaryDirectory() as td:
+   path=Path(td)/'body.json';M.save(model,path,bundle);restored=M.load_resource(path);self.assertEqual(restored['assets3d'],bundle)
+   U.export_pack(bundle,Path(td)/'uv');candidate=copy.deepcopy(bundle);U.import_pack(candidate,Path(td)/'uv')
+   self.assertEqual(U.texture_image(candidate,'body').tobytes(),im.tobytes())
+   q={'_model':model,'_assets3d':bundle,'chest_yaw':20,'head_yaw':30};self.assertEqual(S.render(q).shape,(64,64,4))
+
+ def test_plush_fast_ik_and_ground_cloud_match_full_render_geometry(self):
+  import attachments as A
+  model=self.plush_model();A.add_pair(model,'cat')
+  for kind in ('stand','walk','run','jump','bow','roll'):
+   p=E.new_project(kind);p.update(model=model,seconds=.5,fps=8)
+   for q in E.authored(p):
+    g,j,chains,limbs,torso,head=S.geometry(q)
+    for limb in E.LIMBS:np.testing.assert_allclose(S.limb_chain(q,limb),chains[limb])
+    bottom=min(v[:,1].min() for part,face,v,uv in S.pose_meshes(q)[1])
+    self.assertAlmostEqual(S.ground_y(q),bottom,places=6)
+
+ def test_ear_depth_thickens_root_without_thickening_tip_or_moving_uvs(self):
+  import attachments as A
+  for preset in A.PRESETS:
+   for depth in (.5,8):
+    model=M.normalize();A.add_pair(model,preset)
+    for item in model['attachments']:item['thickness']=depth
+    q={'_model':model};head=S.geometry(q)[-1];_,triangles,bundle=S.pose_meshes(q)
+    for item in model['attachments']:
+     origin,rotation=A.frame(item,model,head)
+     actual=np.concatenate([(v-origin)@rotation for p,f,v,uv in triangles if p==item['id']])
+     tip=actual[np.isclose(actual[:,1],item['height'])]
+     self.assertGreater(len(tip),0);np.testing.assert_allclose(tip[:,2],0,atol=1e-9)
+     if item['shape']=='pointed':
+      root=actual[np.isclose(actual[:,1],0)];self.assertAlmostEqual(np.ptp(root[:,2]),depth)
+     mesh,bounds=A.mesh(item);net=bundle['textures'][item['id']]['layout']
+     actual_uv=[uv for p,f,v,uv in triangles if p==item['id']]
+     for (face,local),uv in zip(mesh,actual_uv):
+      chart=local.copy()
+      if item['id'].endswith('R'):
+       chart[:,0]*=-1;face={'left':'right','right':'left'}.get(face,face)
+      np.testing.assert_array_equal(uv,S.uv_tri(face,chart,bounds,net))
+
+ def test_ear_presets_are_closed_mirrored_meshes_and_follow_head(self):
+  import attachments as A,uv_assets as U
+  for preset in A.PRESETS:
+   model=M.normalize();A.add_pair(model,preset);model=M.normalize(model)
+   q={'_model':model};head=S.geometry(q)[-1];bundle=S.assets({'model':model})
+   self.assertEqual(U.parts(bundle)[-2:],('ear1L','ear1R'))
+   self.assertEqual(bundle['shared_textures']['ear1R'],'ear1L')
+   _,triangles,_=S.pose_meshes(q)
+   points={p:np.concatenate([v for part,f,v,uv in triangles if part==p]) for p in ('ear1L','ear1R')}
+   def cloud(a):return np.unique(np.round(a,7),axis=0)
+   np.testing.assert_allclose(cloud(points['ear1L']*[-1,1,1]),cloud(points['ear1R']))
+   # The same PNG maps to anatomically mirrored texels, including side faces.
+   for face in U.FACES:
+    left=np.concatenate([np.column_stack((v*[-1,1,1],uv)) for part,f,v,uv in triangles if part=='ear1L' and f==face])
+    right=np.concatenate([np.column_stack((v,uv)) for part,f,v,uv in triangles if part=='ear1R' and f==face])
+    np.testing.assert_allclose(cloud(left),cloud(right),atol=1e-7)
+   for item in model['attachments']:
+    mesh,bounds=A.mesh(item)
+    for face,v in mesh:
+     self.assertTrue(np.isfinite(v).all())
+    origin,rot=A.frame(item,model,head)
+    moved=dict(q,head_yaw=65,head_pitch=-20,chest_yaw=30)
+    head2=S.geometry(moved)[-1];origin2,rot2=A.frame(item,model,head2)
+    np.testing.assert_allclose((origin-head[0])@head[1],(origin2-head2[0])@head2[1],atol=1e-8)
+    np.testing.assert_allclose(head[1].T@rot,head2[1].T@rot2,atol=1e-8)
+   self.assertAlmostEqual(S.ground_y(q),S.ground_y({'_model':M.normalize()}))
+
+ def test_ear_model_roundtrip_embeds_shared_texture_and_protection(self):
+  import attachments as A,uv_assets as U
+  model=M.normalize();A.add_pair(model,'cat');bundle=S.assets({'model':model})
+  image=U.texture_image(bundle,'ear1L');x,y,w,h=bundle['textures']['ear1L']['layout']['rects']['front']
+  image.putpixel((x,y),(12,34,56,255));bundle['textures']['ear1L'].update(png=U.encode(image),protected_groups=[{'pixels':[[x,y],[x+1,y]],'angle':60}])
+  U.apply_shared(bundle)
+  with tempfile.TemporaryDirectory() as folder:
+   path=Path(folder)/'ears.json';M.save(model,path,bundle);restored=M.load_resource(path)
+   self.assertEqual(restored['model'],model)
+   self.assertEqual(restored['assets3d'],bundle)
+   self.assertEqual(U.texture_image(restored['assets3d'],'ear1R').getpixel((x,y)),(12,34,56,255))
+   q={'_model':model,'_assets3d':restored['assets3d'],'head_yaw':35}
+   self.assertEqual(S.render(q).shape,(64,64,4))
+
+ def test_ear_uv_pack_adapts_old_painting_workspace_and_removes_stale_parts(self):
+  import attachments as A,uv_assets as U,paint_workspace as W
+  old=S.assets({});model=M.normalize();A.add_pair(model,'long');new=S.assets({'model':model,'assets3d':old})
+  with tempfile.TemporaryDirectory() as folder:
+   path=Path(folder)/'old';workspace=W.prepare(old,path)
+   self.assertFalse(workspace.compatible(new,'ear1L'))
+   with self.assertRaises(ValueError):U.import_pack(new,path)
+   workspace=W.adapted_folder(new,path);self.assertTrue(workspace.compatible(new,'ear1L'))
+   self.assertTrue((workspace.folder/'ear1R_Guide.png').is_file())
+   U.import_pack(new,workspace.folder)
+   self.assertEqual(U.texture_match(new,'ear1R',workspace.folder/'ear1L.png'),'matched')
+   shifted=copy.deepcopy(model);shifted['attachments'][0].update(x=.9,lean=30)
+   updated=S.assets({'model':shifted,'assets3d':new})
+   self.assertEqual(U.surface_record(updated,'ear1L'),U.surface_record(new,'ear1L'))
+   cleaned=S.assets({'model':M.normalize(),'assets3d':new})
+   self.assertEqual(set(cleaned['textures']),set(U.PARTS))
+   self.assertNotIn('ear1R',cleaned.get('shared_textures',{}))
+
+ def test_ear_depth_sort_hides_far_surface_inside_head(self):
+  import attachments as A,uv_assets as U
+  model=M.normalize();A.add_pair(model,'human');model['attachments']=model['attachments'][:1]
+  item=model['attachments'][0];item.update(x=0,y=-.25,width=3,height=3,z=-1)
+  def red_pixels():
+   bundle=S.assets({'model':model});image=U.texture_image(bundle,'ear1L');image.paste((255,0,0,255),(0,0,*image.size));bundle['textures']['ear1L']['png']=U.encode(image)
+   a=S.render({'_model':model,'_assets3d':bundle},{'outline':False,'gaps':False})
+   return np.count_nonzero(np.all(a[:,:,:3]==(255,0,0),axis=2))
+  self.assertEqual(red_pixels(),0)
+  item['z']=1;self.assertGreater(red_pixels(),2)
+
+ def test_ear_validation_rejects_paths_duplicates_nonfinite_and_bad_parent(self):
+  import attachments as A
+  for bad in (dict(id='../ear1L'),dict(id='ear1L',parent='unknown'),dict(id='ear1L',width=float('nan'))):
+   with self.assertRaises(ValueError):M.normalize({'attachments':[bad]})
+  item=dict(A.PRESETS['cat'],id='ear1L')
+  with self.assertRaises(ValueError):M.normalize({'attachments':[item,item]})
+  self.assertNotIn('attachments',M.normalize({'attachments':[]}))
+  plain={'_model':M.normalize()};before=S.pose_meshes(plain)[1]
+  model=M.normalize();A.add_pair(model,'cat');after=[t for t in S.pose_meshes({'_model':model})[1] if not t[0].startswith('ear')]
+  self.assertEqual(len(before),len(after))
+  for a,b in zip(before,after):
+   self.assertEqual(a[:2],b[:2]);np.testing.assert_array_equal(a[2],b[2]);np.testing.assert_array_equal(a[3],b[3])
+
  def test_signed_bend_nod_and_stretch_change_actual_direction(self):
   for kind,key,channel,amount in (('bow','deep','lean',35),('nod','amp','head_pitch',.8),('stretch','back','lean',20),('shake','amp','head_yaw',3)):
    e=E.entry(kind);e['mode']='once';e['params'][key]=amount;forward=E.samples(e,17)

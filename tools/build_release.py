@@ -7,7 +7,7 @@ from importlib.metadata import distribution
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
-MODULES=('app','core3d','data_paths','engine','fellow','gaitdata','i18n','layers',
+MODULES=('plush','plush_editor','attachments','attachment_editor','app','core3d','data_paths','engine','fellow','gaitdata','i18n','layers',
  'localized_ui','model_data','model_editor','outline_color','pixel_protection',
  'pixel_ui','preview_worker','protection_editor','rig','rounded_scene','studio_ui','paint_workspace',
  'texture_editor','uv_assets','uv_i18n','uv_panel_legacy','game_actions','motion_timing','motion_resources','sculpt')

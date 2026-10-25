@@ -3,7 +3,7 @@ import copy,json,math
 import sculpt
 from pathlib import Path
 BUILTIN_MODELS=('DefaultModel.json','CustomModel.json','TaperedCylinder.json','MuzzleHead.json',
- 'LongMuzzleHead.json','ConeHead.json','PyramidHead.json','BarrelBody.json','CurvedLimbs.json')
+ 'LongMuzzleHead.json','ConeHead.json','PyramidHead.json','BarrelBody.json','CurvedLimbs.json','PlushModel.json')
 DEFAULT={'version':1,'torso':{'height':1.,'shoulder':1.,'waist':1.,'hip':1.},'head':{'size':1.,'gap':0.}}
 for key in ('armL','armR','legL','legR'):
     DEFAULT[key]={'upper':5.8,'lower':5.8,'thickness':1.,'spread':0.,'vertical':0.,'gap':0.,'connected':True}
@@ -46,6 +46,15 @@ def normalize(value=None):
             if not isinstance(v,(int,float)) or isinstance(v,bool) or not math.isfinite(v):raise ValueError('Invalid sculpt parameter: '+key)
             v=max(lo,min(hi,float(v)))
             if v!=default:result[part][key]=v
+    structure=value.get('structure','humanoid')
+    if structure not in ('humanoid','plush'):raise ValueError('Invalid body structure')
+    if structure=='plush':
+        import plush
+        result.update(structure='plush',body=plush.normalize(value.get('body',{})))
+    if value.get('attachments'):
+        import attachments as A
+        result['attachments']=A.normalize(value['attachments'])
+    elif 'attachments' in value and not isinstance(value['attachments'],list):raise ValueError('Invalid attachments')
     return result
 
 def save(model,path,assets=None):
@@ -63,7 +72,7 @@ def load_resource(path):
         import rounded_scene as S,uv_assets as U
         if not isinstance(data['assets3d'],dict):raise ValueError('Invalid model textures')
         result['assets3d']=S.assets({'model':result['model'],'assets3d':data['assets3d']})
-        for part in U.PARTS:U.texture_image(result['assets3d'],part).load()
+        for part in U.parts(result['assets3d']):U.texture_image(result['assets3d'],part).load()
     return result
 
 def load(path):return load_resource(path)['model']

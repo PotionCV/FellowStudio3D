@@ -313,7 +313,7 @@ class Studio3DTests(unittest.TestCase):
   # Steep depth slopes used to place the line on the background, because
   # neighboring depths were compared instead of depths at the same pixel.
   for front,back in ((arm,torso),(torso,arm)):
-   triangles=quad(back,(16,16,48,48),lambda x,y:3*x)+quad(front,(25,25,35,35),lambda x,y:3*x+4)
+   triangles=quad(back,(16,16,48,48),lambda x,y:3*x)+quad(front,(25,25,35,35),lambda x,y:3*x+6)
    image,owner=draw(triangles);plain,plain_owner=raster(triangles,textures,(0,0),{**settings,'outline':False})
    np.testing.assert_array_equal(owner,plain_owner)
    for y,x in ((25,30),(35,30),(30,25),(30,35)):
@@ -323,12 +323,35 @@ class Studio3DTests(unittest.TestCase):
    np.testing.assert_array_equal(image,reverse);np.testing.assert_array_equal(owner,reverse_owner)
   # Near-contact rims should blend, including at a grazing angle where a
   # large camera-depth difference still means a tiny normal separation.
-  for slope,gap,has_line in ((0,.2,False),(0,.7,False),(0,2,True),(3,1,False),(3,4,True)):
+  for slope,gap,has_line in ((0,.2,False),(0,.7,False),(0,1.4,False),(0,2,True),(3,1,False),(3,4,False),(3,6,True)):
    triangles=quad(torso,(16,16,48,48),lambda x,y:slope*x)+quad(arm,(25,25,35,35),lambda x,y:slope*x+gap)
    image,owner=draw(triangles)
    for y,x in ((25,30),(35,30),(30,25),(30,35)):
     self.assertEqual(owner[y,x],U.PARTS.index(arm))
     self.assertEqual(tuple(image[y,x]),(32,32,32,255) if has_line else tuple(textures[arm][0,0]))
+ def test_painted_character_chin_blends_at_contact_but_detached_head_keeps_outline(self):
+  import model_data as M,core3d as C
+  from unittest.mock import patch
+  p=E.new_project();p.update(M.load_resource(ROOT/'examples/models/CustomModel.json'))
+  pose=E.poses(p)[0];settings={**p['render'],'outline_color':'#13579b'};line=np.array((19,87,155,255),np.uint8)
+  total=0
+  for cam in ((0,0),(45,0),(90,0),(45,30)):
+   with patch.object(C,'CONTACT_DISTANCE',.75):old=E.rgba(pose,settings,cam)
+   with patch.object(C,'finish_raster',wraps=C.finish_raster) as finish:
+    new=E.rgba(pose,settings,cam)
+   owner=finish.call_args.args[1];head=U.PARTS.index('head');torso=U.PARTS.index('torso')
+   chin=(owner==head)&(np.roll(owner,-1,axis=0)==torso)
+   removed=chin&np.all(old==line,axis=2)&~np.all(new==line,axis=2)
+   total+=int(removed.sum())
+   plain=E.rgba(pose,{**settings,'outline':False,'gaps':False},cam)
+   np.testing.assert_array_equal(new[removed],plain[removed])
+   self.assertTrue(np.any(np.all(new==line,axis=2)&(owner<0)))
+  self.assertGreater(total,8)
+  # A real gap below the chin is an outer silhouette, which remains 1px.
+  p['model']['head']['gap']+=4;detached=E.poses(p)[0]
+  with patch.object(C,'finish_raster',wraps=C.finish_raster) as finish:image=E.rgba(detached,settings)
+  owner=finish.call_args.args[1];below=(owner<0)&(np.roll(owner,1,axis=0)==U.PARTS.index('head'))
+  self.assertTrue(np.any(below&np.all(image==line,axis=2)))
  def painted_pixel_face(self):
   p=E.new_project();p['model']={'head':{'size':.8}};bundle=S.assets(p)
   im=U.texture_image(bundle,'head');x,y,w,h=bundle['textures']['head']['layout']['rects']['front']

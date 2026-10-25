@@ -19,3 +19,6 @@ Shape details exposes profile, contour and local projection parameters. Linked
 left/right curve edits are mirrored; other shape dimensions are shared.
 Older shape-only presets are still accepted without replacing current textures.
 For an entire neutral-pose project, use Open on ../characters/CustomCharacter.json.
+
+
+`PlushModel.json` is an unpainted seamless mascot body, with one body UV and short limbs. Choose Body structure in the model editor to switch between the legacy separate head/body and a continuous bag-shaped body.

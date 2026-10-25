@@ -214,7 +214,11 @@ def _model_geometry(key):
     head=HEAD_M if m['head']['size']==1 else np.array(Image.fromarray((HEAD_M*255).astype('uint8')).resize((max(4,round(HEAD_M.shape[1]*m['head']['size'])),max(4,round(HEAD_M.shape[0]*m['head']['size']))),Image.Resampling.NEAREST))>0
     shoulder_y=pivot_y+(SHO['L'][1]-pivot_y)*height
     head_c=(HEAD_C[0],shoulder_y+(HEAD_C[1]-SHO['L'][1])-m['head']['gap']-(m['head']['size']-1)*7)
-    return {'sho':sho,'hip':hip,'torso_c':(BODY_X,pivot_y+(TORSO_C[1]-pivot_y)*height),'head_c':head_c,'neck_y':shoulder_y-2,'torso_mask':torso,'head_mask':head,'limbs':limbs}
+    result={'sho':sho,'hip':hip,'torso_c':(BODY_X,pivot_y+(TORSO_C[1]-pivot_y)*height),'head_c':head_c,'neck_y':shoulder_y-2,'torso_mask':torso,'head_mask':head,'limbs':limbs}
+    if m.get('structure')=='plush':
+        import plush
+        result=plush.rig(m,result)
+    return result
 
 def model_geometry(pose):
     return _model_geometry(_model_json.dumps(pose.get('_model',{}),sort_keys=True))

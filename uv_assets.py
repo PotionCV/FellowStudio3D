@@ -9,6 +9,19 @@ MODEL=dict(shoulder=1.,waist=1.,hip=1.,height=1.,head=1.,headGap=0.,armUpper=6.,
 LIMITS=dict(shoulder=(.65,1.6),waist=(.5,1.5),hip=(.65,1.5),height=(.7,1.3),head=(.65,1.5),headGap=(-4,6),armUpper=(3,10),armLower=(3,10),legUpper=(3,10),legLower=(3,10),armWidth=(3,7),legWidth=(3,7),armGap=(0,4))
 FACES=('front','right','back','left','top','bottom')
 GLYPHS={'F':('111','100','110','100','100'),'R':('110','101','110','101','101'),'B':('110','101','110','101','110'),'L':('100','100','100','100','111'),'T':('111','010','010','010','010'),'D':('110','101','101','101','110')}
+def parts(project):
+ base=('body',)+PARTS[2:] if project.get('model',{}).get('structure')=='plush' else PARTS
+ return base+tuple(item['id'] for item in project.get('model',{}).get('attachments',[]))
+
+def color(part):return COLORS.get(part,COLORS['head'])
+
+def part_name(part,project):
+ if part=='body':return '主体'
+ if part in PARTS:
+  return dict(zip(PARTS,('头部','躯干','左上臂','左前臂','右上臂','右前臂','左大腿','左小腿','右大腿','右小腿')))[part]
+ import attachments as A
+ return A.name(part,project['model'])
+
 def dimensions(model):
  m={**MODEL,**model}
  return {'head':(15*m['head'],14*m['head'],14*m['head']),'torso':(12*max(m['shoulder'],m['waist'],m['hip']),14*m['height'],7),
@@ -23,7 +36,7 @@ def layout(dims):
 def template(part,net,guide=False):
  im=Image.new('RGBA',net['size']);draw=ImageDraw.Draw(im)
  for face,(x,y,w,h) in net['rects'].items():
-  draw.rectangle((x,y,x+w-1,y+h-1),fill=COLORS[part]+(255,))
+  draw.rectangle((x,y,x+w-1,y+h-1),fill=color(part)+(255,))
   if guide:
    draw.rectangle((x,y,x+w-1,y+h-1),outline=(52,45,40,255))
    letter='D' if face=='bottom' else face[:1].upper();gx=x+(w-3)//2;gy=y+(h-5)//2
@@ -48,6 +61,10 @@ def surface_record(project,part):
  if isinstance(model.get('head'),dict):
   import model_data as M
   model=M.normalize(model)
+  if part=='body':return {'layout':project['textures'][part]['layout'],'geometry':{k:v for k,v in model['body'].items() if k not in ('head_link','flex')},'mapping':2}
+  if part not in PARTS:
+   import attachments as A
+   return {'layout':project['textures'][part]['layout'],'geometry':A.surface(A.record(model,part)),'mapping':2}
   if part=='head':geometry={k:model['head'][k] for k in ('shape','size')}
   elif part=='torso':
    geometry=dict(model['torso'])
@@ -125,9 +142,9 @@ def repack(project):
 
 def export_pack(project,folder):
  folder=Path(folder);folder.mkdir(parents=True,exist_ok=True)
- names=[f'{p}{suffix}.png' for p in PARTS for suffix in ('','_Guide')]+['UV_Model.json','READ_ME.txt']
+ names=[f'{p}{suffix}.png' for p in parts(project) for suffix in ('','_Guide')]+['UV_Model.json','READ_ME.txt']
  if any((folder/name).exists() for name in names):raise FileExistsError('UV files already exist here. Choose an empty folder.')
- for part in PARTS:
+ for part in parts(project):
   save_painting(project,part,folder/f'{part}.png');save_painting(project,part,folder/f'{part}_Guide.png',True)
  (folder/'UV_Model.json').write_text(json.dumps({'type':'FellowStudio3D_UV','mapping_version':2,'model':project['model'],'shared_textures':project.get('shared_textures',{}),'textures':{p:{'layout':r['layout'],'protected_groups':r.get('protected_groups',[])} for p,r in project['textures'].items()}},indent=2),encoding='utf-8')
  (folder/'READ_ME.txt').write_text('Paint the PART.png files, preserving canvas size and face positions. PART_Guide.png is a separate guide: F=front, B=back, L=left, R=right, T=top, D=bottom (down). Left/right on the sheet refer to character sides. Keep UV_Model.json next to the images. Import the folder or drop one PART.png onto its matching card. Avoid smoothing/resizing. Alpha is supported.\n',encoding='utf-8')
@@ -139,8 +156,9 @@ def import_pack(project,folder):
  if manifest.get('mapping_version') not in (None,2):raise ValueError('Unsupported UV mapping version')
  candidate=copy.deepcopy(project)
  # Never silently reinterpret old UVs using a newly generated net.
- if any(surface_record(manifest,p)!=surface_record(project,p) for p in PARTS):raise ValueError('This UV pack belongs to different model surfaces. Restore the matching appearance or adapt the painting files first.')
- for part in PARTS:
+ if set(parts(manifest))!=set(parts(project)):raise ValueError('UV attachments do not match this model. Create adapted painting files first.')
+ if any(surface_record(manifest,p)!=surface_record(project,p) for p in parts(project)):raise ValueError('This UV pack belongs to different model surfaces. Restore the matching appearance or adapt the painting files first.')
+ for part in parts(project):
   if manifest['textures'][part]['layout']!=json.loads(json.dumps(project['textures'][part]['layout'])):raise ValueError('UV layout does not match this project')
   import_texture(candidate,part,folder/f'{part}.png')
   from pixel_protection import valid_groups
@@ -156,7 +174,7 @@ def apply_shared(project):
  """Link only anatomical counterparts; never recolor unpainted defaults."""
  links=project.get('shared_textures',{})
  if not isinstance(links,dict):raise ValueError('Invalid texture sharing links')
- valid={target:source for target,source in links.items() if target.endswith('R') and source==target[:-1]+'L' and target in PARTS}
+ valid={target:source for target,source in links.items() if target.endswith('R') and source==target[:-1]+'L' and target in parts(project) and source in parts(project)}
  from pixel_protection import resize_groups
  for target,source in valid.items():
   a=project['textures'][source];b=project['textures'][target]

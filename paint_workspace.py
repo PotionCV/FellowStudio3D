@@ -10,16 +10,16 @@ class PaintWorkspace:
   if self.manifest.get('type')!='FellowStudio3D_UV':raise ValueError('Choose a FellowStudio3D painting folder')
   if self.manifest.get('mapping_version') not in (None,2):raise ValueError('Unsupported UV mapping version')
   self.seen={};self.pending={};self.attempts={};self.states={}
-  for part in U.PARTS:self.seen[part]=self.stamp(part)
+  for part in U.parts(self.manifest):self.seen[part]=self.stamp(part)
  def stamp(self,part):
   try:
    s=(self.folder/f'{part}.png').stat();return s.st_mtime_ns,s.st_size
   except OSError:return None
  def compatible(self,bundle,part):
-  return U.surface_record(self.manifest,part)==U.surface_record(bundle,part)
+  return part in self.manifest.get('textures',{}) and U.surface_record(self.manifest,part)==U.surface_record(bundle,part)
  def poll(self,bundle,force=False,skip=()):
   candidate=copy.deepcopy(bundle);changed=False;self.states={}
-  for part in U.PARTS:
+  for part in U.parts(bundle):
    if part in skip:self.states[part]='external';continue
    if part in bundle.get('shared_textures',{}):self.states[part]='shared';continue
    if not self.compatible(bundle,part):self.states[part]='mapping';continue
@@ -43,7 +43,7 @@ def prepare(bundle,folder):
  folder=Path(folder)
  if (folder/'UV_Model.json').exists():
   workspace=PaintWorkspace(folder)
-  if not all(workspace.compatible(bundle,p) for p in U.PARTS):raise ValueError('This painting folder uses another model. Prepare a new folder for the current appearance.')
+  if not all(workspace.compatible(bundle,p) for p in U.parts(bundle)):raise ValueError('This painting folder uses another model. Prepare a new folder for the current appearance.')
   return workspace
  U.export_pack(bundle,folder);return PaintWorkspace(folder)
 
@@ -52,7 +52,8 @@ def adapted_folder(bundle,old_folder,skip=()):
  candidate=copy.deepcopy(bundle)
  source={'model':workspace.manifest['model'],'textures':{p:{'layout':r['layout'],'png':None,'name':'Default'} for p,r in workspace.manifest['textures'].items()}}
  from PIL import Image
- for part in U.PARTS:
+ for part in U.parts(bundle):
+  if part not in source['textures']:continue
   if part in skip or part in candidate.get('shared_textures',{}):continue
   U.import_texture(source,part,old/f'{part}.png')
   image=U.texture_image(source,part)

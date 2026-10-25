@@ -1,0 +1,72 @@
+{
+  "type": "FellowStudioModel",
+  "version": 2,
+  "model": {
+    "version": 1,
+    "torso": {
+      "height": 1.0,
+      "shoulder": 1.0,
+      "waist": 1.0,
+      "hip": 1.0,
+      "shape": "tapered",
+      "pelvis_depth": 2.5,
+      "thickness": 1.15
+    },
+    "head": {
+      "size": 1.0,
+      "gap": 0.0,
+      "shape": "ellipsoid",
+      "depth": 0.0
+    },
+    "armL": {
+      "upper": 3.0,
+      "lower": 3.0,
+      "thickness": 1.0,
+      "spread": 0.0,
+      "vertical": 0.0,
+      "gap": -0.5,
+      "connected": true,
+      "shape": "capsule"
+    },
+    "armR": {
+      "upper": 3.0,
+      "lower": 3.0,
+      "thickness": 1.0,
+      "spread": 0.0,
+      "vertical": 0.0,
+      "gap": -0.5,
+      "connected": true,
+      "shape": "capsule"
+    },
+    "legL": {
+      "upper": 3.0,
+      "lower": 3.0,
+      "thickness": 1.0,
+      "spread": 0.0,
+      "vertical": 0.0,
+      "gap": -0.5,
+      "connected": true,
+      "shape": "capsule"
+    },
+    "legR": {
+      "upper": 3.0,
+      "lower": 3.0,
+      "thickness": 1.0,
+      "spread": 0.0,
+      "vertical": 0.0,
+      "gap": -0.5,
+      "connected": true,
+      "shape": "capsule"
+    },
+    "structure": "plush",
+    "body": {
+      "height": 38.0,
+      "upper_width": 25.0,
+      "belly_width": 28.0,
+      "bottom_width": 21.0,
+      "depth": 19.0,
+      "head_link": true,
+      "flex": 0.65
+    }
+  }
+}

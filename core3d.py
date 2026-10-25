@@ -196,6 +196,8 @@ def raster_reference(triangles,textures,cam,settings,selected=None,connections=N
   region[hit]=z[hit];rgb[y0:y1+1,x0:x1+1][hit]=color[hit];owner[y0:y1+1,x0:x1+1][hit]=U.PARTS.index(part)
  return finish_raster(rgb,owner,depth,cam,settings,selected,connections,pixel_shift,part_depth)
 
+CONTACT_DISTANCE=1.5
+
 def surface_depth_scale(layers):
  """Convert camera-depth separation to approximate surface-normal distance.
  Use one-sided slopes at silhouettes, never differences against empty pixels.
@@ -238,10 +240,10 @@ def finish_raster(rgb,owner,depth,cam,settings,selected=None,connections=None,pi
     a_next=neighbor_layers[np.maximum(owner,0),yy,xx]
     b_here=part_depth[np.maximum(shifted,0),yy,xx]
     # A tiny positive depth is not enough to warrant a line at 64x64.
-    # Allow .75 native units of contact tolerance, measured approximately
+    # Allow 1.5 native units of contact tolerance, measured approximately
     # along the hidden surface normal, so grazing angles do not amplify it.
     scale=normal_scale[np.maximum(shifted,0),yy,xx]
-    valid=boundary&~np.isfinite(a_next)&np.where(np.isfinite(b_here),depth>b_here+.75*scale,depth>other+.75)
+    valid=boundary&~np.isfinite(a_next)&np.where(np.isfinite(b_here),depth>b_here+CONTACT_DISTANCE*scale,depth>other+CONTACT_DISTANCE)
    else:
     valid=boundary&(depth>other+.05)
    if dx>0:valid[:,0]=False
@@ -312,9 +314,10 @@ def raster(triangles,textures,cam,settings,selected=None,connections=None,stable
  """Batch triangle coverage and depth reduction on the 64x64 pixel grid.
  Only rasterize each triangle's bounding box; no Python loop per triangle.
  """
+ part_names=settings.get('_parts',U.PARTS);head_parts=('head',)+tuple(settings.get('_head_children',()))
  n=64;depth=np.full((n,n),-np.inf);owner=np.full((n,n),-1,np.int16);rgb=np.zeros((n,n,4),np.uint8)
  if not triangles:return finish_raster(rgb,owner,depth,cam,settings,selected,connections)
- world=np.stack([t[2] for t in triangles]);uv=np.stack([t[3] for t in triangles]);parts=np.array([U.PARTS.index(t[0]) for t in triangles])
+ world=np.stack([t[2] for t in triangles]);uv=np.stack([t[3] for t in triangles]);parts=np.array([part_names.index(t[0]) for t in triangles])
  q=project(world.reshape(-1,3),*cam).reshape(-1,3,3)
  if pixel_shift is not None:q[:,:,:2]+=pixel_shift
  head_shift=np.zeros(2)
@@ -323,14 +326,14 @@ def raster(triangles,textures,cam,settings,selected=None,connections=None,stable
   if pixel_shift is not None:center[:2]+=pixel_shift
   shift=np.array((np.floor(center[0])+.5-center[0],np.floor(center[1]+.5)-center[1]))
   head_shift=shift
-  q[parts==U.PARTS.index('head'),:,:2]+=shift
+  q[np.isin(parts,[part_names.index(p) for p in head_parts]),:,:2]+=shift
  from pixel_protection import prepare,apply as apply_protection
  frames={}
  for part,data in (protection_context or {}).items():
   def project_frame(frame):
    origin,rotation=frame;points=project(np.array([origin,*[origin+rotation[:,axis] for axis in range(3)]]),*cam)
    if pixel_shift is not None:points[:,:2]+=pixel_shift
-   if part=='head':points[:,:2]+=head_shift
+   if part in head_parts:points[:,:2]+=head_shift
    return {'origin':points[0],'matrix':(points[1:]-points[0]).T}
   frames[part]={**data,**project_frame(data['frame'])}
   if 'group_frames' in data:frames[part]['reference_frames']=[project_frame(f) for f in data['group_frames']]
@@ -345,7 +348,7 @@ def raster(triangles,textures,cam,settings,selected=None,connections=None,stable
  inside=(w0>=-1e-7)&(w1>=-1e-7)&(w2>=-1e-7);ids=ids[inside];x=x[inside];y=y[inside];w0=w0[inside];w1=w1[inside];w2=w2[inside]
  if not len(ids):return finish_raster(rgb,owner,depth,cam,settings,selected,connections)
  z=w0*a[ids,2]+w1*b[ids,2]+w2*c[ids,2];coords=w0[:,None]*uv[ids,0]+w1[:,None]*uv[ids,1]+w2[:,None]*uv[ids,2];sample_parts=parts[ids];color=np.zeros((len(ids),4),np.uint8)
- for p,part in enumerate(U.PARTS):
+ for p,part in enumerate(part_names):
   mask=sample_parts==p
   if not mask.any():continue
   tex=textures[part];co=coords[mask];ix=np.clip(np.floor(co[:,0]+.5).astype(int),0,tex.shape[1]-1);iy=np.clip(np.floor(co[:,1]+.5).astype(int),0,tex.shape[0]-1);color[mask]=tex[iy,ix]
@@ -353,12 +356,12 @@ def raster(triangles,textures,cam,settings,selected=None,connections=None,stable
  opaque=color[:,3]>=128;pixel=(y*n+x)[opaque];z=z[opaque];color=color[opaque];sample_parts=sample_parts[opaque]
  part_depth=None
  if settings['outline'] or settings['gaps']:
-  part_depth=np.full((len(U.PARTS),n,n),-np.inf)
+  part_depth=np.full((len(part_names),n,n),-np.inf)
   np.maximum.at(part_depth.ravel(),sample_parts*n*n+pixel,z)
  np.maximum.at(depth.ravel(),pixel,z)
  # Resolve ties in source triangle order, matching the scalar depth renderer.
  near=z>=depth.ravel()[pixel]-1e-6;entry=np.arange(len(z));winner=np.full(n*n,len(z),int);np.minimum.at(winner,pixel[near],entry[near]);filled=winner<len(z)
  chosen=winner[filled];rgb.reshape(-1,4)[filled]=color[chosen];owner.ravel()[filled]=sample_parts[chosen]
- apply_protection(rgb,owner,patches,U.PARTS)
+ apply_protection(rgb,owner,patches,part_names)
  return finish_raster(rgb,owner,depth,cam,settings,selected,connections,pixel_shift,part_depth)
 

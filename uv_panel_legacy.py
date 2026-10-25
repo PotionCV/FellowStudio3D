@@ -120,11 +120,11 @@ class App(Root):
   self.button(self.content,'重载已替换贴图',self.reload_textures).pack(fill='x',padx=14,pady=4)
   self.hint('绘画 PNG 与参考线图分别导出。项目内嵌贴图，可独立保存。')
   self.cards=tk.Frame(self.content);self.cards.pack(fill='x',padx=8);self.cards.columnconfigure((0,1),weight=1,uniform='uvcards')
-  for i,part in enumerate(U.PARTS):self.texture_card(part,i)
+  for i,part in enumerate(U.parts(self.project)):self.texture_card(part,i)
   self.button(self.content,'恢复全部贴图',self.reset_textures).pack(fill='x',padx=14,pady=12)
  def texture_card(self,part,index):
   card=tk.Frame(self.cards,bg=INK,bd=0);card.grid(row=index//2,column=index%2,sticky='nsew',padx=5,pady=6);inside=tk.Frame(card,bg=PANEL);inside.pack(fill='both',expand=True,padx=4,pady=4)
-  self.label(inside,PART_NAMES[part],anchor='w',wrap=True).pack(fill='x',padx=8,pady=4)
+  self.label(inside,U.part_name(part,self.project),anchor='w',wrap=True).pack(fill='x',padx=8,pady=4)
   middle=tk.Frame(inside);middle.pack(fill='x',padx=8)
   image=self.checker(U.texture_image(self.project,part),(112,80));photo=ImageTk.PhotoImage(image,master=self);self.card_photos.append(photo)
   thumb=tk.Label(middle,image=photo,bg='#cbbba4',cursor='hand2');thumb.pack(pady=3);thumb.bind('<Button-1>',lambda e:self.inspect_uv(part))
@@ -159,7 +159,7 @@ class App(Root):
  def reset_textures(self):
   self.snapshot();self.project['textures']=U.create_textures(self.project['model']);self.links={};self.changed();self.populate()
  def inspect_uv(self,part):
-  dialog=tk.Toplevel(self);dialog.title(tr(PART_NAMES[part])+' · UV');dialog.transient(self);dialog.configure(bg=PANEL);dialog.geometry('760x700');dialog.minsize(500,400)
+  dialog=tk.Toplevel(self);dialog.title(tr(U.part_name(part,self.project))+' · UV');dialog.transient(self);dialog.configure(bg=PANEL);dialog.geometry('760x700');dialog.minsize(500,400)
   preview=tk.Canvas(dialog,bg=CELL,highlightthickness=0);preview.pack(fill='both',expand=True,padx=10,pady=10);guide=tk.BooleanVar(master=dialog,value=False)
   def draw(event=None):
    if not dialog.winfo_exists():return
@@ -177,7 +177,7 @@ class App(Root):
   folder=filedialog.askdirectory(parent=self,title=tr('导入整套 UV'))
   if not folder:return
   try:
-   candidate=copy.deepcopy(self.project);U.import_pack(candidate,folder);self.snapshot();self.project=candidate;self.links={p:str(Path(folder)/f'{p}.png') for p in U.PARTS};self.changed();self.populate()
+   candidate=copy.deepcopy(self.project);U.import_pack(candidate,folder);self.snapshot();self.project=candidate;self.links={p:str(Path(folder)/f'{p}.png') for p in U.parts(candidate)};self.changed();self.populate()
   except Exception as ex:self.error(str(ex))
  def reload_textures(self):
   if not self.links:self.status.set('所有贴图使用默认资源');return

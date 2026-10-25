@@ -3,6 +3,51 @@ from pathlib import Path
 import app,engine as E,uv_assets as U
 from pixel_ui import PixelButton
 class UITests(unittest.TestCase):
+ def test_plush_structure_panel_stages_applies_loads_and_exposes_one_body_uv(self):
+  import copy,plush_editor as PE,model_data as M
+  from pixel_ui import PixelScale
+  a=self.a;before=copy.deepcopy(a.project);a.edit_model();e=a.model_editor;PE.change(e,'plush');a.update()
+  self.assertEqual(a.project,before);self.assertEqual(e.part,'torso');self.assertFalse(e.part_buttons['head'].winfo_ismapped())
+  scales=[w for w in e.params.winfo_children() if isinstance(w,PixelScale)];self.assertEqual(len(scales),5)
+  scales[2].command(34);self.assertEqual(e.draft['body']['belly_width'],34)
+  path=Path(self.temp.name)/'plush.json';M.save(e.draft,path);self.assertEqual(M.load(path)['body']['belly_width'],34)
+  e.apply();a.update();self.assertEqual(a.project['model']['structure'],'plush')
+  a.edit_textures();e=a.texture_editor;a.update();self.assertEqual(len(e.card_photos),9);self.assertIn('body',e.project['textures']);self.assertNotIn('head',e.project['textures'])
+  d=e.inspect_uv('body');a.update();d.destroy();e.cancel()
+  a.edit_model();e=a.model_editor;self.assertEqual(e.part_buttons['torso'].text,'主体');PE.change(e,'humanoid');a.update()
+  self.assertTrue(e.part_buttons['head'].winfo_ismapped());e.cancel();self.assertEqual(a.project['model']['structure'],'plush')
+  a.undo();self.assertEqual(a.project,before)
+
+ def test_ear_editor_stages_mirroring_removal_and_dynamic_uv_cards(self):
+  import copy,attachment_editor as AE,attachments as A,model_data as M
+  a=self.a;before=copy.deepcopy(a.project)
+  a.edit_model();e=a.model_editor;e.select('head');AE.add(e,'cat');a.update()
+  self.assertEqual(a.project,before);self.assertEqual(len(e.draft['attachments']),2)
+  AE.set_value(e,'lean',-25)
+  self.assertEqual([p['lean'] for p in e.draft['attachments']],[-25,-25])
+  AE.set_link(e,False);AE.set_value(e,'height',8)
+  self.assertEqual([p['height'] for p in e.draft['attachments']],[8,5.5])
+  AE.set_link(e,True);self.assertEqual([p['height'] for p in e.draft['attachments']],[8,8])
+  e.apply();a.update();self.assertEqual(len(a.project['model']['attachments']),2)
+  a.edit_textures();e=a.texture_editor;a.update();self.assertEqual(len(e.card_photos),12)
+  self.assertEqual(e.project['shared_textures']['ear1R'],'ear1L')
+  e.set_shared('ear1R',False);self.assertNotIn('ear1R',e.project.get('shared_textures',{}))
+  image=U.texture_image(e.project,'ear1R');image.paste((13,24,35,255),(0,0,*image.size));path=Path(self.temp.name)/'ear.png';image.save(path)
+  e.replace_texture('ear1R',path);self.assertTrue(e.project['textures']['ear1R']['png'])
+  d=e.inspect_uv('ear1R');a.update();self.assertEqual(d.part,'ear1R');d.destroy();e.apply();a.update()
+  a.edit_model();e=a.model_editor;e.select('head');e.attachment_id='ear1L';AE.remove(e,False)
+  self.assertEqual([p['id'] for p in e.draft['attachments']],['ear1R'])
+  e.attachment_id='ear1R';AE.remove(e,True);self.assertNotIn('attachments',e.draft)
+  e.cancel();self.assertEqual(len(a.project['model']['attachments']),2)
+  a.undo();self.assertFalse(a.project['assets3d']['textures']['ear1R'].get('png'))
+  a.undo();self.assertEqual(a.project,before)
+  a.edit_model();e=a.model_editor;e.select('head');AE.add(e,'human');AE.remove(e,False);e.apply();a.update()
+  a.edit_textures();e=a.texture_editor;e.advanced.set(True);e.populate();a.update()
+  self.assertEqual(len(e.card_photos),11)
+  card=e.cards.grid_slaves(row=5,column=0)[0].winfo_children()[0]
+  self.assertFalse(any(isinstance(w,PixelButton) and w.text=='复制另一侧' for w in card.winfo_children()))
+  e.cancel()
+
  def test_signed_bow_squat_spread_and_joint_controls(self):
   from pixel_ui import PixelScale
   a=self.a;a.change_base('弯腰');a.update()

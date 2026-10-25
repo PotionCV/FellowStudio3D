@@ -46,8 +46,14 @@ the PNG text record and adjacent UV_Model.json checks consistent. Poll only stab
 file saves, retain last good data on failures, and never overwrite the old folder
 during adaptation. Sharing links are persisted in character assets and resolved
 only between supported counterparts. Painted legacy resources keep their existing
-independent sides. Additional meshes, attachment points and skeleton topology
-require a separate resource-design change; this painting workflow adds no new bones.
+independent sides. Optional `model.attachments` records currently describe rigid
+head-local ears (`attachments.py`); `uv_assets.parts(bundle)` supplies the dynamic
+part list, with the original body indices unchanged. Do not mutate `U.PARTS`.
+Attachment geometry is separate from placement in texture surface signatures.
+Both raster geometry and protection frames inherit the head's pixel-grid shift.
+Attachment PNGs and protection groups are embedded in the same portable assets.
+The model editor stages attachments and texture sharing independently. This adds
+no bones or ear physics; arbitrary imported meshes need a separate resource design.
 
 ## Clean archives
 
@@ -99,3 +105,8 @@ python tools/build_itch_release.py dist/FellowStudio3D-v0.2.0-Windows-x64.zip --
 
 This produces a flat archive with itch launch/manual actions and a new hash
 manifest. Only registered model and motion examples enter the release archive.
+
+
+## Continuous mascot structure
+
+`model.structure = "plush"` enables the validated `body` section in `plush.py`. Missing structure keeps legacy normalization unchanged. The internal head/torso rig controls remain available for animation compatibility, while the renderer emits one closed `body` surface. Body sockets derive from the continuous profile; both full geometry and the fast IK query use that same definition. Meshes are cached independently of pose. Batch deformation blends pelvis, chest and optional head transforms without duplicated join rings. Protected body motifs use an affine frame sampled at their own surface anchor. Ears follow the deformed surface rather than an unrelated head proxy. `uv_assets.parts()` is the source of truth for texture cards, export/import, sharing, and per-render owner indices. Body dimensions affect UV provenance; head/body linking and flexibility do not.

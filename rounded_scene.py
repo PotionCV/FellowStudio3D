@@ -5,6 +5,8 @@ import numpy as np
 from PIL import Image
 import fellow as F,model_data as MD,uv_assets as U
 import sculpt
+import attachments as A
+import plush as P
 from core3d import rx,ry,rz,project,raster
 PARTS=U.PARTS
 U.COLORS['head']=(170,146,206)
@@ -36,11 +38,12 @@ def limb_chain(pose,limb):
 
 @lru_cache(maxsize=2048)
 def _geometry(key,only=None):
- pose=json.loads(key)
+ pose=json.loads(key);model=MD.normalize(pose.get('_model'))
  g=dict(F.model_geometry(pose))
  # The legacy sprite's hip pair is centered at 31.75, while the body/grid is
  # centered at 31.5. Remove only that inherited bias; retain user asymmetry.
- hip_bias=((F.HIP['L'][0]+F.HIP['R'][0])/2-F.BODY_X)*MD.normalize(pose.get('_model'))['torso']['hip']
+ hip_bias=((F.HIP['L'][0]+F.HIP['R'][0])/2-F.BODY_X)*model['torso']['hip']
+ if P.active(model):hip_bias=0
  g['hip']={side:(point[0]-hip_bias,point[1]) for side,point in g['hip'].items()}
  hips=g['hip'];pivot=world(tuple((hips['L'][i]+hips['R'][i])/2 for i in (0,1)))
  roll=root_rotation(pose);spine=rx(pose.get('lean',0));offset=root_offset(pose)
@@ -66,7 +69,8 @@ def _geometry(key,only=None):
    parts[first]=(start,transform@rotation_for(direction(lat,sag)),lengths[0],r0,rm);parts[second]=(mid,transform@rotation_for(direction(lat+bend,sag+sbend)),lengths[1],rm,r1)
  neck=upper((F.BODY_X,g['neck_y']))
  head_parent=chest if pose.get('head_follow_chest',True) else roll@spine
- headrot=head_parent@ry(pose.get('head_yaw',0))@rx(pose.get('head_pitch',0))@rz(-pose.get('head',0))
+ linked=P.active(model) and model['body']['head_link']
+ headrot=chest if linked else head_parent@ry(pose.get('head_yaw',0))@rx(pose.get('head_pitch',0))@rz(-pose.get('head',0))
  headcenter=neck+headrot@(world(g['head_c'])-world((F.BODY_X,g['neck_y'])))
  off=F.sock(pose,'off_head','');headcenter+=np.array((off[0],-off[1],0))
  headcenter+=chest@np.array((0.,0.,MD.normalize(pose.get('_model'))['head']['depth']+pose.get('head_depth',0)))
@@ -144,7 +148,11 @@ def part_dimensions(model):
    limb=g['limbs'][kind+side];r0,r1=limb['radii'];rm=(r0+r1)/2
    for name,length,a,b in ((('upperArm' if kind=='arm' else 'thigh')+side,limb['lengths'][0],r0,rm),(('lowerArm' if kind=='arm' else 'shin')+side,limb['lengths'][1],rm,r1)):
     dims[name]=(max(a,b)*2,length+a+b,max(a,b)*2)
- return {part:sculpt.dimensions(dim,pose['_model']['head' if part=='head' else 'torso' if part=='torso' else ('arm' if 'Arm' in part else 'leg')+part[-1]]) for part,dim in dims.items()}
+ dims={part:sculpt.dimensions(dim,pose['_model']['head' if part=='head' else 'torso' if part=='torso' else ('arm' if 'Arm' in part else 'leg')+part[-1]]) for part,dim in dims.items()}
+ if P.active(pose['_model']):
+  dims.pop('head');dims.pop('torso');dims['body']=P.dimensions(pose['_model'])
+ dims.update({item['id']:A.dimensions(item) for item in pose['_model'].get('attachments',[])})
+ return dims
 
 def torso_rotation(pose,fraction):
  yaw=pose.get('pelvis_yaw',0)*(1-fraction)+pose.get('chest_yaw',0)*fraction
@@ -162,7 +170,7 @@ def torso_surface(local,g,pose):
 def _assets(model_key,bundle_key):
  model=json.loads(model_key);bundle=json.loads(bundle_key);new={p:{'layout':U.layout(d),'png':None,'name':'Default'} for p,d in part_dimensions(model).items()}
  old=bundle.get('textures',{})
- for part in PARTS:
+ for part in new:
   if part not in old:continue
   resource=old[part]
   if resource['layout']==new[part]['layout']:
@@ -178,7 +186,9 @@ def _assets(model_key,bundle_key):
   new[part].update(png=U.encode(target),name=resource.get('name','Painted'),provenance='adapted')
  result={'model':model,'textures':new}
  if bundle.get('shared_textures'):result['shared_textures']=bundle['shared_textures']
- elif not old:result['shared_textures']={p:p[:-1]+'L' for p in PARTS if p.endswith('R')}
+ elif not old:result['shared_textures']={p:p[:-1]+'L' for p in U.parts(result) if p.endswith('R') and p[:-1]+'L' in new}
+ for p in U.parts(result):
+  if p not in old and p.endswith('R') and p[:-1]+'L' in new:result.setdefault('shared_textures',{})[p]=p[:-1]+'L'
  return U.apply_shared(result)
 def assets(project):return copy.deepcopy(_assets(json.dumps(MD.normalize(project.get('model')),sort_keys=True),json.dumps(project.get('assets3d',{}),sort_keys=True)))
 def pose_meshes(pose):
@@ -193,11 +203,14 @@ def _ground_clouds(model_key):
  """Keep only unique local vertices: contact queries need no UVs or triangles."""
  model=json.loads(model_key);pose={'_model':model}
  g,j,chains,limbs,torso,head=geometry(pose);triangles=pose_meshes(pose)[1]
- frames={part:(values[0],values[1]) for part,values in limbs.items()};frames['head']=head
+ frames={part:(values[0],values[1]) for part,values in limbs.items()};frames['head']=head;frames.update({item['id']:A.frame(item,model,head,pose) for item in model.get('attachments',[])})
  result={}
+ if P.active(model):frames['body']=(P.bottom(g),np.eye(3))
  for part,(origin,rot) in frames.items():
+  if not any(p==part for p,f,v,uv in triangles):continue
   cloud=np.concatenate([v for p,f,v,uv in triangles if p==part])
   result[part]=np.unique(np.round((cloud-origin)@rot,10),axis=0)
+ if P.active(model):return result
  body=[v for p,f,v,uv in triangles if p=='torso']
  # The closed pelvis is appended after the continuous torso in _mesh_cache.
  pelvis_count=(4 if model['torso']['shape']=='box' else 12)*6 if model['torso']['pelvis_depth']>0 else 0
@@ -213,12 +226,13 @@ def ground_y(pose,parts=None):
  g,j,chains,limbs,torso,head=geometry(pose);bottom=float('inf')
  for part,cloud in clouds.items():
   if parts is not None and part not in parts:continue
-  if part=='torso':points=torso_surface(cloud,g,pose)
+  if part=='body':points=P.deform(cloud,pose,geometry=geometry(pose))
+  elif part=='torso':points=torso_surface(cloud,g,pose)
   elif part=='pelvis':
    origin=np.mean([chains['leg'+s][0] for s in ('L','R')],axis=0)
    rot=root_rotation(pose)@ry(pose.get('pelvis_yaw',0))@rz(-pose.get('pelvis',0));points=cloud@rot.T+origin
   else:
-   origin,rot=head if part=='head' else limbs[part][:2];points=cloud@rot.T+origin
+   origin,rot=head if part=='head' else (A.frame(A.record(model,part),model,head,pose) if part not in PARTS else limbs[part][:2]);points=cloud@rot.T+origin
   bottom=min(bottom,float(points[:,1].min()))
  return bottom
 
@@ -239,9 +253,27 @@ def _mesh_cache(key,layouts):
    chain_lengths=g['limbs'][section]['lengths'];offset=0 if part.startswith(('upper','thigh')) else chain_lengths[0]
    shaped=sculpt.deform(local,bounds,model[section],(-local[:,1]+offset)/sum(chain_lengths))
    triangles.append((part,face,shaped@rot.T+origin,uv_tri(face,chart,bounds,net)))
+ if P.active(model):
+  mesh,bounds=P.mesh(model);net=bundle['textures']['body']['layout']
+  shaped=P.deform(np.concatenate([v for f,v in mesh]),pose,geometry=(g,j,chains,limbs,torso,head)).reshape(-1,3,3)
+  for (face,local),deformed in zip(mesh,shaped):triangles.append(('body',face,deformed,uv_tri(face,local,bounds,net)))
+  for item in model.get('attachments',[]):
+   part=item['id'];net=bundle['textures'][part]['layout'];origin,rot=A.frame(item,model,head,pose);mesh,bounds=A.mesh(item)
+   for face,local in mesh:
+    chart=local.copy()
+    if part.endswith('R'):chart[:,0]*=-1;face={'left':'right','right':'left'}.get(face,face)
+    triangles.append((part,face,A.taper_depth(local,item)@rot.T+origin,uv_tri(face,chart,bounds,net)))
+  return j,triangles
  size=model['head']['size'];net=bundle['textures']['head']['layout'];origin,rot=head
  for face,local,uv in head_mesh(size,model['head']['shape']):
   x,y,w,h=net['rects'][face];coords=np.array((x,y))+uv*np.array((w-1,h-1));half=np.array((8.,7.5,7.5))*size;local=sculpt.deform(local,(-half,half),model['head']);triangles.append(('head',face,local@rot.T+origin,coords))
+ for item in model.get('attachments',[]):
+  part=item['id'];net=bundle['textures'][part]['layout'];origin,rot=A.frame(item,model,head,pose);mesh,bounds=A.mesh(item)
+  for face,local in mesh:
+   chart=local.copy()
+   if part.endswith('R'):
+    chart[:,0]*=-1;face={'left':'right','right':'left'}.get(face,face)
+   triangles.append((part,face,A.taper_depth(local,item)@rot.T+origin,uv_tri(face,chart,bounds,net)))
  mask=g['torso_mask'];h,w=mask.shape;ys=sorted(set((0,1,round(h*.2),round(h*.45),round(h*.7),h-2,h-1)));rings=[((h-1)/2-y,max(1,mask[y].sum()/2),3.5*(.75+.25*mask[y].sum()/max(mask.sum(axis=1)))) for y in ys]
  shape=model['torso']['shape'];pelvis_depth=model['torso']['pelvis_depth']
  if shape!='tapered':
@@ -274,7 +306,8 @@ def _protection_references(model_key,layouts,groups_key):
  neutral={'_model':model};_,triangles=_mesh_cache(json.dumps(neutral,sort_keys=True),layouts)
  _,_,_,limbs,torso,head=geometry(neutral)
  frames={part:(values[0],values[1]) for part,values in limbs.items()}
- frames.update(torso=torso,head=head)
+ frames.update(torso=torso,head=head);frames.update({item['id']:A.frame(item,model,head,neutral) for item in model.get('attachments',[])})
+ if P.active(model):frames['body']=(P.bottom(geometry(neutral)[0]),np.eye(3))
  result={}
  for part,items in groups.items():
   origin,rotation=frames[part]
@@ -289,8 +322,11 @@ def protection_context(pose,bundle):
  layouts=json.dumps({p:r['layout'] for p,r in bundle['textures'].items()},sort_keys=True)
  refs=_protection_references(json.dumps(MD.normalize(pose.get('_model')),sort_keys=True),layouts,json.dumps(groups,sort_keys=True))
  _,_,_,limbs,torso,head=geometry(pose)
- frames={part:(values[0],values[1]) for part,values in limbs.items()};frames.update(torso=torso,head=head)
+ frames={part:(values[0],values[1]) for part,values in limbs.items()};frames.update(torso=torso,head=head);model=MD.normalize(pose.get('_model'));frames.update({item['id']:A.frame(item,model,head,pose) for item in model.get('attachments',[])})
+ if P.active(model):frames['body']=P.local_frame(pose,(0,model['body']['height']*.75,0))
  result={part:dict(references=items,frame=frames[part]) for part,items in refs.items()}
+ if 'body' in result:
+  result['body']['group_frames']=[P.local_frame(pose,r['anchor'] if r is not None else (0,model['body']['height']*.75,0)) for r in refs['body']]
  if 'torso' in result:
   g=geometry(pose)[0];center=world(g['torso_c']);pivot=world(np.mean(list(g['hip'].values()),axis=0));offset=root_offset(pose)
   group_frames=[]
@@ -308,18 +344,18 @@ def render(pose,settings=None,cam=(0,0)):
  sockets=[chain[k] for name,chain in j.items() if name.startswith(('arm','leg')) for k in ('root','mid')]
  s={'parts':True,'textures':True,'outline':True,'gaps':True,'perfect':True,**(settings or {})}
  painted={part:resource for part,resource in bundle['textures'].items() if s['textures'] and resource.get('png')}
- textures={part:np.array(U.texture_image(bundle,part)) if part in painted else np.array([[(*U.COLORS[part],255) if s['parts'] else (255,255,255,255)]],dtype=np.uint8) for part in PARTS}
- connections=[];g=F.model_geometry(pose)
+ textures={part:np.array(U.texture_image(bundle,part)) if part in painted else np.array([[(*U.color(part),255) if s['parts'] else (255,255,255,255)]],dtype=np.uint8) for part in U.parts(bundle)}
+ names=U.parts(bundle);connections=[];g=F.model_geometry(pose)
  for kind in ('arm','leg'):
   for side in ('L','R'):
    first=('upperArm' if kind=='arm' else 'thigh')+side;second=('lowerArm' if kind=='arm' else 'shin')+side
    radius=sum(g['limbs'][kind+side]['radii'])/2+1
-   connections.append((PARTS.index(first),PARTS.index(second),j[kind+side]['mid'],radius))
+   connections.append((names.index(first),names.index(second),j[kind+side]['mid'],radius))
    if g['limbs'][kind+side]['bridge']:
-    connections.append((PARTS.index('torso'),PARTS.index(first),j[kind+side]['root'],g['limbs'][kind+side]['radii'][0]+.5))
+    connections.append((names.index('body' if P.active(bundle['model']) else 'torso'),names.index(first),j[kind+side]['root'],g['limbs'][kind+side]['radii'][0]+.5))
  movement=np.array((pose.get('dx',0.),-pose.get('dy',0.)+pose.get('_breath_dy',0.),pose.get('dz',0.)))
  projected_move=project(np.array([movement,np.zeros(3)]),yaw,pitch)
  delta=projected_move[0,:2]-projected_move[1,:2]
  pixel_shift=np.floor(delta+.5)-delta+np.array((0.,math.floor(pose.get('_camera_y',0)+.5)))
- image=raster(visible,textures,(yaw,pitch),dict(colors=s['parts'] or bool(painted),material_colors=True,outline=s['outline'],gaps=s['gaps'],onepx=True,outline_color=s.get('outline_color','auto')),sockets,connections,stable_head=j['head']['tip'],pixel_shift=pixel_shift,protection=painted,protection_context=protection_context(pose,bundle) if painted else None)[0]
+ image=raster(visible,textures,(yaw,pitch),dict(colors=s['parts'] or bool(painted),material_colors=True,_parts=U.parts(bundle),_head_children=tuple(item['id'] for item in bundle['model'].get('attachments',[])),outline=s['outline'],gaps=s['gaps'],onepx=True,outline_color=s.get('outline_color','auto')),sockets,connections,stable_head=None if P.active(bundle['model']) else j['head']['tip'],pixel_shift=pixel_shift,protection=painted,protection_context=protection_context(pose,bundle) if painted else None)[0]
  return image[:,::-1].copy() if pose.get('flip') else image

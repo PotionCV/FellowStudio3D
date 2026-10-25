@@ -52,7 +52,7 @@ class TextureEditor(M.ModelEditor):
   PixelButton(bar,text='重新读取',command=self.reload_textures).pack(side='left')
   PixelCheck(bar,text='自动刷新',variable=self.auto_reload).pack(side='left')
   Label(self.content,textvariable=self.paint_message,wrap=True,anchor='w',justify='left').pack(fill='x',padx=14,pady=8)
-  if self.workspace and any(not self.workspace.compatible(self.project,p) for p in U.PARTS):PixelButton(self.content,text='适配到新绘画文件夹',command=self.adapt_painting).pack(fill='x',padx=14,pady=4)
+  if self.workspace and any(not self.workspace.compatible(self.project,p) for p in U.parts(self.project)):PixelButton(self.content,text='适配到新绘画文件夹',command=self.adapt_painting).pack(fill='x',padx=14,pady=4)
   PixelCheck(self.content,text='高级贴图操作',variable=self.advanced,command=self.populate).pack(fill='x',padx=14,pady=6)
   if self.advanced.get():
    PixelButton(self.content,text='切换绘画文件夹',command=self.start_painting).pack(fill='x',padx=14,pady=3)
@@ -60,14 +60,15 @@ class TextureEditor(M.ModelEditor):
     PixelButton(self.content,text=label,command=fn).pack(fill='x',padx=14,pady=3)
   self.cards=tk.Frame(self.content);self.cards.pack(fill='x',padx=8);self.cards.columnconfigure((0,1),weight=1,uniform='uvcards')
   self.match_vars={}
-  for index,part in enumerate(U.PARTS):self.texture_card(part,index)
+  for index,part in enumerate(U.parts(self.project)):self.texture_card(part,index)
  def texture_card(self,part,index):
   Cards.texture_card(self,part,index)
   card=self.cards.grid_slaves(row=index//2,column=index%2)[0].winfo_children()[0]
   if self.advanced.get():PixelButton(card,text='像素保护',command=lambda:self.inspect_uv(part),compact=True).pack(fill='x',padx=8,pady=(0,6))
-  if part.endswith(('L','R')):
+  counterpart=part[:-1]+('R' if part.endswith('L') else 'L')
+  if part.endswith(('L','R')) and counterpart in self.project['textures']:
    if self.advanced.get():PixelButton(card,text='复制另一侧',command=lambda:self.copy_other_side(part),compact=True).pack(fill='x',padx=8,pady=(0,6))
-  if part.endswith('R'):
+  if part.endswith('R') and counterpart in self.project['textures']:
    shared=tk.BooleanVar(master=self,value=part in self.project.get('shared_textures',{}))
    PixelCheck(card,text='共用左侧贴图',variable=shared,command=lambda p=part,v=shared:self.set_shared(p,v.get())).pack(fill='x',padx=8,pady=4)
   value=tk.StringVar(master=self);self.match_vars[part]=value
