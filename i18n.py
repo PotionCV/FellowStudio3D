@@ -2,6 +2,124 @@
 LANGUAGES={'en':'English','zh':'简体中文','ja':'日本語'}
 language='en'
 ROWS=r"""
+部件|Part|パーツ
+后发|Back hair|後ろ髪
+头部外形|Head shape|頭部の外形
+主体外形|Body shape|本体の外形
+头发主体|Hair body|髪の本体
+左中发束|Left middle lock|左の中間髪束
+右中发束|Right middle lock|右の中間髪束
+自由发束|Free lock|自由な髪束
+头发部件|Hair components|髪のパーツ
+已添加部件|Added components|追加済みパーツ
+添加部件|Add component|パーツを追加
+发型模板…|Hairstyle templates…|髪型テンプレート…
+收起发型模板|Hide hairstyle templates|髪型テンプレートを閉じる
+替换为模板|Replace with template|テンプレートに置き換え
+发束类型|Lock type|髪束の種類
+耳朵|Ears|耳
+模板只负责一次生成部件；应用模板会替换当前头发，模型应用前仍可取消。|Templates generate components once. Applying one replaces the current hair; cancel the model editor to discard changes.|テンプレートはパーツを一度生成します。適用すると現在の髪を置き換え、モデルを確定するまではキャンセルできます。
+从头发主体、左右刘海或左右中发束开始添加。|Start with a hair body, left/right fringe or middle locks.|髪の本体、左右の前髪、左右の中間髪束から追加できます。
+自由组合的位置相对头部；发顶跟随头部，发束各有独立骨骼。使用发型模板会替换当前头发部件。|Positions are head-local. Hair bodies follow the head; each lock has independent bones. Applying a template replaces the current hair components.|位置は頭を基準にします。本体は頭に追従し、髪束はそれぞれ独立した骨格を持ちます。テンプレートを適用すると現在の髪パーツを置き換えます。
+单独添加发顶|Add cap only|頭頂パーツを追加
+单独添加发束|Add independent lock|独立した髪束を追加
+发顶造型|Cap shape|頭頂部の形
+独立发束|Independent lock|独立した髪束
+自定义组合|Custom assembly|自由な組み合わせ
+复制发片|Duplicate part|髪パーツを複製
+镜像复制发片|Mirror duplicate|対称パーツを追加
+删除发片|Delete part|髪パーツを削除
+将此束对称到另一侧|Mirror this lock to its partner|この髪束を相手側に対称コピー
+发片位置与细节|Part placement & details|髪パーツの位置と詳細
+收起发片细节|Hide part details|髪パーツの詳細を閉じる
+发顶宽度（px）|Cap width (px)|頭頂部の幅 (px)
+发顶高度（px）|Cap height (px)|頭頂部の高さ (px)
+发顶厚度（px）|Cap depth (px)|頭頂部の厚さ (px)
+前额发际线|Front hairline|前の生え際
+后侧覆盖|Back coverage|後ろの覆い
+顶部平缓|Crown flatness|頭頂部の平坦さ
+顶部宽度比例|Crown width ratio|頭頂の幅の比率
+发顶左右（px）|Cap X (px)|頭頂部の左右 (px)
+发顶上下（px）|Cap Y (px)|頭頂部の上下 (px)
+发顶前后（px）|Cap depth offset (px)|頭頂部の前後 (px)
+圆润发顶|Rounded crown|丸い頭頂部
+圆角发顶|Soft square crown|角丸の頭頂部
+方形发顶|Square crown|四角い頭頂部
+平顶发型|Flat crown|平らな頭頂部
+尖顶发型|Pointed crown|尖った頭頂部
+可以单独添加发顶或发束，自由组合。|Add caps or locks independently to build your hairstyle.|頭頂パーツと髪束を個別に追加して自由に組み合わせられます。
+自由组合的位置相对头部；发顶跟随头部，发束各有独立骨骼。切换整套发型会替换当前组合。|Assembly positions are head-local. Caps follow the head; each lock has its own bones. Changing a full style replaces this assembly.|自由な組み合わせの位置は頭を基準にします。頭頂部は頭に追従し、各髪束は独立した骨格を持ちます。髪型を切り替えると現在の組み合わせを置き換えます。
+双马尾对称编辑|Edit twin tails symmetrically|ツインテールを対称編集
+以左侧对称|Mirror left to right|左から右へ対称コピー
+以右侧对称|Mirror right to left|右から左へ対称コピー
+整体发型|Whole hairstyle|髪型全体
+单束造型|Individual lock|髪束の形
+同步左右发束|Link left / right locks|左右の髪束を連動
+单束长度（px）|Lock length (px)|髪束の長さ (px)
+单束宽度（px）|Lock width (px)|髪束の幅 (px)
+单束厚度（px）|Lock depth (px)|髪束の厚さ (px)
+单束弯曲（度）|Lock curl (deg)|髪束の曲げ (度)
+发梢饱满|Tip fullness|毛先の丸み
+发根宽度比例|Root width ratio|根元の幅の比率
+发中宽度比例|Middle width ratio|中間の幅の比率
+发束侧倾（度）|Side tilt (deg)|横への傾き (度)
+发束前后倾（度）|Forward / back tilt (deg)|前後の傾き (度)
+发束转向（度）|Lock yaw (deg)|髪束の向き (度)
+发片扭转（度）|Lock twist (deg)|髪束のひねり (度)
+发束左右偏移（px）|Lock X offset (px)|髪束の左右オフセット (px)
+发束上下偏移（px）|Lock Y offset (px)|髪束の上下オフセット (px)
+发束前后偏移（px）|Lock depth offset (px)|髪束の前後オフセット (px)
+收起单束细节|Hide lock details|髪束の詳細を閉じる
+单束轮廓与位置|Lock profile & placement|髪束の輪郭と位置
+重置此发束|Reset this lock|この髪束をリセット
+造型独立于动画骨骼。常用项调整轮廓，展开细节可调整根中宽度、朝向和位置。|Shape is separate from animated bones. Expand details for root/middle widths, orientation and placement.|造形とアニメーションの骨格は独立しています。詳細を開くと根元・中間の幅、向き、位置を調整できます。
+偏移相对发型默认位置；重置回到当前发型。切换整套发型会重置单束造型，保留原贴图。|Offsets are relative to this style. Reset restores the style defaults. Changing style resets lock shapes and retains textures.|オフセットは髪型の標準位置からの相対値です。髪型を切り替えると髪束の造形をリセットし、テクスチャを保持します。
+尾尖粗细|Tip thickness|尾先の太さ
+头发|Hair|髪
+头发与发型|Hair & hairstyle|髪と髪型
+头部形状|Head shape|頭の形
+发型|Hairstyle|髪型
+短碎发|Short crop|ショート
+波波头|Bob cut|ボブ
+长直发|Long straight|ロングストレート
+高马尾|High ponytail|ハイポニーテール
+双马尾|Twin tails|ツインテール
+发顶|Hair cap|頭頂部
+左刘海|Left fringe|左前髪
+右刘海|Right fringe|右前髪
+左鬓发|Left side lock|左横髪
+右鬓发|Right side lock|右横髪
+后发 / 马尾|Back lock / ponytail|後ろ髪・ポニーテール
+左马尾|Left ponytail|左テール
+右马尾|Right ponytail|右テール
+发根|Hair root|髪の根元
+发中|Hair middle|髪の中間
+发梢|Hair tip|毛先
+发根松软|Root softness|根元の柔らかさ
+发中松软|Middle softness|中間の柔らかさ
+发梢松软|Tip softness|毛先の柔らかさ
+头发飘动|Hair sway|髪の揺れ
+飘动幅度（度）|Sway (deg)|揺れ幅 (度)
+向后扬起（度）|Backward lift (deg)|後方への持ち上げ (度)
+发梢跟随|Tip follow-through|毛先の追従
+发束长度（px）|Lock length (px)|髪束の長さ (px)
+头发蓬松（px）|Hair volume (px)|髪のボリューム (px)
+刘海长度（px）|Fringe length (px)|前髪の長さ (px)
+分缝偏向|Parting|分け目
+发束张开（度）|Lock spread (deg)|髪束の開き (度)
+头发左右（px）|Hair X (px)|髪の左右 (px)
+头发上下（px）|Hair Y (px）|髪の上下 (px)
+头发前后（px）|Hair depth (px)|髪の前後 (px)
+添加头发|Add hair|髪を追加
+移除头发|Remove hair|髪を削除
+收起头发细节|Hide hair details|髪の詳細を閉じる
+发束与位置细节|Lock & placement details|髪束と位置の詳細
+当前发型没有可动发束。|This hairstyle has no movable locks.|この髪型には可動する髪束がありません。
+独立发顶、刘海和发束，不替换脸部贴图。应用后可在整体控制中调整头发骨骼与松软。|Separate cap, fringe and locks keep your face texture. After Apply, use Hair controls for bones and softness.|頭頂・前髪・髪束は独立し、顔のテクスチャを保持します。適用後に髪の骨格と柔らかさを調整できます。
+发顶固定跟随头部；发束使用三节骨骼。换发型保留已有绘画，新增发片提供可改画的基础发色。|The cap follows the head; locks have three bones. Switching styles retains existing painting; new parts start with an editable base color.|頭頂部は頭に追従し、髪束には3関節があります。髪型を変えても既存の描画を保持し、新しい部分には編集可能な基本色が入ります。
+动画：整体控制 → 头发。主动飘动可添加“头发飘动”动作层；各发片在UV窗口独立绘画。长发仍需检查肩背穿插。|Animate via Body controls → Hair, or add Hair sway. Paint each part in UV. Check long hair for shoulder/back intersections.|全体調整 → 髪、または髪の揺れレイヤーで動かせます。各部分はUVで描画できます。長髪と肩・背中の交差を確認してください。
+发顶固定跟随头部。发束可以单独摆姿势，叠加“头发飘动”后继续融合。|The cap follows the head. Pose locks independently and blend with a Hair sway layer.|頭頂部は頭に追従します。髪束を個別にポーズ調整し、髪の揺れレイヤーと合成できます。
+短发默认更硬，长发和马尾更柔软。松软为0时仅保留主动动作；尚无肩背碰撞。|Short hair is stiffer; long hair and tails are softer. Zero softness keeps authored motion only. Shoulder/back collisions are not simulated.|短髪は硬め、長髪とテールは柔らかめです。柔らかさ0では手動の動作のみを保持します。肩・背中との衝突判定はありません。
 时间安排|Timing overview|時間の配置
 动作保留已选角色，角色保留已选动作；应用后可继续编辑。|Motion keeps your character; character keeps your motion. Edit further after applying.|動作はキャラクターを保持し、キャラクターは動作を保持します。適用後も編集できます。
 制作动画…|Create animation…|アニメーションを作成…
@@ -385,6 +503,33 @@ IK 手柄|IK handles|IK ハンドル
 剪贴板正被占用，请重试。|Clipboard is busy. Please try again.|クリップボードを使用中です。もう一度お試しください。
 剪贴板中没有图片，请先复制一张 UV 贴图。|Clipboard does not contain an image. Copy a UV image first.|クリップボードに画像がありません。先にUV画像をコピーしてください。
 剪贴板图片过大。|Clipboard image is too large.|クリップボードの画像が大きすぎます。
+画幅与光照…|Canvas and lighting…|キャンバスと光源…
+画幅尺寸…|Canvas size…|キャンバスサイズ…
+光照设置…|Lighting settings…|光源設定…
+光照|Lighting|照明
+自阴影|Self shadows|セルフシャドウ
+光照和自阴影开关位于主窗口的显示选项中。|Lighting and self-shadow switches are in the main display options.|照明とセルフシャドウの切り替えはメイン画面の表示設定にあります。
+原生像素画幅|Native pixel canvas|ピクセルキャンバス
+应用画幅|Apply canvas size|キャンバスサイズを適用
+GIF尺寸与帧数过大，请降低输出倍率或帧数；PNG支持分页输出。|GIF size and frame count are too large. Reduce scale or frames, or use paged PNG output.|GIFが大きすぎます。倍率かフレーム数を減らすか、分割PNGを使用してください。
+宽|Width|幅
+高|Height|高さ
+完成|Done|完了
+实时预览；可在主窗口撤销。|Live preview; Undo in the main window.|即時プレビュー。メイン画面で元に戻せます。
+32–256 px；扩大画幅不缩放模型或贴图，底部留白保持。|32–256 px. More canvas space preserves model and texture scale, with the same bottom margin.|32–256 px。モデルや画像を拡大せず、下余白を維持してキャンバスを広げます。
+宽、高须为32–256之间的整数。|Width and height must be integers from 32 to 256.|幅と高さは32〜256の整数にしてください。
+开启像素光照|Enable pixel lighting|ピクセル照明を有効化
+模型自阴影|Self shadows|セルフシャドウ
+光照角度（度）|Light direction (deg)|光の方向 (度)
+光照高度（度）|Light elevation (deg)|光の高さ (度)
+光照强度|Light strength|光の強さ
+自阴影强度|Self-shadow strength|セルフシャドウの強さ
+绘制感|Painted|描き込み風
+立体感|Faceted|立体的
+光照颜色|Light color|光の色
+阴影颜色|Shadow color|影の色
+方向固定在三维空间；分档明暗保留像素边缘。颜色只影响渲染，不改原贴图。|World-space light direction, with stepped pixel shading. Colors affect rendering and preserve your original textures.|光の方向は3D空間で固定し、段階的な明暗でピクセルの輪郭を保ちます。元の画像は変更しません。
+仅整数倍最近邻放大。|Integer nearest-neighbor scaling only.|整数倍の最近傍拡大のみ。
 回弹|Bounce|弾み
 这一轮做几次|Cycles|繰り返し回数
 步幅|Stride|歩幅

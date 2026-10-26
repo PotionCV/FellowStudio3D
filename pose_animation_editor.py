@@ -74,7 +74,8 @@ class PoseAnimationEditor(ModelEditor):
   PixelCheck(content,text='保持地面接触',variable=self.ground,command=self.update_preview).pack(fill='x',padx=10)
   self.part_value=tk.StringVar(master=self,value='右臂')
   has_tail=any(p.get('kind')=='tail' for p in (self.original_project.get('model') or {}).get('attachments',[]))
-  self.part_choices={E.LABELS[key]:key for key in (*E.LIMBS,'head','torso',*(['tail'] if has_tail else []))}
+  has_hair=any(p.get('kind')=='hair' for p in (self.original_project.get('model') or {}).get('attachments',[]))
+  self.part_choices={E.LABELS[key]:key for key in (*E.LIMBS,'head','torso',*(['tail'] if has_tail else []),*(['hair'] if has_hair else []))}
   PixelOption(content,self.part_value,*self.part_choices,command=lambda value:self.select(self.part_choices[value])).pack(fill='x',padx=10,pady=6)
   self.params=tk.Frame(content);self.params.pack(fill='x')
   UI.Label(content,text='新建时替换原动作与整体修改；已有姿势动画保留叠加与整体修改。应用可撤销。',wrap=True,font=self.owner.caption_font).pack(fill='x',padx=10,pady=10)
@@ -92,7 +93,7 @@ class PoseAnimationEditor(ModelEditor):
  def pick_card(self,event=None):
   if not self.card_list.curselection():return
   self.card_index=self.card_list.curselection()[0];self.refresh_cards();self.show_params();self.update_preview()
- def select(self,key):self.part=key;self.show_handles=key!='tail';self.part_value.set(E.LABELS[key]);self.show_params();self.draw()
+ def select(self,key):self.part=key;self.show_handles=key not in ('tail','hair');self.part_value.set(E.LABELS[key]);self.show_params();self.draw()
  def show_params(self):
   for child in self.params.winfo_children():child.destroy()
   card=self.cards[self.card_index]
@@ -105,7 +106,19 @@ class PoseAnimationEditor(ModelEditor):
    easing={v:k for k,v in PA.EASINGS.items()};value=tk.StringVar(master=self,value=PA.EASINGS[card['ease']])
    PixelOption(self.params,value,*easing,command=lambda v:self.set_timing('ease',easing[v])).pack(fill='x',padx=10,pady=4)
   pose=card['pose'];part=self.part
-  if part=='tail':
+  if part=='hair':
+   import hair_controls,hair
+   items=hair_controls.active(self.original_project.get('model'));choices={hair.name(p):hair.channel(p) for p in items}
+   channel=getattr(self,'hair_channel',None)
+   if channel not in choices.values():channel=next(iter(choices.values()))
+   self.hair_channel=channel;choice=tk.StringVar(master=self,value=next(k for k,v in choices.items() if v==channel))
+   def pick_lock(value):self.hair_channel=choices[value];self.show_params()
+   PixelOption(self.params,choice,*choices,command=pick_lock).pack(fill='x',padx=10,pady=6)
+   selected=getattr(self,'hair_bone',0);names=('发根','发中','发梢');choice=tk.StringVar(master=self,value=names[selected])
+   def pick_bone(value):self.hair_bone=names.index(value);self.show_params()
+   PixelOption(self.params,choice,*names,command=pick_bone).pack(fill='x',padx=10,pady=6)
+   pose.setdefault(channel,[0.]*9);specs=[(selected*3+i,label,-90,90,1) for i,label in enumerate(('上下弯曲（度）','左右弯曲（度）','扭转（度）'))]
+  elif part=='tail':
    selected=getattr(self,'tail_bone',0);names=('尾根','尾中','尾尖');choice=tk.StringVar(master=self,value=names[selected])
    def pick(value):self.tail_bone=names.index(value);self.show_params()
    PixelOption(self.params,choice,*names,command=pick).pack(fill='x',padx=10,pady=6)
@@ -116,7 +129,7 @@ class PoseAnimationEditor(ModelEditor):
   else:specs=[('lean','后仰 / 弯腰（度）',-65,65,1),('chest_yaw','胸腔转向',-90,90,1),('pelvis_yaw','骨盆转向',-90,90,1),('dy','身体高低（px）',-12,12,.25),('dx','身体左右（px）',-12,12,.25)]
   self.pose_scales={};self.pose_values={}
   for key,label,lo,hi,step in specs:
-   row=tk.Frame(self.params);row.pack(fill='x',padx=10,pady=(6,0));number=pose[part][key] if isinstance(key,int) else pose.get(key,0)
+   row=tk.Frame(self.params);row.pack(fill='x',padx=10,pady=(6,0));number=pose[self.hair_channel if part=='hair' else part][key] if isinstance(key,int) else pose.get(key,0)
    UI.Label(row,text=label,font=self.owner.caption_font).pack(side='left')
    value=tk.StringVar(master=self,value=f'{number:g}');self.pose_values[key]=value
    UI.Label(row,textvariable=value,font=self.owner.caption_font).pack(side='right')
@@ -125,7 +138,7 @@ class PoseAnimationEditor(ModelEditor):
  def mode_changed(self):self.refresh_cards();self.show_params();self.update_preview()
  def set_pose(self,key,value):
   pose=self.cards[self.card_index]['pose']
-  if isinstance(key,int):pose[self.part][key]=value
+  if isinstance(key,int):pose[self.hair_channel if self.part=='hair' else self.part][key]=value
   else:pose[key]=value
   self.pose_values[key].set(f'{value:g}')
   self.update_preview()
@@ -144,7 +157,7 @@ class PoseAnimationEditor(ModelEditor):
  def move_card(self,delta):
   target=self.card_index+delta
   if 0<=target<len(self.cards):self.cards[self.card_index],self.cards[target]=self.cards[target],self.cards[self.card_index];self.card_index=target;self.refresh_cards();self.show_params();self.update_preview()
- def mirror_card(self):self.cards[self.card_index]['pose']=E.mirror_pose(self.cards[self.card_index]['pose']);self.show_params();self.update_preview()
+ def mirror_card(self):self.cards[self.card_index]['pose']=E.mirror_pose(self.cards[self.card_index]['pose'],self.original_project.get('model'));self.show_params();self.update_preview()
  def load_card(self):
   path=filedialog.askopenfilename(parent=self,initialdir=E.ROOT/'examples'/'poses',filetypes=[(tr('姿势层'),'*.json')])
   if path:
@@ -156,7 +169,7 @@ class PoseAnimationEditor(ModelEditor):
    try:MR.save_pose(self.cards[self.card_index]['pose'],path)
    except Exception as ex:messagebox.showerror(tr('保存失败'),str(ex),parent=self)
  def update_preview(self):
-  self.stop_job(self.play_job);self.play_job=None;self.playing=False;self.queued_play=False;self.edit_motion=False;self.frame=0;self.show_handles=True;self.play_button.configure(text='▶ 播放');self.request_preview()
+  self.stop_job(self.play_job);self.play_job=None;self.playing=False;self.queued_play=False;self.edit_motion=False;self.frame=0;self.show_handles=self.part not in ('tail','hair');self.play_button.configure(text='▶ 播放');self.request_preview()
  def preview_project(self):
   project=PA.build(self.original_project,self.cards,float(self.duration.get()),self.mode_choices[self.mode.get()],self.ground.get());self.source=copy.deepcopy(project)
   if not self.edit_motion:
@@ -177,19 +190,22 @@ class PoseAnimationEditor(ModelEditor):
   if not self.edit_motion:return
   super().seek(value)
  def pick(self,event):
+  import render_options as O
+  settings=self.source.get('render');cw,ch=O.size(settings)
   self.drag_pose=None
   for view,(x,y,size) in zip(self.cell_views,self.cells):
-   if x<=event.x<x+size and y<=event.y<y+size:
+   if x<=event.x<x+size and y<=event.y<y+size*ch/cw:
     self.focus=view;self.draw()
     if self.playing or self.edit_motion or not self.seq or getattr(self,'accepted_revision',None)!=self.revision:return
-    p=copy.deepcopy(self.seq[0]);p['yaw']+=VIEWS[view][0];p['pitch']+=VIEWS[view][1];j=E.R.joints(p)
-    opts=[(math.hypot(x+j[k][joint][0]*size/64-event.x,y+j[k][joint][1]*size/64-event.y),k,joint) for k in E.LIMBS for joint in ('mid','tip')]
+    p=copy.deepcopy(self.seq[0]);p['yaw']+=VIEWS[view][0];p['pitch']+=VIEWS[view][1];j=O.joints(p,settings)
+    opts=[(math.hypot(x+j[k][joint][0]*size/cw-event.x,y+j[k][joint][1]*size/cw-event.y),k,joint) for k in E.LIMBS for joint in ('mid','tip')]
     distance,key,joint=min(opts)
     if distance<24:self.select(key);self.drag_pose=(view,key,joint,p,(x,y,size))
     return
  def move_pose(self,event):
   if not self.drag_pose:return
-  view,key,joint,p,(x,y,size)=self.drag_pose;target=((event.x-x)*64/size,(event.y-y)*64/size)
+  import render_options as O
+  view,key,joint,p,(x,y,size)=self.drag_pose;cw=O.size(self.source.get('render'))[0];target=O.target(((event.x-x)*cw/size,(event.y-y)*cw/size),self.source.get('render'))
   p[key]=self.cards[self.card_index]['pose'][key]
   self.cards[self.card_index]['pose'][key]=list(E.R.ik(p,key,target,joint=joint,free=(0,2) if joint=='mid' else (0,1,2,3)))
   self.update_preview()

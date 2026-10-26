@@ -19,11 +19,11 @@ def normalize_cards(cards):
  import engine as E
  if not isinstance(cards,(list,tuple)) or not 2<=len(cards)<=6:raise ValueError('请选择二至六张姿势卡。')
  result=[]
- rest=E.norm(E.F.POSES['stand'])
+ rest=E.norm(E.F.POSES['stand']);extra={key for card in cards if isinstance(card,dict) and isinstance(card.get('pose'),dict) for key in card['pose'] if key.startswith('hair_extra')}
  for card in cards:
   if not isinstance(card,dict):raise ValueError('无效的姿势卡。')
   raw=capture_pose(card.get('pose',{}))
-  pose={key:copy.deepcopy(raw.get(key,rest.get(key,[0.]*9 if key=='tail' else 0.))) for key in E.POSE_CHANNELS}
+  pose={key:copy.deepcopy(raw.get(key,rest.get(key,E.channel_default(key)))) for key in E.POSE_CHANNELS if not key.startswith('hair_extra') or key in extra}
   timing={}
   for key,default,lo,hi in (('hold',.25,0,4),('travel',1.,.25,4)):
    value=card.get(key,default)

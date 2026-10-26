@@ -9,12 +9,14 @@ import rig as R
 import layers as L
 import model_data as MD
 import motion_timing as MT
+import hair
 ROOT=Path(__file__).resolve().parent
 RENDER_DEFAULTS=dict(parts=True,textures=True,gaps=True,outline=True,perfect=True)
 LIMBS=('armL','armR','legL','legR')
 COLORS={'armL':(232,180,105),'armR':(116,152,190),'legL':(138,180,128),'legR':(212,138,168),'head':(170,146,206),'torso':(216,118,90)}
 LABELS={'body':'全身','arms':'双臂','legs':'双腿','armL':'左臂','armR':'右臂','legL':'左腿','legR':'右腿','torso':'腰 / 躯干','head':'头颈'}
 LABELS['tail']='尾巴'
+LABELS['hair']='头发'
 POSES={'站立':'stand','下蹲':'crouch','举手':'cheer','伸手':'point','搬物':'carry','推东西':'push','敬礼':'salute','踢腿':'kick','挥拳':'punch','攀爬':'climb'}
 ACTIONS={k:L.KINDS[k].label for k in ('stand',)+L.MENU}
 ACTIONS['pose']=L.KINDS['pose'].label
@@ -25,7 +27,10 @@ PROJECT_NAMES.update(twist='Waist twist',lift='Pick up')
 PROJECT_NAMES.update(swim='Swim',hover='Hover')
 PROJECT_NAMES['poseclip']='Pose animation'
 PROJECT_NAMES['tail']='Tail motion'
-POSE_CHANNELS=(*LIMBS,'tail','lean','rot','dx','dy','dz','body_pitch','body_axis','body_pivot','chest_yaw','pelvis_yaw','head','head_pitch','head_yaw','head_depth')
+PROJECT_NAMES['hair']='Hair motion'
+POSE_CHANNELS=(*LIMBS,'tail',*hair.CHANNELS,'lean','rot','dx','dy','dz','body_pitch','body_axis','body_pivot','chest_yaw','pelvis_yaw','head','head_pitch','head_yaw','head_depth')
+
+def channel_default(key):return [0.]*4 if key in LIMBS else [0.]*9 if key=='tail' or key in hair.CHANNELS else 0.
 
 class PreviewCancelled(Exception):pass
 
@@ -33,16 +38,23 @@ def check_preview(cancel):
     if cancel is not None and cancel():raise PreviewCancelled()
 
 def layer_targets(scope):
+    if scope=='hair':return hair.CHANNELS
     upper=('armL','armR','lean','chest_yaw','head','head_pitch','head_yaw','head_depth')
     lower=('legL','legR','pelvis_yaw','dy')
     return upper if scope=='upper' else lower if scope=='lower' else ('head','head_pitch','head_yaw','head_depth') if scope=='head' else ('lean','rot','chest_yaw','pelvis_yaw','dy','dx','dz','body_pitch','body_axis','body_pivot') if scope=='torso' else targets(scope)
 
-def mirror_pose(pose):
+def mirror_pose(pose,model=None):
     result={}
     for key,value in pose.items():
         if key in LIMBS:
             result[key[:-1]+('L' if key.endswith('R') else 'R')]=[-value[0],-value[1],value[2],value[3]]
         elif key=='tail':result[key]=[v if i%3==0 else -v for i,v in enumerate(value)]
+        elif key in hair.CHANNELS:
+            target=key[:-1]+('L' if key.endswith('R') else 'R') if key.endswith(('L','R')) else key
+            items=[p for p in (model or pose.get('_model') or {}).get('attachments',[]) if p.get('kind')=='hair' and p['section']!='cap']
+            source=next((p for p in items if hair.channel(p)==key),None);other=hair.paired(items,source) if source else None
+            if other is not None:target=hair.channel(other)
+            result[target]=[v if i%3==0 else -v for i,v in enumerate(value)]
         else:result[key]=-value if key in ('dx','rot','body_axis','head','head_yaw','chest_yaw','pelvis_yaw','yaw') else value
     return result
 
@@ -93,6 +105,7 @@ def targets(scope):
 
 def samples(e,n,project=None):
     C=L.KINDS[e['kind']]; param=C.defaults();param.update(e.get('params',{}))
+    if e['kind']=='hair':param['_channels']=hair.channels_for((project or {}).get('model')) or hair.CORE_CHANNELS
     if e['kind']=='kick':param['_style']=e.get('style','swing')
     if e['kind']=='swim':param['_style']=e.get('style','breast')
     if e['kind'] in ('swim','hover'):param['_float_pivot']=_roll_pivot(json.dumps(MD.normalize((project or {}).get('model')),sort_keys=True))
@@ -145,7 +158,7 @@ def samples(e,n,project=None):
     return result
 
 def columns(seq,k):
-    return np.array([p.get(k,[0.]*4 if k in LIMBS else [0.]*9 if k=='tail' else 0.) for p in seq],dtype=float)
+    return np.array([p.get(k,channel_default(k)) for p in seq],dtype=float)
 
 def flight_frames(seq,project):
     """Reserve flight height even when a pose layer precedes the jump layer."""
@@ -267,7 +280,13 @@ def apply_thrust(seq,entry,project,cancel=None):
 def apply_controls(seq,project,range_reference=None):
     for scope,c in sorted(project.get('controls',{}).items(),key=lambda item: (0 if item[0]=='body' else 1 if item[0] in ('arms','legs') else 2,item[0])):
         for k in targets(scope):
-            if k=='tail':
+            if k=='hair':
+                for channel in dict.fromkeys((*hair.channels_for(project.get('model')),*(k for k in hair.CHANNELS if any(k in p for p in seq) or any(name.startswith(k+'_') for name in c)))):
+                    offset=np.array([c.get(channel+'_'+joint+'_'+axis,0.) for joint in ('root','middle','tip') for axis in ('pitch','yaw','roll')])
+                    values=columns(seq,channel)*c.get('range',1)+offset
+                    if c:
+                        for pose,value in zip(seq,values):pose[channel]=value.tolist()
+            elif k=='tail':
                 names=('root','middle','tip');axes=('pitch','yaw','roll')
                 offset=np.array([c.get(joint+'_'+axis,0.) for joint in names for axis in axes])
                 values=columns(seq,'tail')*c.get('range',1)+offset
@@ -334,7 +353,8 @@ def _spring_track(target,roots,length,seconds,strength,bounce,periodic=True):
 
 def physical(seq,project,cancel=None):
     check_preview(cancel)
-    configs=project.get('physics',{})
+    configs=dict(project.get('physics',{}))
+    if any(item.get('kind')=='hair' for item in seq[0].get('_model',{}).get('attachments',[])) and 'hair' not in configs:configs['hair']=dict(hair.DEFAULT_PHYSICS)
     def amount(c):return max(c.get(k,0) for k in ('strength','upper','lower','root','middle','tip'))
     if not any(amount(c)>0 for c in configs.values()):return seq
     n=len(seq); seconds=project.get('seconds',2); sub=max(1,math.ceil(120*seconds/n));periodic=MT.mode(project)=='loop';count=n*sub if periodic else (n-1)*sub+1
@@ -382,6 +402,7 @@ def physical(seq,project,cancel=None):
         elif key=='tail':
             import tails
             tails.physical(dense,c,seconds,periodic,_spring_track,lambda:check_preview(cancel))
+        elif key=='hair':hair.physical(dense,c,seconds,periodic,_spring_track,lambda:check_preview(cancel))
         elif key=='head':
             roots=[]
             for p in dense:
@@ -494,6 +515,12 @@ def export(project,out=None,name=None,formats=None,create_folder=True,scale=1,di
     if isinstance(scale,bool) or not isinstance(scale,int) or not 1<=scale<=8:raise ValueError('输出比例必须是 1 到 8 的整数')
     formats=set(('png','strip','gif','recipe') if formats is None else formats)
     if not formats or formats-{'png','strip','gif','recipe'}:raise ValueError('请选择至少一种有效的导出类型')
+    import render_options as O
+    width,height=(value*scale for value in O.size(project.get('render')))
+    count=max(1,min(120,round(project.get('seconds',2)*project.get('fps',12))))
+    if width*height*count*4>64*1024*1024 and formats-{'recipe'}:
+        import directional_export
+        return directional_export.export(project,out,name,formats,create_folder,scale,directions=1)
     parent=Path(out or ROOT/'out')
     requested=name
     name=export_name(project,name)
@@ -510,18 +537,17 @@ def export(project,out=None,name=None,formats=None,create_folder=True,scale=1,di
         if any((dest/file).exists() for file in targets):raise FileExistsError('同名文件已存在，请更换名称或目录')
     view=project.get('export_view',{});cam=(view.get('yaw',0),view.get('pitch',0))
     images=[Image.fromarray(rgba(p,project.get('render'),cam)) for p in seq]
-    size=64*scale
-    if scale!=1:images=[im.resize((size,size),Image.Resampling.NEAREST) for im in images]
+    if scale!=1:images=[im.resize((width,height),Image.Resampling.NEAREST) for im in images]
     if 'png' in formats:
         for i,im in enumerate(images):im.save(dest/f'{name}_{i:02d}.png')
     if 'strip' in formats:
-        strip=Image.new('RGBA',(size*len(images),size))
-        for i,im in enumerate(images):strip.paste(im,(i*size,0))
+        strip=Image.new('RGBA',(width*len(images),height))
+        for i,im in enumerate(images):strip.paste(im,(i*width,0))
         strip.save(dest/f'{name}_strip.png')
     if 'gif' in formats:
         preview=[]
         for im in images:
-            bg=Image.new('RGB',(size,size),(90,77,66));bg.paste(im,mask=im.getchannel('A'));preview.append(bg)
+            bg=Image.new('RGB',(width,height),(90,77,66));bg.paste(im,mask=im.getchannel('A'));preview.append(bg)
         preview[0].save(dest/f'{name}.gif',save_all=True,append_images=preview[1:],duration=round(1000/project.get('fps',12)),**({'loop':0} if MT.mode(project)=='loop' else {}))
     if 'recipe' in formats:save(dict(project,name=name),dest/recipe_file)
     return dest

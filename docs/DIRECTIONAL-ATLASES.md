@@ -11,15 +11,15 @@ The existing **JSON recipe** option still saves an editable project. A separate
 - Each row is a direction; each column is a frame. Four rows use camera angles
   0°, 90°, 180°, 270°; eight rows add the intermediate 45° angles. All are level
   orthographic cameras. The project's static character yaw is retained.
-- Cells are fixed 64×64 native pixels, or integer nearest-neighbor scaling.
+- Cells use the project's native canvas (64×64 by default, 32–256 pixels per dimension), or integer nearest-neighbor scaling.
   Transparent PNGs are never cropped, smoothed or independently recentered.
-- Atlases wider than 4096 pixels split into consecutive frame pages. Each page
-  retains all direction rows; the last page can contain fewer columns. The JSON
+- Atlases wider or taller than 4096 pixels split into frame and direction pages.
+  `first_direction` and `direction_count` identify the rows present in each page. The JSON
   tells you which image/rectangle belongs to every frame.
 - `fps` and `duration_ms` describe the actual frame rate. For `loop`, restart
   after the last frame. `once` ends playback; `hold` keeps its last pose.
-- `pivot` is a shared integer cell-space alignment point: native x=32,
-  y=56 plus the integer framing-Y offset, multiplied by output scale. It is a
+- `pivot` is a shared cell-space alignment point: native x=width/2,
+  y=height-8 plus the integer framing-Y offset, multiplied by output scale. It is a
   fixed sprite anchor, not a fitted foot position for each individual pose.
 - Direction IDs encode camera yaw (`d045`, for example), rather than prescribing
   your game's compass convention. An animation can itself turn the character.
@@ -32,7 +32,7 @@ The existing **JSON recipe** option still saves an editable project. A separate
 | `name`, `fps`, `playback`, `frame_count` | Clip identity and timing |
 | `native_cell`, `cell`, `scale`, `pivot` | Pixel dimensions and common anchor |
 | `character_yaw`, `camera_pitch` | Static project yaw; level camera pitch 0 |
-| `pages` | Image filename, size, first frame and frame count of each atlas page |
+| `pages` | Image filename, size, first frame/frame count and first direction/direction count |
 | `directions` | ID, yaw, pitch, row and frame records for each camera angle |
 | `frames[].index`, `duration_ms` | Frame index and duration |
 | `frames[].image`, `rect` | PNG filename and `[x,y,width,height]` crop |

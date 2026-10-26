@@ -198,6 +198,25 @@ manifest. Only registered model and motion examples enter the release archive.
 
 ## Local review revision
 
+Lighting controls and canvas sizing have separate UI entries. The two display
+switches live beside Show textures. `light_strength` affects normal shading or
+painted bands, while `shadow_strength` independently composites cast shadows;
+turning lighting off does not disable the shadow map. The default `painted` style
+uses projected per-part bounds and large fixed color blocks, so triangle normals
+cannot create extra facet bands. `facet` retains the earlier normal-based style.
+
+Native canvas dimensions and pixel-light settings live in project `render`, with
+64×64/unlit defaults. `render_options` supplies the common canvas size, anchored
+offset and preview transforms; rig/IK coordinates retain their existing 64-unit
+reference. Preview input removes the canvas offset before solving IK. Changing
+canvas size never changes model geometry, UV dimensions or animation caches.
+`pixel_lighting` applies quantized world-normal bands and alpha-aware orthographic
+shadow maps before outlines, after protected pixels. Light-space depth caches are
+shared by camera views; disabled lighting bypasses the work entirely. Shadows use
+bounded map resolution and slope bias, with no blur, ambient occlusion or bounce.
+Large atlases page in both axes; oversized single-view export uses the same
+streaming path. Very large GIF buffers are rejected before creating output.
+
 Automatic pixel-face rendering has been removed; legacy face metadata is ignored and embedded PNGs remain unchanged. Tail poses use a flat nine-value pitch/yaw/roll channel, shared by three FK joints. Only geometry-independent bone deltas live in animation recipes. Skinning follows UV projection and leaves UV identities intact. The default character catalog contains three templates; optional private local models live under local_characters and are included only with --personal, never in a public build. Local review changes are submitted together only when requested by the user.
 
 The single-UV editor stages raw texture replacement and protection groups together.
@@ -207,3 +226,9 @@ part mismatches before mutation. Pasted textures carry `painting_override` so ol
 workspace or linked-file polling cannot revert them; explicit import or preparing
 a new painting copy reconnects external editing. UI tests mock clipboard images;
 native HGLOBAL round-trip checks leave the desktop clipboard unchanged.
+
+## Hair
+
+`hair.py` defines five procedural styles, closed paintable meshes, seven three-joint pose channels and inertia. `hair_editor.py` stages appearance; `hair_controls.py` exposes bone posing and softness. No body/hair collisions are simulated. `model.hairstyle` rebuilds stable attachment IDs during normalization; old models stay unchanged.
+
+`hair_assembly.py` stages independent caps/locks, paint-preserving duplicates and reciprocal mirror pairs. `hairstyle.assembly/pieces` stores explicit component geometry; generated preset data stays compatible. Extra lock IDs have stable `hair_extra1`…`hair_extra32` channels. Only used channels are sampled; pose cards normalize the union of extra channels across cards.

@@ -54,6 +54,9 @@ def normalize(value=None):
         import attachments as A
         result['attachments']=A.normalize(value['attachments'])
     elif 'attachments' in value and not isinstance(value['attachments'],list):raise ValueError('Invalid attachments')
+    if 'hairstyle' in value:
+        import hair
+        hair.rebuild(result,value['hairstyle'])
     return result
 
 def save(model,path,assets=None):

@@ -3,6 +3,101 @@ from pathlib import Path
 import app,engine as E,uv_assets as U
 from pixel_ui import PixelButton
 class UITests(unittest.TestCase):
+ def test_hair_editor_bones_pose_cards_and_undo(self):
+  import copy,hair,hair_editor,model_data as M,hair_controls,types
+  a=self.a;a.project['model']=M.normalize();a.changed();before=copy.deepcopy(a.project)
+  a.edit_model();editor=a.model_editor;editor.part='head';editor.hair_mode=True;editor.show_params();hair_editor.apply_style(editor,'pony')
+  self.assertNotIn('hairstyle',a.project['model']);self.assertEqual(editor.draft['hairstyle']['style'],'pony');editor.apply();a.update()
+  a.select('body','hair');a.update();self.assertNotIn('hair',a.project['physics'])
+  deadline=time.perf_counter()+25
+  while (a.active_project!=a.project or a.preview_incomplete) and time.perf_counter()<deadline:a.update();time.sleep(.01)
+  self.assertEqual(a.active_project,a.project);a.render();a.update();self.assertTrue(a.part_buttons['hair'].winfo_ismapped())
+  a.hair_channel='hair_back';a.show_params();a.render();x,y,size=a.cells[1];px,py=hair_controls.points(a,1)[1]
+  start=types.SimpleNamespace(x=x+px*size/64,y=y+py*size/64);a.start_drag(start);self.assertIsNotNone(a.drag)
+  a.move_drag(types.SimpleNamespace(x=start.x+25,y=start.y-10));a.end_drag(None);self.assertGreater(a.project['controls']['hair']['hair_back_middle_roll'],0)
+  a.undo();self.assertFalse(a.project['controls'].get('hair'))
+  editor=a.edit_pose_animation();editor.select('hair');editor.hair_channel='hair_back';editor.show_params();editor.set_pose(1,25)
+  self.assertEqual(editor.cards[0]['pose']['hair_back'][1],25);editor.apply();a.update();self.assertEqual(a.project['base']['cards'][0]['pose']['hair_back'][1],25)
+
+ def test_tail_tip_can_be_staged_and_applied(self):
+  import tail_editor,attachments as A
+  a=self.a;a.edit_model();editor=a.model_editor;editor.part='torso';tail_editor.add(editor);tail_editor.set_value(editor,'tip',.8)
+  self.assertEqual(A.record(editor.draft,editor.tail_id)['tip'],.8);self.assertFalse(any(p.get('kind')=='tail' for p in a.project.get('model',{}).get('attachments',[])))
+  editor.apply();a.update();self.assertEqual(a.project['model']['attachments'][0]['tip'],.8)
+
+ def test_individual_hair_controls_link_reset_cancel_apply_and_undo(self):
+  import copy,hair,hair_editor,model_data as M
+  a=self.a;a.project['model']=M.normalize();hair.rebuild(a.project['model'],{'style':'twins'});a.changed();before=copy.deepcopy(a.project)
+  a.edit_model();editor=a.model_editor;editor.part='head';editor.hair_mode=True;editor.hair_edit_scope='lock';editor.show_params();editor.hair_lock_details=True;editor.show_params()
+  hair_editor.set_lock(editor,'ponyL','width',7.);hair_editor.set_lock(editor,'ponyL','x',-2.)
+  self.assertEqual(editor.draft['hairstyle']['locks']['ponyR']['width'],7.);self.assertEqual(editor.draft['hairstyle']['locks']['ponyR']['x'],2.)
+  editor.hair_link=False;hair_editor.set_lock(editor,'ponyL','width',5.);self.assertEqual(editor.draft['hairstyle']['locks']['ponyR']['width'],7.)
+  hair_editor.mirror_lock(editor,'ponyL');self.assertEqual(editor.draft['hairstyle']['locks']['ponyR']['width'],5.);self.assertEqual(editor.draft['hairstyle']['locks']['ponyR']['x'],2.)
+  hair_editor.edit_twins(editor);self.assertEqual(editor.hair_section,'ponyL');self.assertTrue(editor.hair_link)
+  editor.hair_link=False
+  hair_editor.reset_lock(editor,'ponyL');self.assertNotIn('ponyL',editor.draft['hairstyle']['locks']);self.assertIn('ponyR',editor.draft['hairstyle']['locks']);editor.cancel();self.assertEqual(a.project,before)
+  a.edit_model();editor=a.model_editor;hair_editor.set_lock(editor,'ponyL','tip',.8);editor.apply();a.update();self.assertEqual(a.project['model']['hairstyle']['locks']['ponyL']['tip'],.8)
+  a.undo();self.assertEqual(a.project,before)
+
+ def test_hair_free_parts_caps_and_extra_bones_are_staged(self):
+  import copy,hair,hair_assembly as HA,model_data as M,hair_controls
+  a=self.a;a.project['model']=M.normalize();a.changed();before=copy.deepcopy(a.project)
+  a.edit_model();editor=a.model_editor;editor.part='head';editor.hair_mode=True;editor.show_params();cap=HA.add(editor,'cap');first=HA.add(editor,'lock');second=HA.duplicate(editor,first,True)
+  HA.set_value(editor,cap,'shape','box');HA.set_value(editor,cap,'crown_flat',.7);HA.set_value(editor,first,'tip',.6)
+  self.assertEqual(len(editor.draft['attachments']),3);self.assertEqual(a.project,before);editor.hair_edit_scope='cap';editor.show_params();editor.hair_cap_details=True;editor.show_params();editor.apply();a.update();a.select('body','hair');a.changed()
+  deadline=time.perf_counter()+25
+  while (a.active_project!=a.project or a.preview_incomplete) and time.perf_counter()<deadline:a.update();time.sleep(.01)
+  self.assertEqual(a.active_project,a.project);self.assertEqual(len(hair_controls.active(a.project['model'])),2)
+  a.hair_channel=hair.channel(hair.resolve(a.project['model']['attachments'],second));a.show_params();self.assertEqual(len(hair_controls.points(a,0)),4)
+  pose=a.edit_pose_animation();pose.select('hair');pose.hair_channel=a.hair_channel;pose.show_params();pose.set_pose(1,25);self.assertEqual(pose.cards[0]['pose'][a.hair_channel][1],25);pose.cancel()
+
+ def test_hair_components_replace_template_hierarchy_and_ears_have_own_page(self):
+  import copy,hair,hair_editor,hair_assembly as HA,attachment_editor as AE,model_data as M,i18n
+  def texts(widget):
+   result=[getattr(widget,'text','')]
+   try:result.append(widget.cget('text'))
+   except Exception:pass
+   for child in widget.winfo_children():result.extend(texts(child))
+   return [i18n.tr(' '.join(str(v).split())) for v in result]
+  a=self.a;a.project['model']=M.normalize();hair.rebuild(a.project['model'],{'style':'twins'});a.changed();before=copy.deepcopy(a.project)
+  a.edit_model();editor=a.model_editor;editor.part='head';editor.hair_mode=True;editor.show_params();a.update()
+  labels=texts(editor.params);self.assertNotIn(i18n.tr('双马尾'),labels);self.assertNotIn(i18n.tr('整体发型'),labels);self.assertIn(i18n.tr('已添加部件'),labels);self.assertFalse(editor.link_check.winfo_manager())
+  self.assertIn(i18n.tr('头发主体'),editor.hair_component_list.get(0,'end'));self.assertEqual(a.project,before)
+  left=HA.add(editor,'sideL');right=HA.add(editor,'sideR');self.assertEqual(hair.role(hair.resolve(HA.items(editor),left)),'sideL');self.assertEqual(hair.role(hair.resolve(HA.items(editor),right)),'sideR')
+  editor.hair_mode=False;editor.ear_mode=True;editor.show_params();AE.add(editor,'human');editor.show_params();a.update()
+  labels=texts(editor.params);self.assertNotIn(i18n.tr('基础形状'),labels);self.assertNotIn(i18n.tr('头发部件'),labels);self.assertIn(i18n.tr('收起耳朵参数'),labels)
+  editor.ear_mode=False;editor.show_params();labels=texts(editor.params);self.assertIn(i18n.tr('基础形状'),labels);self.assertNotIn(i18n.tr('编辑耳朵参数'),labels);self.assertNotIn(i18n.tr('收起耳朵参数'),labels)
+  editor.apply();a.update();self.assertEqual(len([p for p in a.project['model']['attachments'] if p.get('kind')=='ear']),2);a.undo();self.assertEqual(a.project,before)
+
+ def test_canvas_and_lighting_have_separate_entries_and_display_switches(self):
+  from pixel_ui import PixelCheck
+  a=self.a;canvas=a.edit_render_options();light=a.edit_render_options('lighting');a.update()
+  self.assertIsNot(canvas,light);self.assertTrue(canvas.canvas_body.winfo_ismapped());self.assertFalse(canvas.light_body.winfo_ismapped())
+  self.assertFalse(light.canvas_body.winfo_ismapped());self.assertTrue(light.light_body.winfo_ismapped())
+  group=a.render_flag_checks['lighting'].master
+  self.assertTrue(any(isinstance(w,PixelCheck) and w.text=='显示贴图' for w in group.winfo_children()))
+  self.assertIs(a.render_flag_checks['self_shadow'].master,group)
+  self.assertFalse(a.project['render'].get('lighting',False));a.light_enabled.set(True);a.toggle_render_flag('lighting',a.light_enabled)
+  self.assertTrue(a.project['render']['lighting']);a.undo();self.assertFalse(a.light_enabled.get())
+  light.set_option('light_angle',45);a.display();self.assertEqual(a.project['render']['light_angle'],45)
+  canvas.destroy();light.destroy()
+
+ def test_canvas_and_lighting_settings_preview_handles_undo_and_save(self):
+  import copy,render_options as O
+  from types import SimpleNamespace
+  a=self.a;before=copy.deepcopy(a.project);d=a.edit_render_options();self.assertIs(a.edit_render_options(),d)
+  d.width.set('96');d.height.set('128');self.assertTrue(d.apply_canvas());d.set_option('lighting',True);d.set_option('light_angle',45);d.set_option('shadow_color','#443355')
+  self.assertEqual(O.size(a.project['render']),(96,128));a.display();self.assertTrue(a.project['render']['lighting'])
+  d.width.set('999');self.assertFalse(d.apply_canvas());self.assertEqual(O.size(a.project['render']),(96,128));d.destroy()
+  deadline=time.perf_counter()+25
+  while (a.active_project!=a.project or a.preview_incomplete) and time.perf_counter()<deadline:a.update();time.sleep(.01)
+  self.assertEqual(a.active_project,a.project);self.assertTrue(all(im.shape==(128,96,4) for im in a.raw_images.values()))
+  a.select('body','armR');a.render();x,y,size=a.cells[0];j=O.joints(a.view_pose(0),a.project['render']);px,py=j['armR']['tip'];event=SimpleNamespace(x=x+px*size/96,y=y+py*size/96)
+  a.start_drag(event);self.assertIsNotNone(a.drag);self.assertEqual(a.drag[1],'armR');a.move_drag(SimpleNamespace(x=event.x+4,y=event.y-4));a.end_drag(None)
+  a.edit_model();editor=a.model_editor;a.update();editor.single_view.set(True);editor.draw();self.assertEqual(editor.photos[next(iter(editor.photos))].height()/editor.photos[next(iter(editor.photos))].width(),128/96);editor.cancel()
+  a.autosave();saved=E.load(a.state_path);self.assertEqual(saved['render'],a.project['render']);self.assertEqual(saved['render']['shadow_color'],'#443355')
+  a.undo();self.assertEqual(O.size(a.project['render']),(96,128))
+
  def test_uv_clipboard_replacement_survives_link_refresh_and_can_resume_painting(self):
   import copy,image_clipboard as C
   from unittest.mock import patch

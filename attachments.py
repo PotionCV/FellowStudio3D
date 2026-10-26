@@ -19,6 +19,11 @@ def normalize(records):
  for source in records:
   if not isinstance(source,dict):raise ValueError('Invalid attachment')
   key=source.get('id','');preset=source.get('preset','cat')
+  if isinstance(key,str) and key.startswith('hair'):
+   import hair
+   item=hair.normalize(source)
+   if key in seen:raise ValueError('Invalid or duplicate attachment ID')
+   seen.add(key);result.append(item);continue
   if isinstance(key,str) and key.startswith('prop'):
    import hand_props
    item=hand_props.normalize(source)
@@ -54,6 +59,9 @@ def record(model,key):return next(p for p in model.get('attachments',[]) if p['i
 def name(key,model):
  from i18n import tr
  item=record(model,key)
+ if item.get('kind')=='hair':
+  import hair
+  return hair.name(item)
  if item.get('kind')=='prop':
   import hand_props
   return f"{tr(hand_props.LABELS.get(item['preset'],'旧版物品'))} {key[4:]} · {tr('左侧' if item['parent']=='armL' else '右侧')}"
@@ -63,6 +71,9 @@ def name(key,model):
  return f"{tr(LABELS[item['preset']])} {key[3:-1]} · {tr('左侧' if key.endswith('L') else '右侧')}"
 
 def dimensions(item):
+ if item.get('kind')=='hair':
+  import hair
+  return hair.dimensions(item)
  if item.get('kind')=='prop':
   import hand_props
   return hand_props.dimensions(item)
@@ -71,6 +82,9 @@ def dimensions(item):
   return tails.dimensions(item)
  return item['width'],item['height'],item['thickness']
 def surface(item):
+ if item.get('kind')=='hair':
+  import hair
+  return hair.surface(item)
  if item.get('kind')=='prop':
   import hand_props
   return hand_props.surface(item)
@@ -80,6 +94,9 @@ def surface(item):
  return {k:item[k] for k in ('shape','width','height','thickness','tip')}
 
 def frame(item,model,head,pose=None):
+ if item.get('kind')=='hair':
+  import hair
+  return hair.frame(item,model,head,pose or {'_model':model})
  if item.get('kind')=='prop':
   import hand_props
   return hand_props.frame(item,model,pose or {'_model':model})
@@ -99,6 +116,9 @@ def frame(item,model,head,pose=None):
  return origin+rotation@anchor,rotation@rz(-sign*item['outward'])@rx(item['lean'])@ry(sign*item['twist'])
 
 def mesh(item):
+ if item.get('kind')=='hair':
+  import hair
+  return hair.mesh(item)
  if item.get('kind')=='prop':
   import hand_props
   return hand_props.mesh(item)
@@ -113,6 +133,9 @@ def taper_depth(local,item):
  Apply after computing UV coordinates so existing painted texels keep their
  positions on the six face charts.
  """
+ if item.get('kind')=='hair':
+  import hair
+  return hair.deform(local,item)
  if item.get('kind')=='prop':return local
  if item.get('kind')=='tail':
   import tails

@@ -89,7 +89,45 @@
       "gap": 1.25,
       "connected": true,
       "shape": "capsule"
-    }
+    },
+    "attachments": [
+      {
+        "shape": "round",
+        "x": 1.0,
+        "y": -0.6749999999999999,
+        "z": 0.17500000000000004,
+        "width": 6.75,
+        "height": 5.0,
+        "thickness": 2.5,
+        "tip": 0.65,
+        "outward": -25.0,
+        "lean": -6.0,
+        "twist": 0.0,
+        "id": "ear1L",
+        "parent": "head",
+        "kind": "ear",
+        "preset": "human",
+        "linked": true
+      },
+      {
+        "shape": "round",
+        "x": 1.0,
+        "y": -0.6749999999999999,
+        "z": 0.17500000000000004,
+        "width": 6.75,
+        "height": 5.0,
+        "thickness": 2.5,
+        "tip": 0.65,
+        "outward": -25.0,
+        "lean": -6.0,
+        "twist": 0.0,
+        "id": "ear1R",
+        "parent": "head",
+        "kind": "ear",
+        "preset": "human",
+        "linked": true
+      }
+    ]
   },
   "assets3d": {
     "model": {
@@ -113,6 +151,44 @@
         "upper": 3.8,
         "vertical": 0.25
       },
+      "attachments": [
+        {
+          "height": 5.0,
+          "id": "ear1L",
+          "kind": "ear",
+          "lean": -6.0,
+          "linked": true,
+          "outward": -25.0,
+          "parent": "head",
+          "preset": "human",
+          "shape": "round",
+          "thickness": 2.5,
+          "tip": 0.65,
+          "twist": 0.0,
+          "width": 6.75,
+          "x": 1.0,
+          "y": -0.6749999999999999,
+          "z": 0.17500000000000004
+        },
+        {
+          "height": 5.0,
+          "id": "ear1R",
+          "kind": "ear",
+          "lean": -6.0,
+          "linked": true,
+          "outward": -25.0,
+          "parent": "head",
+          "preset": "human",
+          "shape": "round",
+          "thickness": 2.5,
+          "tip": 0.65,
+          "twist": 0.0,
+          "width": 6.75,
+          "x": 1.0,
+          "y": -0.6749999999999999,
+          "z": 0.17500000000000004
+        }
+      ],
       "head": {
         "bulge_length": 1.25,
         "depth": 0.0,
@@ -1423,7 +1499,112 @@
         "name": "thighL.png",
         "png": "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAeUlEQVR4nGNgGOmAkZCCnS3B/7GJu9esJaiXGMBEDUNGHUAJYGIY6Q5gJJTaqQVw5RomhgEGLDDGnRefB8QBTAyDJQRY3v0cmSHANOIdwAILgf333wxIYDASUhBhqY21gFpx/OpodUwVwEQdY0YdMApGwSgYBUMYAABqnBNaQp/oHgAAAABJRU5ErkJggg==",
         "protected_groups": []
+      },
+      "ear1L": {
+        "layout": {
+          "rects": {
+            "back": [
+              15,
+              5,
+              7,
+              5
+            ],
+            "bottom": [
+              5,
+              10,
+              7,
+              3
+            ],
+            "front": [
+              5,
+              5,
+              7,
+              5
+            ],
+            "left": [
+              2,
+              5,
+              3,
+              5
+            ],
+            "right": [
+              12,
+              5,
+              3,
+              5
+            ],
+            "top": [
+              5,
+              2,
+              7,
+              3
+            ]
+          },
+          "size": [
+            32,
+            16
+          ]
+        },
+        "name": "剪贴板贴图",
+        "painting_override": true,
+        "painting_pending": true,
+        "png": "iVBORw0KGgoAAAANSUhEUgAAACAAAAAQCAYAAAB3AH1ZAAAAj0lEQVR4nGNgGOmAEZvgh03l/9HF7t28AqaNSrdi1UMuYMElwS8tgcJXQnIENQETsQrRHUQtwIge7CBfGjq5YFX88ekLog0W8OtkJDkK7iEFMcgyZL6Sug4DLQATNkGY5TBLQTStooAJnyR6iNDcAUpIwYzs+0FRDsBChNrlABOxCmlRBoAAy0BYOgoGFQAAQpQ1x3K88xoAAAAASUVORK5CYII=",
+        "protected_groups": [],
+        "provenance": "unknown"
+      },
+      "ear1R": {
+        "layout": {
+          "rects": {
+            "back": [
+              15,
+              5,
+              7,
+              5
+            ],
+            "bottom": [
+              5,
+              10,
+              7,
+              3
+            ],
+            "front": [
+              5,
+              5,
+              7,
+              5
+            ],
+            "left": [
+              2,
+              5,
+              3,
+              5
+            ],
+            "right": [
+              12,
+              5,
+              3,
+              5
+            ],
+            "top": [
+              5,
+              2,
+              7,
+              3
+            ]
+          },
+          "size": [
+            32,
+            16
+          ]
+        },
+        "name": "剪贴板贴图",
+        "png": "iVBORw0KGgoAAAANSUhEUgAAACAAAAAQCAYAAAB3AH1ZAAAAj0lEQVR4nGNgGOmAEZvgh03l/9HF7t28AqaNSrdi1UMuYMElwS8tgcJXQnIENQETsQrRHUQtwIge7CBfGjq5YFX88ekLog0W8OtkJDkK7iEFMcgyZL6Sug4DLQATNkGY5TBLQTStooAJnyR6iNDcAUpIwYzs+0FRDsBChNrlABOxCmlRBoAAy0BYOgoGFQAAQpQ1x3K88xoAAAAASUVORK5CYII=",
+        "protected_groups": [],
+        "provenance": "unknown"
       }
+    },
+    "shared_textures": {
+      "ear1R": "ear1L"
     }
   }
 }

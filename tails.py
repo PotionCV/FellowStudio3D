@@ -9,7 +9,7 @@ PRESETS={
  'bob_tail':dict(shape='bob',length=5.,width=5.,thickness=5.,curl=0.,lean=-90.,wag=0.,cycles=1.,x=0.,y=2.,z=0.,outward=0.)}
 LABELS={'long_tail':'长尾','fluffy_tail':'蓬松尾','bob_tail':'短圆尾'}
 SPECS=(('length','尾巴长度（px）',3,26,.5),('width','尾巴粗细（px）',.5,12,.25),
- ('curl','尾巴弯曲（度）',-150,150,1),('wag','摆尾幅度（度）',-60,60,1),
+ ('curl','尾巴弯曲（度）',-150,150,1),('tip','尾尖粗细',0,1,.05),('wag','摆尾幅度（度）',-60,60,1),
  ('thickness','尾巴厚度（px）',.5,12,.25),('lean','尾巴抬起（度）',-160,60,1),
  ('x','尾根左右（px）',-10,10,.25),('y','尾根上下（px）',-8,12,.25),('z','尾根前后（px）',-8,8,.25),
  ('outward','尾巴朝向（度）',-90,90,1),('cycles','每轮摆尾次数',1,4,1))
@@ -18,7 +18,7 @@ def normalize(source):
  key=source.get('id','');preset=source.get('preset','long_tail')
  if not isinstance(key,str) or not re.fullmatch(r'tail[1-9][0-9]{0,5}',key):raise ValueError('Invalid tail ID')
  if preset not in PRESETS or source.get('parent','pelvis')!='pelvis':raise ValueError('Invalid tail preset or parent')
- item=dict(PRESETS[preset],id=key,parent='pelvis',kind='tail',preset=preset)
+ item=dict(PRESETS[preset],tip=0.,id=key,parent='pelvis',kind='tail',preset=preset)
  if source.get('shape',item['shape']) not in ('tube','brush','bob'):raise ValueError('Invalid tail shape')
  item['shape']=source.get('shape',item['shape'])
  for field,_,lo,hi,_ in SPECS:
@@ -36,7 +36,7 @@ def add(model,preset='long_tail'):
  item=normalize(dict(id=f'tail{index}',preset=preset));item['wag']=0.;items.append(item);return item['id']
 
 def dimensions(item):return item['width'],item['length'],item['thickness']
-def surface(item):return {k:item[k] for k in ('shape','length','width','thickness','curl')}
+def surface(item):return {**{k:item[k] for k in ('shape','length','width','thickness','curl')},'tip':item.get('tip',0.)}
 
 def frame(item,model,pose):
  import rounded_scene as S
@@ -65,7 +65,7 @@ def deform(local,item):
  points[:,2]=radius*(1-np.cos(a))+z*np.cos(a)
  return points
 
-def mesh(item):return _mesh(tuple(item[k] for k in ('shape','length','width','thickness')))
+def mesh(item):return _mesh((*tuple(item[k] for k in ('shape','length','width','thickness')),item.get('tip',0.)))
 
 def bone_transforms(item,angles):
  """Three FK joints with pitch/yaw/roll, relative to the curved bind pose."""
@@ -154,11 +154,17 @@ def group_frame(item,pose,anchor,world_frame):
 @lru_cache(maxsize=128)
 def _mesh(key):
  from rounded_scene import surface_rings
- shape,length,width,depth=key;rings=[]
- for t in np.linspace(0,1,13):
+ shape,length,width,depth,tip=key;rings=[];samples=np.linspace(0,1,13)
+ cap=1-min(.3,max(.025,min(width,depth)*tip/(2*length)))
+ if tip>0 and shape!='bob':samples=np.unique(np.r_[samples,np.linspace(cap,1,5)])
+ for t in samples:
   if shape=='bob':radius=math.sqrt(max(0.,1-(2*t-1)**2))
   elif shape=='brush':radius=math.sin(math.pi*t)**.65
   else:radius=min(1.,t/.06)*(1-t)**.45
+  if tip>0 and shape!='bob':
+   base=(math.sin(math.pi*min(t,cap))**.65 if shape=='brush' else min(1.,t/.06)*(1-min(t,cap))**.45)
+   radius=(1-tip)*base+tip*min(1.,t/.06)
+   if t>cap:radius*=math.sqrt(max(0.,1-((t-cap)/(1-cap))**2))
   if t==0 or t==1:radius=0.
   rings.append((float(t*length),float(radius*width/2),float(radius*depth/2)))
  return surface_rings(rings,12),(np.array((-width/2,0.,-depth/2)),np.array((width/2,length,depth/2)))

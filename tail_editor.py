@@ -40,8 +40,8 @@ def mount(editor):
  if len(items)>1:PixelOption(box,selected,*keys,command=choose).pack(fill='x',pady=6)
  UI.Label(box,text='三段独立骨骼。应用后在整体控制选择尾巴；叠加尾巴摆动可与其他动作融合。',wrap=True,anchor='w',justify='left').pack(fill='x',pady=6)
  item=A.record(editor.draft,editor.tail_id);details=getattr(editor,'tail_details',False)
- specs=[spec for spec in tails.SPECS if spec[0] not in ('wag','cycles')]
- for key,label,lo,hi,step in specs[:3]+(specs[3:] if details else []):
+ specs=[spec for spec in tails.SPECS if spec[0] not in ('wag','cycles') and not (spec[0]=='tip' and item['shape']=='bob')]
+ for key,label,lo,hi,step in specs[:4]+(specs[4:] if details else []):
   row=tk.Frame(box);row.pack(fill='x',pady=(6,0));row.columnconfigure(0,weight=1)
   UI.Label(row,text=label,anchor='w',wrap=True).grid(row=0,column=0,sticky='ew')
   out=tk.StringVar(master=editor,value=f'{item[key]:g}');UI.Label(row,textvariable=out,width=5,anchor='e').grid(row=0,column=1)

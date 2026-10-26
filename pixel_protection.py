@@ -238,7 +238,7 @@ def prepare(triangles,q,textures,resources,enabled=True,frames=None):
 
 def apply(rgb, owner, patches, part_names):
     for part, screen, colors in patches:
-        inside = (screen[:,0]>=0)&(screen[:,0]<64)&(screen[:,1]>=0)&(screen[:,1]<64)
+        inside = (screen[:,0]>=0)&(screen[:,0]<rgb.shape[1])&(screen[:,1]>=0)&(screen[:,1]<rgb.shape[0])
         xy = screen[inside]; color = colors[inside]
         if not len(xy):
             continue

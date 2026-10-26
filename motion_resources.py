@@ -17,8 +17,8 @@ def pose_channels(pose):
  for key in E.POSE_CHANNELS:
   if key not in pose:continue
   value=pose[key]
-  if key in E.LIMBS or key=='tail':
-   if not isinstance(value,(list,tuple)) or len(value)!=(9 if key=='tail' else 4):raise ValueError('Invalid pose angles')
+  if key in E.LIMBS or key=='tail' or key in E.hair.CHANNELS:
+   if not isinstance(value,(list,tuple)) or len(value)!=(4 if key in E.LIMBS else 9):raise ValueError('Invalid pose angles')
    value=[float(v) for v in value]
    if not all(math.isfinite(v) for v in value):raise ValueError('Invalid pose angles')
   else:

@@ -7,7 +7,7 @@ from i18n import tr
 
 def mount(editor):
  box=tk.Frame(editor.params);box.pack(fill='x',padx=12,pady=10)
- UI.Label(box,text='附属部件',anchor='w').pack(fill='x',pady=6)
+ UI.Label(box,text='耳朵',anchor='w').pack(fill='x',pady=6)
  bar=FlowBar(box,compact=True);bar.pack(fill='x')
  for preset,label in A.LABELS.items():
   PixelButton(bar,text='+ '+tr(label),compact=True,command=lambda p=preset:add(editor,p)).pack(side='left')

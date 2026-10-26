@@ -56,7 +56,7 @@ class ReleaseTests(unittest.TestCase):
     if tag=='h2':self.sections+=1
   for suffix in ('en','zh-CN','ja'):
    path=ROOT/'docs'/('GUIDE.'+suffix+'.html');page=Page();text=path.read_text(encoding='utf-8');page.feed(text)
-   self.assertEqual(page.sections,10);self.assertEqual(len(page.ids),len(set(page.ids)))
+   self.assertEqual(page.sections,11);self.assertEqual(len(page.ids),len(set(page.ids)))
    self.assertNotIn('<script',text);self.assertNotIn('src="http',text)
    for link in page.links:
     if link.startswith('#'):self.assertIn(link[1:],page.ids)
@@ -103,7 +103,7 @@ class ReleaseTests(unittest.TestCase):
    self.assertEqual(M.load_resource(path),example)
    path.write_text(json.dumps({'type':'FellowStudioModel','model':example['model']}),encoding='utf-8')
    self.assertEqual(M.load_resource(path),{'model':example['model']})
-   bad=json.loads((ROOT/'examples'/'models'/'CustomModel.json').read_text());bad['assets3d']['textures']['head']['png']='broken image'
+   bad=json.loads((ROOT/'examples'/'models'/'CustomModel.json').read_text(encoding='utf-8'));bad['assets3d']['textures']['head']['png']='broken image'
    path.write_text(json.dumps(bad),encoding='utf-8')
    with self.assertRaises(Exception):M.load_resource(path)
  def test_fast_chain_matches_full_geometry_with_offsets_and_camera(self):

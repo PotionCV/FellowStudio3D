@@ -5,6 +5,226 @@ import numpy as np
 import engine as E,model_data as M,rounded_scene as S
 
 class ExtensionTests(unittest.TestCase):
+ def test_hair_styles_preserve_character_art_and_have_distinct_chains(self):
+  import hair
+  resource=M.load_resource('examples/models/CustomModel.json');original=copy.deepcopy(resource)
+  previous=S.assets({'model':resource['model'],'assets3d':resource.get('assets3d')})
+  counts=[]
+  for style in hair.STYLES:
+   model=copy.deepcopy(resource['model']);hair.rebuild(model,{'style':style});normalized=M.normalize(model)
+   self.assertEqual(normalized,model);self.assertTrue(all(item in normalized['attachments'] for item in original['model']['attachments']))
+   bundle=S.assets({'model':normalized,'assets3d':previous})
+   for part,data in previous['textures'].items():self.assertEqual(bundle['textures'][part]['png'],data['png'])
+   sections={p['section'] for p in normalized['attachments'] if p.get('kind')=='hair'};counts.append(sections)
+   self.assertIn('cap',sections)
+   for part in normalized['attachments']:
+    if part.get('kind')!='hair':continue
+    self.assertIn(part['id'],bundle['textures'])
+    mesh,bounds=hair.mesh(part);self.assertTrue(all(np.isfinite(t).all() for _,t in mesh))
+  self.assertEqual(len({tuple(sorted(c)) for c in counts}),4) # bob and long share a skeleton, different lengths
+  self.assertEqual(resource,original)
+
+ def test_hair_fk_uv_mirror_and_body_cache_are_independent(self):
+  import hair,attachments as A
+  model=M.normalize();hair.rebuild(model,{'style':'twins'});p=E.new_project('stand');p.update(model=model,seconds=.25,fps=8,physics={'hair':{'strength':0}})
+  pose=E.poses(p)[0];bundle=S.assets(p);item=next(a for a in model['attachments'] if a['id']=='hair1ponyL')
+  first=S.attachment_triangles(item,model,S.geometry(pose)[-1],pose,bundle['textures'][item['id']]['layout'])
+  changed=copy.deepcopy(pose);changed['hair_ponyL']=[15,20,0,30,0,0,10,0,0]
+  self.assertIs(S.geometry(changed),S.geometry(pose))
+  second=S.attachment_triangles(item,model,S.geometry(changed)[-1],changed,bundle['textures'][item['id']]['layout'])
+  self.assertFalse(np.allclose(np.concatenate([t[2] for t in first]),np.concatenate([t[2] for t in second])))
+  np.testing.assert_array_equal(np.concatenate([t[3] for t in first]),np.concatenate([t[3] for t in second]))
+  mirror=E.mirror_pose(changed);np.testing.assert_allclose(mirror['hair_ponyR'],[15,-20,0,30,0,0,10,0,0])
+  np.testing.assert_allclose(hair.joints(item,model,S.geometry(changed)[-1],changed)[0],hair.joints(item,model,S.geometry(pose)[-1],pose)[0])
+
+ def test_hair_blend_softness_save_and_motion_transfer(self):
+  import hair,motion_resources as MR
+  p=E.new_project('stand');p.update(model=M.normalize(),seconds=.5,fps=8,physics={'hair':{'strength':0}});hair.rebuild(p['model'],{'style':'pony'})
+  baseline=E.poses(p);p['layers']=[E.entry('hair')];p['controls']={'hair':{'hair_back_middle_pitch':20}}
+  authored=E.poses(p);self.assertTrue(any(abs(f['hair_back'][1])>0 for f in authored));self.assertTrue(all(f['hair_back'][3]>15 for f in authored))
+  for a,b in zip(baseline,authored):
+   for key in E.LIMBS:np.testing.assert_array_equal(a[key],b[key])
+  p['layers'][0]['mix']=0;p['controls']={};disabled=E.poses(p)
+  for frame in disabled:np.testing.assert_array_equal(frame['hair_back'],[0]*9)
+  p['layers'][0]['mix']=1
+  with tempfile.TemporaryDirectory() as folder:
+   path=Path(folder)/'hair.json';E.save(p,path);loaded=E.load(path)
+   for a,b in zip(E.poses(p),E.poses(loaded)):np.testing.assert_allclose(a['hair_back'],b['hair_back'])
+  recipe=MR.motion_recipe(p);self.assertNotIn('model',recipe);target=E.new_project('run');target['model']=M.normalize();hair.rebuild(target['model'],{'style':'twins'});p=MR.apply_motion(target,recipe);transferred=E.poses(p)
+  self.assertTrue(any(abs(f['hair_ponyL'][1])>0 for f in transferred))
+
+ def test_hair_inertia_is_deterministic_and_preserves_grounding(self):
+  import hair
+  p=E.new_project('run');p.update(seconds=.5,fps=8,model=M.normalize());hair.rebuild(p['model'],{'style':'pony'})
+  p['controls']={'head':{'nod':20}};p['physics']['hair']={'strength':0};authored=E.poses(p)
+  p['physics'].pop('hair');dynamic=E.poses(p);again=E.poses(p)
+  self.assertTrue(any(np.max(abs(np.array(a['hair_back'])-b.get('hair_back',[0]*9)))>.01 for a,b in zip(dynamic,authored)))
+  for a,b,c in zip(dynamic,authored,again):
+   np.testing.assert_allclose(a['hair_back'],c['hair_back']);self.assertTrue(np.isfinite(a['hair_back']).all());self.assertLessEqual(max(abs(v) for v in a['hair_back']),120)
+   for key in ('dx','dy','dz'):self.assertEqual(a.get(key),b.get(key))
+
+ def test_tail_tip_rounding_preserves_legacy_and_texture_layout(self):
+  import tails
+  from rounded_scene import surface_rings
+  item=tails.normalize({'id':'tail1'});mesh,bounds=tails.mesh(item)
+  rings=[]
+  for t in np.linspace(0,1,13):
+   radius=min(1.,t/.06)*(1-t)**.45
+   if t==0 or t==1:radius=0.
+   rings.append((float(t*item['length']),float(radius*item['width']/2),float(radius*item['thickness']/2)))
+  old=surface_rings(rings,12)
+  np.testing.assert_array_equal(np.concatenate([t for _,t in mesh]),np.concatenate([t for _,t in old]))
+  p=E.new_project();p['model']=M.normalize();key=tails.add(p['model']);original=S.assets(p);record=p['model']['attachments'][0];record['tip']=1.;rounded=S.assets(dict(p,assets3d=original))
+  self.assertEqual(original['textures'][key],rounded['textures'][key]);vertices=np.concatenate([v for _,v in tails.mesh(record)[0]])
+  near=vertices[np.isclose(vertices[:,1],record['length']*.9166666666666666)];self.assertGreater(np.max(abs(near[:,0])),record['width']*.4)
+  self.assertEqual(M.normalize(p['model'])['attachments'][0]['tip'],1.)
+  with tempfile.TemporaryDirectory() as folder:
+   path=Path(folder)/'roundtail.json';E.save(p,path);self.assertEqual(E.load(path)['model']['attachments'][0]['tip'],1.)
+
+ def test_individual_hair_profiles_survive_normalize_and_keep_uv_during_fk(self):
+  import hair
+  p=E.new_project('stand');p.update(model=M.normalize(),seconds=.25,fps=8,physics={'hair':{'strength':0}})
+  settings={'style':'twins','locks':{'ponyL':dict(length=26.,width=6.,thickness=1.2,curl=45.,tip=.8,root_scale=.5,mid_scale=1.4,x=-2.,y=1.,z=-1.,outward=-40.,lean=15.,yaw=20.,twist=30.)}}
+  hair.rebuild(p['model'],settings);self.assertEqual(M.normalize(p['model']),p['model'])
+  left=next(a for a in p['model']['attachments'] if a['id']=='hair1ponyL');right=next(a for a in p['model']['attachments'] if a['id']=='hair1ponyR')
+  self.assertEqual(left['length'],26.);self.assertEqual(right['length'],20.);self.assertEqual(left['tip'],.8)
+  pose=E.poses(p)[0];bundle=S.assets(p);net=bundle['textures'][left['id']]['layout'];original=S.attachment_triangles(left,p['model'],S.geometry(pose)[-1],pose,net)
+  bent=copy.deepcopy(pose);bent['hair_ponyL']=[10,15,0,20,10,0,5,0,0];changed=S.attachment_triangles(left,p['model'],S.geometry(bent)[-1],bent,net)
+  self.assertFalse(np.allclose(np.concatenate([t[2] for t in original]),np.concatenate([t[2] for t in changed])))
+  np.testing.assert_array_equal(np.concatenate([t[3] for t in original]),np.concatenate([t[3] for t in changed]))
+  self.assertTrue(np.isfinite(np.concatenate([t[2] for t in changed])).all())
+  with tempfile.TemporaryDirectory() as folder:
+   path=Path(folder)/'hairshape.json';E.save(p,path);self.assertEqual(E.load(path)['model'],p['model'])
+  with self.assertRaises(ValueError):hair.normalize_style({'locks':{'ponyL':{'width':float('nan')}}})
+
+ def test_hair_mirror_copies_complete_shape_and_reflects_geometry(self):
+  import hair,hair_editor,types
+  model=M.normalize();hair.rebuild(model,{'style':'twins','locks':{'ponyL':{'width':6.,'length':26.,'thickness':1.4,'tip':.8,'root_scale':.5,'mid_scale':1.3,'curl':35.,'outward':-30.,'lean':15.,'yaw':20.,'twist':25.,'x':-2.,'y':1.,'z':-2.}}})
+  editor=types.SimpleNamespace(draft=model,show_params=lambda:None,request_preview=lambda:None)
+  hair_editor.mirror_lock(editor,'ponyL');self.assertEqual(model['hairstyle']['locks']['ponyR']['twist'],-25.)
+  points=[]
+  for section in ('ponyL','ponyR'):
+   item=next(p for p in model['attachments'] if p.get('section')==section);raw=np.concatenate([v for _,v in hair.mesh(item)[0]]);origin,rotation=hair.frame(item,model,(np.zeros(3),np.eye(3)),{})
+   points.append(hair.deform(raw,item)@rotation.T+origin)
+  reflected=points[0].copy();reflected[:,0]*=-1
+  def ordered(values):
+   values=np.round(values,6);return values[np.lexsort(values.T[::-1])]
+  np.testing.assert_allclose(ordered(reflected),ordered(points[1]),atol=1e-5)
+
+ def test_free_hair_assembly_has_independent_channels_and_caps(self):
+  import hair,hair_assembly as HA,types,uv_assets as U,pose_animation as PA
+  p=E.new_project('stand');p.update(model=M.normalize(),seconds=.25,fps=8,physics={'hair':{'strength':0}})
+  editor=types.SimpleNamespace(draft=p['model'],source=p,draft_assets=None,show_params=lambda:None,request_preview=lambda:None)
+  cap=HA.add(editor,'cap');self.assertEqual(len(editor.draft['attachments']),1)
+  first=HA.add(editor,'lock');HA.set_value(editor,first,'width',5.);HA.set_value(editor,first,'x',-8.)
+  second=HA.duplicate(editor,first,True);self.assertNotEqual(first,second);self.assertEqual(HA.items(editor)[-1]['x'],8.)
+  self.assertEqual(editor.draft_assets['textures'][first]['png'],editor.draft_assets['textures'][second]['png'])
+  HA.set_value(editor,first,'length',18.);self.assertEqual(hair.resolve(HA.items(editor),second)['length'],18.)
+  HA.set_value(editor,cap,'shape','ellipsoid');HA.set_value(editor,cap,'width',24.);HA.set_value(editor,cap,'crown_flat',.7);HA.set_value(editor,cap,'front_cut',-.2)
+  p['model']=editor.draft;p['assets3d']=editor.draft_assets;self.assertEqual(M.normalize(p['model']),p['model'])
+  channels=hair.channels_for(p['model']);self.assertEqual(len(set(channels)),2)
+  p['controls']={'hair':{channels[0]+'_middle_pitch':30}};pose=E.poses(p)[0]
+  self.assertEqual(pose[channels[0]][3],30.);self.assertEqual(pose[channels[1]][3],0.)
+  mirrored=E.mirror_pose(pose);self.assertEqual(mirrored[channels[1]][3],30.)
+  cap_item=hair.resolve(HA.items(editor),cap);vertices=np.concatenate([v for _,v in hair.mesh(cap_item)[0]]);self.assertTrue(np.isfinite(vertices).all())
+  p['layers']=[E.entry('hair')];wind=E.poses(p)[0];self.assertTrue(any(abs(v)>0 for v in wind[channels[1]]))
+  cards=PA.normalize_cards([dict(pose=pose),dict(pose=E.norm(E.F.POSES['stand']))]);self.assertIn(channels[0],PA.sample(cards,.6,True))
+  with tempfile.TemporaryDirectory() as folder:
+   path=Path(folder)/'assembly.json';E.save(p,path);saved=E.load(path);self.assertEqual(saved['model'],p['model']);np.testing.assert_array_equal(E.rgba(E.poses(saved)[0],saved['render']),E.rgba(wind,p['render']))
+  HA.delete(editor,cap);self.assertFalse(any(a['section']=='cap' for a in HA.items(editor)));self.assertEqual(len(HA.items(editor)),2)
+
+ def test_semantic_hair_components_add_separately_and_pair_without_renaming_rig(self):
+  import hair,hair_assembly as HA,types
+  p=E.new_project();p['model']=M.normalize();editor=types.SimpleNamespace(draft=p['model'],source=p,draft_assets=None,show_params=lambda:None,request_preview=lambda:None)
+  cap=HA.add(editor,'cap');self.assertEqual(len(HA.items(editor)),1)
+  left=HA.add(editor,'bangL');HA.set_value(editor,left,'width',5.);HA.set_value(editor,left,'x',-3.)
+  right=HA.add(editor,'bangR');self.assertEqual(len(HA.items(editor)),3)
+  a=hair.resolve(HA.items(editor),left);b=hair.resolve(HA.items(editor),right)
+  self.assertEqual((hair.role(a),hair.role(b)),('bangL','bangR'));self.assertEqual(b['width'],5.);self.assertEqual(b['x'],3.)
+  self.assertEqual(hair.channel(a),'hair_bangL');self.assertEqual(hair.channel(b),'hair_bangR');self.assertIs(hair.paired(HA.items(editor),a),b)
+  midleft=HA.add(editor,'sideL');midright=HA.add(editor,'sideR');self.assertEqual(len(HA.items(editor)),5)
+  self.assertEqual({hair.role(p) for p in HA.items(editor)},{'cap','bangL','bangR','sideL','sideR'})
+  self.assertEqual(editor.draft,M.normalize(editor.draft));HA.delete(editor,cap);self.assertEqual(len(HA.items(editor)),4)
+  before=hair.channel(hair.resolve(HA.items(editor),midleft));HA.set_value(editor,midleft,'role','ponyL');self.assertEqual(hair.channel(hair.resolve(HA.items(editor),midleft)),before);self.assertEqual(hair.role(hair.resolve(HA.items(editor),midright)),'ponyR')
+  HA.add(editor,'ponyL');self.assertEqual(len({hair.name(p) for p in HA.items(editor)}),len(HA.items(editor)))
+
+ def test_painted_lighting_ignores_triangle_facets(self):
+  import pixel_lighting as L
+  vertices=np.array([[-8,-8,0],[8,-8,0],[8,8,0],[-8,8,0]],float);uv=np.zeros((3,2))
+  triangles=[('head','front',vertices[list(ids)],uv) for ids in ((0,1,2),(0,2,3))]
+  textures={'head':np.array([[[180,120,80,255]]],np.uint8)};positions=np.array([[0,-6,0],[-4,5,0],[3,0,0]],float)
+  def image(style,normals):
+   rgb=np.full((1,3,4),(180,120,80,255),np.uint8);settings=dict(lighting=True,self_shadow=False,light_style=style,light_strength=1)
+   L.shade(rgb,np.ones(3,bool),positions,np.array(normals,float),L.context(triangles,textures,settings));return rgb
+  front=[[0,0,1]]*3;back=[[0,0,-1]]*3
+  np.testing.assert_array_equal(image('painted',front),image('painted',back))
+  self.assertFalse(np.array_equal(image('facet',front),image('facet',back)))
+
+ def test_large_canvas_export_streams_and_gif_budget_is_checked_before_creation(self):
+  import directional_export as D
+  from unittest.mock import patch
+  p=E.new_project();p.update(seconds=2.5,fps=8);p['render'].update(canvas_width=256,canvas_height=256)
+  with patch.object(D,'export',return_value='streamed') as stream:
+   self.assertEqual(E.export(p,scale=8,formats={'png','strip'}),'streamed');self.assertEqual(stream.call_args.kwargs['directions'],1)
+  with tempfile.TemporaryDirectory() as folder:
+   path=Path(folder)/'absent'
+   with self.assertRaises(ValueError):D.export(p,out=path,scale=8,formats={'gif'})
+   self.assertFalse(path.exists())
+
+ def test_native_canvas_preserves_pixel_scale_uv_and_default_render(self):
+  import render_options as O
+  p=E.new_project('stand');pose=E.poses(p)[0];original=E.rgba(pose,p['render']);assets=S.assets(p)
+  expanded=E.rgba(pose,dict(p['render'],canvas_width=96,canvas_height=128))
+  self.assertEqual(expanded.shape,(128,96,4));np.testing.assert_array_equal(expanded[64:128,16:80],original)
+  self.assertEqual(S.assets(p),assets);np.testing.assert_array_equal(original,E.rgba(pose,dict(p['render'],lighting=False,self_shadow=False)))
+  j=O.joints(pose,{'canvas_width':96,'canvas_height':128})
+  for key,chain in E.R.joints(pose).items():
+   for name,(x,y) in chain.items():np.testing.assert_allclose(j[key][name],(x+16,y+64));np.testing.assert_allclose(O.target(j[key][name],{'canvas_width':96,'canvas_height':128}),(x,y))
+
+ def test_pixel_light_self_shadow_is_alpha_aware_and_world_space(self):
+  import pixel_lighting as L
+  # Horizontal receiver, with a smaller canopy six units above it.
+  floor=np.array([[-8,0,-8],[8,0,-8],[8,0,8],[-8,0,8]],float);canopy=np.array([[-2,6,-2],[2,6,-2],[2,6,2],[-2,6,2]],float)
+  uv=np.zeros((3,2));triangles=[]
+  for part,vertices in (('floor',floor),('canopy',canopy)):
+   for ids in ((0,2,1),(0,3,2)):triangles.append((part,'front',vertices[list(ids)],uv))
+  tex={'floor':np.array([[[180,160,140,255]]],np.uint8),'canopy':np.array([[[180,160,140,255]]],np.uint8)}
+  s=dict(lighting=True,self_shadow=True,light_angle=0,light_height=85,light_strength=1,light_color='#ffffff',shadow_color='#201030')
+  positions=np.array([[0,0,0],[5,0,0]],float);normals=np.array([[0,1,0],[0,1,0]],float);filled=np.ones(2,bool)
+  def shaded(textures,settings):
+   rgb=np.full((1,2,4),(180,160,140,255),np.uint8);L.shade(rgb,filled,positions,normals,L.context(triangles,textures,settings));return rgb
+  on=shaded(tex,s);self.assertLess(on[0,0,0],on[0,1,0]);off=shaded(tex,dict(s,self_shadow=False));np.testing.assert_array_equal(off[0,0],off[0,1])
+  zero=shaded(tex,dict(s,light_strength=0));self.assertLess(zero[0,0,0],zero[0,1,0])
+  np.testing.assert_array_equal(zero,shaded(tex,dict(s,lighting=False)))
+  no_effect=shaded(tex,dict(s,lighting=False,shadow_strength=0));np.testing.assert_array_equal(no_effect,np.full((1,2,4),(180,160,140,255),np.uint8))
+  self.assertGreater(shaded(tex,dict(s,lighting=False,shadow_strength=.2))[0,0,0],shaded(tex,dict(s,lighting=False,shadow_strength=.9))[0,0,0])
+  tex['canopy'][0,0,3]=0;np.testing.assert_array_equal(shaded(tex,s),off)
+
+ def test_pixel_lighting_preserves_alpha_paint_and_zero_strength(self):
+  import pixel_lighting as L
+  p=E.load(E.ROOT/'examples/characters/CustomCharacter.json');pose=E.poses(p)[0];before=copy.deepcopy(p['assets3d'])
+  base=E.rgba(pose,p['render']);settings=dict(p['render'],lighting=True,self_shadow=True,light_strength=.85,light_angle=315,light_height=45)
+  lit=E.rgba(pose,settings);np.testing.assert_array_equal(base[:,:,3],lit[:,:,3]);self.assertGreater(np.count_nonzero(base!=lit),100)
+  np.testing.assert_array_equal(base,E.rgba(pose,dict(settings,light_strength=0,self_shadow=False)));self.assertEqual(p['assets3d'],before)
+  hits=L._shadow.cache_info().hits;E.rgba(pose,settings,(90,0));self.assertGreater(L._shadow.cache_info().hits,hits)
+  self.assertFalse(np.array_equal(lit,E.rgba(pose,dict(settings,light_angle=135))))
+
+ def test_rectangular_lit_export_and_atlas_paging_match_native_pixels(self):
+  import directional_export as D
+  from PIL import Image
+  p=E.new_project('stand');p.update(seconds=.25,fps=8);p['render'].update(canvas_width=96,canvas_height=128,lighting=True)
+  plan=D.page_layout(3,8,8,(256,256));self.assertEqual(len(plan),8);self.assertTrue(all(max(page['size'])<=4096 for page in plan))
+  seq=E.poses(p)
+  with tempfile.TemporaryDirectory() as folder:
+   out=E.export(p,out=folder,name='Tall',formats={'png','strip','gif','recipe'},scale=2)
+   image=np.array(Image.open(out/'Tall_00.png'));self.assertEqual(image.shape,(256,192,4));np.testing.assert_array_equal(image,E.rgba(seq[0],p['render']).repeat(2,0).repeat(2,1))
+   with Image.open(out/'Tall_strip.png') as image:self.assertEqual(image.size,(384,256))
+   with Image.open(out/'Tall.gif') as image:self.assertEqual(image.size,(192,256))
+   out=E.export(p,out=folder,name='FourTall',formats={'png','strip','gif'},directions=4)
+   data=json.loads((out/'FourTall_atlas.json').read_text());self.assertEqual(data['native_cell'],[96,128]);self.assertEqual(data['pivot'],[48,120])
+   for direction in data['directions']:
+    frame=direction['frames'][0];x,y,w,h=frame['rect'];np.testing.assert_array_equal(np.array(Image.open(out/frame['image']).crop((x,y,x+w,y+h))),E.rgba(seq[0],p['render'],(direction['yaw'],0)))
+
  @unittest.skipUnless(__import__('os').name=='nt','Windows clipboard memory')
  def test_uv_clipboard_native_memory_roundtrip_without_changing_desktop_clipboard(self):
   import image_clipboard as C,io

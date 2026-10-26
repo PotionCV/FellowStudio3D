@@ -11,11 +11,17 @@ Japanese, with scalable pixel controls.
 
 [English](docs/GUIDE.en.md) · [简体中文](docs/GUIDE.zh-CN.md) · [日本語](docs/GUIDE.ja.md)
 
-[v0.3.0 release notes / 更新说明](docs/RELEASE-v0.3.0.md)
+[v0.4.0 release notes / 更新说明](docs/RELEASE-v0.4.0.md)
 
 **Tail controls** now use three FK joints with continuous skinning. Control root/middle/tip, drag their handles, blend a Tail motion layer, or author tail poses in pose cards. The sequence window uses a larger two-column layout with fixed action buttons.
 
 Tail controls also offer independent root/middle/tip softness and bounce under Physics. Zero preserves the authored motion; settings travel with saved animations and use the same deterministic simulation for preview and export. Collision is not simulated.
+
+Version 0.4.0 adds separate **Canvas size…** and **Lighting settings…** entries: independent native
+width/height (32–256 px), stepped pixel lighting and optional model self shadows,
+with light direction/elevation, strength and two colors. Expanding the canvas
+preserves model/UV pixel scale; settings are saved with the project. Existing
+projects retain the unlit 64×64 default.
 
 For offline reading, open `docs/GUIDE.en.html`, `docs/GUIDE.zh-CN.html` or
 `docs/GUIDE.ja.html`. In the app, click **User guide** or press **F1** to open the
@@ -201,3 +207,7 @@ example character is intentionally included.
 No publishing, Git initialization or upload happens during a build.
 FellowStudio3D is available under the [MIT License](LICENSE). Third-party terms
 are documented in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Modular hair and ears
+
+Head/Main body has separate Shape, Hair and Ears tabs. Build hair from named components: body, left/right fringe, left/right middle locks, back hair and ponytails. Components support independent shape, paint, mirror copies and bone animation. Hairstyle templates generate components once through a separate collapsed entry. See [hair workflow](docs/HAIR.zh-CN.md).

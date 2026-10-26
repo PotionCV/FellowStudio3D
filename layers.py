@@ -454,3 +454,6 @@ MENU += (PoseAnimation.kind,)
 from tail_motion import TailMotion
 KINDS[TailMotion.kind]=TailMotion
 MENU += (TailMotion.kind,)
+from hair import HairMotion
+KINDS[HairMotion.kind]=HairMotion
+MENU += (HairMotion.kind,)

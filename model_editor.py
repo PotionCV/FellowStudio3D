@@ -5,6 +5,7 @@ from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor
 from PIL import Image,ImageTk
 import engine as E
+import render_options as O
 import model_data as MD
 import sculpt
 import plush,plush_editor
@@ -82,11 +83,23 @@ class ModelEditor(tk.Toplevel):
     def select(self,key):self.face_mode=False;self.part='torso' if key=='head' and plush.active(self.draft) else key;self.show_params();self.draw()
     def show_params(self):
         if plush.active(self.draft) and self.part=='head':self.part='torso'
-        if self.part in ('armL','armR') and getattr(self,'prop_mode',False):self.link_check.pack_forget()
+        if self.part in ('armL','armR') and getattr(self,'prop_mode',False) or (self.part=='head' or plush.active(self.draft) and self.part=='torso') and (getattr(self,'hair_mode',False) or getattr(self,'ear_mode',False)):self.link_check.pack_forget()
         elif not self.link_check.winfo_manager():self.link_check.pack(fill='x',padx=10,pady=6,before=self.params)
         plush_editor.refresh(self)
         for child in self.params.winfo_children():child.destroy()
         for key,b in self.part_buttons.items():b.accent=key==self.part and not getattr(self,'face_mode',False);b.draw()
+        if self.part=='head' or plush.active(self.draft) and self.part=='torso':
+            bar=FlowBar(self.params,compact=True);bar.pack(fill='x',padx=12,pady=6)
+            active='hair' if getattr(self,'hair_mode',False) else 'ears' if getattr(self,'ear_mode',False) else 'shape'
+            for mode,label in (('shape','主体外形' if plush.active(self.draft) else '头部外形'),('hair','头发'),('ears','耳朵')):
+                def choose(value=mode):self.hair_mode=value=='hair';self.ear_mode=value=='ears';self.show_params()
+                PixelButton(bar,text=label,command=choose,accent=active==mode).pack(side='left')
+            if active=='hair':
+                import hair_editor
+                hair_editor.mount(self);return
+            if active=='ears':
+                import attachment_editor
+                attachment_editor.mount(self);return
         if plush.active(self.draft) and self.part=='torso':plush_editor.panel(self);return
         if self.part in ('armL','armR'):
             bar=FlowBar(self.params,compact=True);bar.pack(fill='x',padx=12,pady=6)
@@ -123,9 +136,6 @@ class ModelEditor(tk.Toplevel):
         if self.part in E.LIMBS:
             self.connected=tk.BooleanVar(master=self,value=self.draft[self.part]['connected'])
             PixelCheck(self.params,text='贴合接合',variable=self.connected,command=lambda:self.set_value('connected',self.connected.get())).pack(fill='x',padx=12,pady=8)
-        if self.part=='head':
-            import attachment_editor
-            attachment_editor.mount(self)
         if self.part=='torso':
             import tail_editor
             tail_editor.mount(self)
@@ -218,37 +228,38 @@ class ModelEditor(tk.Toplevel):
     def draw_scene(self):
         self.resize_job=None
         if not self.seq or self.closed:return
-        w,h=self.canvas.winfo_width(),self.canvas.winfo_height();count=1 if self.single_view.get() else 2;size=max(64,int(min(w/count,h/count)//64)*64)
-        x=(w-size*count)//2;y=(h-size*count)//2;self.cells=[];self.cell_views=[];self.refs=[];self.canvas.delete('all')
+        w,h=self.canvas.winfo_width(),self.canvas.winfo_height();count=1 if self.single_view.get() else 2;settings=self.source.get('render');cw,ch=O.size(settings);size,cell_height=O.fit(w/count,h/count,settings)
+        x=(w-size*count)//2;y=(h-cell_height*count)//2;self.cells=[];self.cell_views=[];self.refs=[];self.canvas.delete('all')
         for position,v in enumerate((self.focus,) if self.single_view.get() else range(4)):
             yaw,pitch=VIEWS[v]
-            cx=x+(position%count)*size;cy=y+(position//count)*size;self.cells.append((cx,cy,size));self.cell_views.append(v);key=(v,self.frame,size)
+            cx=x+(position%count)*size;cy=y+(position//count)*cell_height;self.cells.append((cx,cy,size));self.cell_views.append(v);key=(v,self.frame,size)
             if key not in self.photos:
                 a=self.raw.get((v,self.frame))
                 if a is None:
                     available=[i for view,i in self.raw if view==v]
                     if not available:continue
                     a=self.raw[v,min(available,key=lambda i:abs(i-self.frame))]
-                source=ImageTk.PhotoImage(Image.fromarray(a),master=self);self.photos[key]=source._PhotoImage__photo.zoom(size//64)
+                self.photos[key]=ImageTk.PhotoImage(Image.fromarray(a).resize((size,cell_height),Image.Resampling.NEAREST),master=self)
                 while len(self.photos)>8 and sum(k[2]*k[2]*4 for k in self.photos)>64*1024*1024:self.photos.pop(next(iter(self.photos)))
             image=self.photos[key];self.refs.append(image);self.canvas.create_image(cx,cy,anchor='nw',image=image)
-            self.canvas.create_rectangle(cx,cy,cx+size,cy+size,outline=ACC if v==self.focus else '#8a7967',width=3 if v==self.focus else 1)
+            self.canvas.create_rectangle(cx,cy,cx+size,cy+cell_height,outline=ACC if v==self.focus else '#8a7967',width=3 if v==self.focus else 1)
             self.canvas.create_text(cx+10,cy+10,anchor='nw',text=tr(NAMES[v]),font=self.ui_font,fill=ACC if v==self.focus else '#d9cbb6')
             if not self.playing and getattr(self,'show_handles',True):
-                pose=dict(self.seq[self.frame],yaw=self.seq[self.frame]['yaw']+yaw,pitch=self.seq[self.frame]['pitch']+pitch);j=E.R.joints(pose)
+                pose=dict(self.seq[self.frame],yaw=self.seq[self.frame]['yaw']+yaw,pitch=self.seq[self.frame]['pitch']+pitch);j=O.joints(pose,settings)
                 points=[j[self.part][k] for k in ('root','mid','tip')] if self.part in E.LIMBS else [j[k]['tip'] for k in ('waist','neck','head')]
-                for px,py in points:self.canvas.create_rectangle(cx+px*size/64-4,cy+py*size/64-4,cx+px*size/64+4,cy+py*size/64+4,fill=ACC,outline=INK)
+                for px,py in points:self.canvas.create_rectangle(cx+px*size/cw-4,cy+py*size/cw-4,cx+px*size/cw+4,cy+py*size/cw+4,fill=ACC,outline=INK)
         self.time_text.set(f'{self.frame/self.source["fps"]:.2f} / {self.source["seconds"]:g}'+tr(' 秒'))
         self.scrub.set(self.frame/max(1,len(self.seq)-1)*1000)
     def pick(self,event):
         if self.playing:return
+        settings=self.source.get('render');cw,ch=O.size(settings)
         for v,(x,y,size) in zip(self.cell_views,self.cells):
-            if x<=event.x<x+size and y<=event.y<y+size:
-                self.focus=v;pose=dict(self.seq[self.frame],yaw=self.seq[self.frame]['yaw']+VIEWS[v][0],pitch=self.seq[self.frame]['pitch']+VIEWS[v][1]);j=E.R.joints(pose)
+            if x<=event.x<x+size and y<=event.y<y+size*ch/cw:
+                self.focus=v;pose=dict(self.seq[self.frame],yaw=self.seq[self.frame]['yaw']+VIEWS[v][0],pitch=self.seq[self.frame]['pitch']+VIEWS[v][1]);j=O.joints(pose,settings)
                 candidates=[]
                 for key in PARTS:
                     for joint in (('root','mid','tip') if key in E.LIMBS else ('tip',)):
-                        px,py=j[key][joint];candidates.append((math.hypot(x+px*size/64-event.x,y+py*size/64-event.y),key))
+                        px,py=j[key][joint];candidates.append((math.hypot(x+px*size/cw-event.x,y+py*size/cw-event.y),key))
                 distance,key=min(candidates)
                 if distance<30:self.select(key)
                 self.draw();return

@@ -26,7 +26,7 @@ def rotation_for(vector):
  right/=max(np.linalg.norm(right),1e-9);return np.column_stack((right,up,np.cross(right,up)))
 
 def geometry(pose):
- key=json.dumps({k:v for k,v in pose.items() if k not in ('tail','_face_phase','_assets3d','_camera_y','_foot_targets','_breath_ik','_breath_dy','_thrust_strength','yaw','pitch','flip')},sort_keys=True,default=lambda v:v.tolist())
+ key=json.dumps({k:v for k,v in pose.items() if not k.startswith('hair_') and k not in ('tail','_face_phase','_assets3d','_camera_y','_foot_targets','_breath_ik','_breath_dy','_thrust_strength','yaw','pitch','flip')},sort_keys=True,default=lambda v:v.tolist())
  return _geometry(key)
 
 def limb_chain(pose,limb):
@@ -171,12 +171,18 @@ def _assets(model_key,bundle_key):
  model=json.loads(model_key);bundle=json.loads(bundle_key);new={p:{'layout':U.layout(d),'png':None,'name':'Default'} for p,d in part_dimensions(model).items()}
  old=bundle.get('textures',{})
  for part in new:
+  if part.startswith('hair') and part not in old:
+   import hair
+   new[part].update(png=U.encode(hair.default_texture(new[part]['layout'])),name='Hair base')
   if part not in old:continue
   resource=old[part]
   if resource.get('painting_pending'):new[part]['painting_pending']=True
   if resource['layout']==new[part]['layout']:
    new[part]=resource
-   if resource.get('png') and U.surface_record({'model':bundle.get('model',model),'textures':old},part)!=U.surface_record({'model':model,'textures':new},part):new[part]['provenance']='adapted'
+   if resource.get('png'):
+    try:previous=U.surface_record({'model':bundle.get('model',model),'textures':old},part)
+    except StopIteration:previous=None # A copied/restored image may predate this part in the bundle model.
+    if previous!=U.surface_record({'model':model,'textures':new},part):new[part]['provenance']='adapted'
    continue
   from pixel_protection import resize_groups
   new[part]['protected_groups']=resize_groups(resource,new[part]['layout'])
@@ -226,9 +232,12 @@ def ground_y(pose,parts=None):
  model=MD.normalize(pose.get('_model'));clouds=_ground_clouds(json.dumps(model,sort_keys=True))
  g,j,chains,limbs,torso,head=geometry(pose);bottom=float('inf')
  for part,cloud in clouds.items():
-  if parts is None and part.startswith(('tail','prop')):continue
+  if parts is None and part.startswith(('tail','prop','hair')):continue
   if parts is not None and part not in parts:continue
   if part.startswith('tail') and 'tail' in pose:
+   item=A.record(model,part);net=U.layout(A.dimensions(item));triangles=attachment_triangles(item,model,head,pose,net)
+   bottom=min(bottom,float(np.concatenate([t[2] for t in triangles])[:,1].min()));continue
+  if part.startswith('hair') and A.record(model,part).get('section')!='cap':
    item=A.record(model,part);net=U.layout(A.dimensions(item));triangles=attachment_triangles(item,model,head,pose,net)
    bottom=min(bottom,float(np.concatenate([t[2] for t in triangles])[:,1].min()));continue
   if part=='body':points=P.deform(cloud,pose,geometry=geometry(pose))
@@ -255,10 +264,13 @@ def _attachment_local(surface_key,layout_key,mirrored):
 
 def attachment_triangles(item,model,head,pose,net):
  surface=dict(A.surface(item),kind=item.get('kind','ear'))
- faces,local,coords,raw=_attachment_local(json.dumps(surface,sort_keys=True),json.dumps(net,sort_keys=True),item['id'].endswith('R'))
+ faces,local,coords,raw=_attachment_local(json.dumps(surface,sort_keys=True),json.dumps(net,sort_keys=True),item.get('uv_mirror',item['id'].endswith('R')))
  if item.get('kind')=='tail' and 'tail' in pose:
   import tails
   local=tails.skin(raw.reshape(-1,3),item,pose['tail']).reshape(-1,3,3)
+ if item.get('kind')=='hair':
+  import hair
+  local=hair.deform(raw.reshape(-1,3),item,pose).reshape(-1,3,3)
  origin,rotation=A.frame(item,model,head,pose);worlds=local@rotation.T+origin
  return [(item['id'],face,world,uv) for face,world,uv in zip(faces,worlds,coords)]
 
@@ -343,6 +355,9 @@ def protection_context(pose,bundle):
  if P.active(model):frames['body']=P.local_frame(pose,(0,model['body']['height']*.75,0))
  result={part:dict(references=items,frame=frames[part]) for part,items in refs.items()}
  for item in model.get('attachments',[]):
+  if item.get('kind')=='hair' and item['section']!='cap' and item['id'] in result:
+   import hair,tails
+   result[item['id']]['group_frames']=[tails.group_frame(hair.proxy(item),{'tail':pose.get(hair.channel(item),[0.]*9)},r['anchor'] if r is not None else (0,0,0),frames[item['id']]) for r in refs[item['id']]]
   if item.get('kind')=='tail' and item['id'] in result and 'tail' in pose:
    import tails
    result[item['id']]['group_frames']=[tails.group_frame(item,pose,r['anchor'] if r is not None else (0,0,0),frames[item['id']]) for r in refs[item['id']]]
@@ -358,12 +373,13 @@ def protection_context(pose,bundle):
  return result
 
 def render(pose,settings=None,cam=(0,0)):
+ import render_options as O,pixel_lighting as L
  j,triangles,bundle=pose_meshes(pose);yaw=pose.get('yaw',0)+cam[0];pitch=pose.get('pitch',0)+cam[1]
  # Backface rejection halves raster work without changing the depth test.
  view=np.array((math.sin(-math.radians(yaw))*math.cos(math.radians(pitch)),math.sin(math.radians(pitch)),math.cos(math.radians(yaw))*math.cos(math.radians(pitch))))
  worlds=np.stack([tri[2] for tri in triangles]);normal=np.cross(worlds[:,1]-worlds[:,0],worlds[:,2]-worlds[:,0]);visible=[triangles[i] for i in np.flatnonzero(normal@view>1e-8)]
  sockets=[chain[k] for name,chain in j.items() if name.startswith(('arm','leg')) for k in ('root','mid')]
- s={'parts':True,'textures':True,'outline':True,'gaps':True,'perfect':True,**(settings or {})}
+ s=O.normalized({'parts':True,'textures':True,'outline':True,'gaps':True,'perfect':True,**(settings or {})})
  painted={part:resource for part,resource in bundle['textures'].items() if s['textures'] and resource.get('png')}
  textures={part:np.array(U.texture_image(bundle,part)) if part in painted else np.array([[(*U.color(part),255) if s['parts'] else (255,255,255,255)]],dtype=np.uint8) for part in U.parts(bundle)}
  names=U.parts(bundle);connections=[];g=F.model_geometry(pose)
@@ -377,6 +393,6 @@ def render(pose,settings=None,cam=(0,0)):
  movement=np.array((pose.get('dx',0.),-pose.get('dy',0.)+pose.get('_breath_dy',0.),pose.get('dz',0.)))
  projected_move=project(np.array([movement,np.zeros(3)]),yaw,pitch)
  delta=projected_move[0,:2]-projected_move[1,:2]
- pixel_shift=np.floor(delta+.5)-delta+np.array((0.,math.floor(pose.get('_camera_y',0)+.5)))
- image=raster(visible,textures,(yaw,pitch),dict(colors=s['parts'] or bool(painted),material_colors=True,_parts=U.parts(bundle),_head_children=tuple(item['id'] for item in bundle['model'].get('attachments',[]) if item.get('parent','head')=='head'),outline=s['outline'],gaps=s['gaps'],onepx=True,outline_color=s.get('outline_color','auto')),sockets,connections,stable_head=None if P.active(bundle['model']) else j['head']['tip'],pixel_shift=pixel_shift,protection=painted,protection_context=protection_context(pose,bundle) if painted else None)[0]
+ pixel_shift=np.floor(delta+.5)-delta+np.array(O.offset(s))+np.array((0.,math.floor(pose.get('_camera_y',0)+.5)))
+ image=raster(visible,textures,(yaw,pitch),dict(s,colors=s['parts'] or bool(painted),material_colors=True,_parts=U.parts(bundle),_head_children=tuple(item['id'] for item in bundle['model'].get('attachments',[]) if item.get('parent','head')=='head'),onepx=True),sockets,connections,stable_head=None if P.active(bundle['model']) else j['head']['tip'],pixel_shift=pixel_shift,protection=painted,protection_context=protection_context(pose,bundle) if painted else None,lighting=L.context(triangles,textures,s,(yaw,pitch)))[0]
  return image[:,::-1].copy() if pose.get('flip') else image

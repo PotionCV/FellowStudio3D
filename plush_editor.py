@@ -54,8 +54,6 @@ def panel(editor):
   control=PixelScale(box,from_=0,to=1,resolution=.05);control.set(body['flex']);control.pack(fill='x',padx=12)
   def flex(v):body['flex']=float(v);editor.request_preview()
   control.configure(command=flex)
- import attachment_editor
- attachment_editor.mount(editor)
  import tail_editor
  tail_editor.mount(editor)
  def reset():editor.draft['body']=dict(plush.DEFAULT);editor.show_params();editor.request_preview()

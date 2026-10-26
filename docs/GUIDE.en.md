@@ -101,6 +101,12 @@ Torso controls adjust lean, height, side tilt, chest turn and pelvis turn. **Kee
 
 ## 4. Views and pixel appearance
 
+The default **Painted** lighting uses broad color blocks and restrained highlights, independent of mesh facets. **Faceted** retains the earlier surface lighting. Light and Self shadows have independent switches and strengths: shadows remain with zero light strength or lighting switched off. They share the source direction/elevation.
+
+**Canvas size…**, beside view direction and framing Y, sets native width and height independently from 32 to 256 pixels, with common presets. More canvas preserves model/UV pixel scale, horizontal centering and bottom margin. All previews and exports use the same canvas. A small preview may shrink with nearest-neighbor sampling; exported frames retain native pixels and integer output scaling.
+
+Lighting and Self shadows switches sit beside Show textures and the other display options. Open **Lighting settings…** to adjust world-space light direction, elevation, strength, light color and shadow color. Lighting uses discrete bands, without gradients or blurred shadows. Original PNGs and protected groups remain unchanged. Edits preview live, support project Undo and save with the full project. Animation transfer preserves the target canvas and lighting. Older projects default to unlit 64×64. Large exports use paged atlases; very large GIFs ask for fewer frames or a smaller output scale.
+
 Click one of the four previews to focus it. Front and Side are orthographic; the three-quarter view is level, while the elevated view adds downward pitch. Model and UV editors offer **Single view**, or double-click a view to enlarge it. Hold **Before** to compare with the appearance at the time the editor opened.
 
 The native image is **64 × 64 pixels**. Preview magnification does not add drawing detail. Outlines are always one native pixel wide; choose an outline color or use automatic gray. Part colors, overlap gaps and outlines are independent display options. Surface intersections at connected parts suppress internal lines; genuine foreground occlusion can retain a dividing edge.
@@ -113,7 +119,7 @@ Shoulder, waist and hip width affect the front silhouette. **Torso thickness** c
 
 Edits are staged. **Apply model** commits them; **Cancel** discards them. **Save model** stores the model, embedded textures and pixel protection groups in one reusable JSON. Loading it changes appearance while keeping the current animation. Older shape-only presets preserve the current textures.
 
-**Head → Attachments** adds Human ears, Cat ears or Long ears as a mirrored pair. Select an ear, then open **Edit ear shape** for signed side/height/depth positions, root width, length, depth, tip width and three rotation controls. Positions are relative to the sculpted head; ear dimensions use source pixels. Disable **Link left / right** for an asymmetric ear, or remove one ear or the pair. Ears follow head animation rigidly. After **Apply model**, the UV editor shows an extra card for each ear; the right shares the left texture by default. Turn sharing off to paint independently. Ear meshes, textures and protection groups travel with the model/project. If an existing painting folder predates the ears, create an adapted painting copy to add their PNG templates.
+**Head → Ears** adds Human ears, Cat ears or Long ears as a mirrored pair. Select an ear, then open **Edit ear shape** for signed side/height/depth positions, root width, length, depth, tip width and three rotation controls. Positions are relative to the sculpted head; ear dimensions use source pixels. Disable **Link left / right** for an asymmetric ear, or remove one ear or the pair. Ears follow head animation rigidly. After **Apply model**, the UV editor shows an extra card for each ear; the right shares the left texture by default. Turn sharing off to paint independently. Ear meshes, textures and protection groups travel with the model/project. If an existing painting folder predates the ears, create an adapted painting copy to add their PNG templates.
 
 **Body structure → Seamless mascot** replaces Head and Torso with one **Main body** panel. Five controls set total height, upper width, belly width, base width and depth. The surface is continuous from crown to belly, with no neck seam; arms, legs and ears remain separate. **Move head and body together** is enabled by default. Disable it to allow soft upper-body nods/turns, then adjust flexibility. Existing chest, pelvis, limb, IK and motion controls remain available. The UV window uses one Main body card instead of separate head/torso cards. Save the model to carry its body settings, textures and protection groups together. Switching structure changes the body UV layout; prepare a new painting folder for that structure. `examples/models/PlushModel.json` is an unpainted starting model. Your existing separate-head models retain their original geometry and UVs.
 
@@ -182,4 +188,14 @@ Autosave is `user_data/studio3d_motion.json`; local preferences are `user_data/u
 - **An edit looks delayed:** wait for the current calculation to finish before judging physics. Pause playback while making precise changes.
 - **The interface is too small:** use A＋; scroll the side panel or widen it if controls no longer fit.
 
-Ear attachments currently follow the head rigidly. Arbitrary external mesh import, additional bones and independent ear physics are not currently available. See [Development guide](DEVELOPMENT.md) for source setup and release building.
+Ear attachments currently follow the head rigidly. Arbitrary external mesh import, custom bone topology and independent ear physics are not currently available. See [Development guide](DEVELOPMENT.md) for source setup and release building.
+
+## Hair styling and animation
+
+Head (Main body for plush) has separate Shape, Hair and Ears tabs. Hair follows one structure: Add component → Added components → Selected component settings. Add a hair body, left/right fringe, left/right middle lock, back hair, ponytail or free lock independently; duplicate, mirror or delete actual components. Reclassify older free locks in details without changing their shape or bones.
+
+Hair bodies have five outlines and independent proportions, hairline, coverage and crown controls. Locks retain 14 shape controls, independent UVs and three bones. Pair shapes can be linked; adding a missing opposite side mirrors the existing part. Face and body painting remain intact.
+
+Hairstyle templates are collapsed under a separate button. Select one of five templates and explicitly choose Replace with template to generate components once. This replaces current hair; cancel the model editor to discard changes, or undo after Apply.
+
+Use Body controls → Hair for bone dragging, softness and rebound, or add Hair sway and pose cards. Shoulder/back collisions are not simulated. All attachments share a limit of 32. Tail → Tip thickness produces rounded cat-tail ends; zero retains the old shape.

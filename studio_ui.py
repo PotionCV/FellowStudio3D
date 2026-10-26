@@ -4,6 +4,7 @@ from tkinter import filedialog, messagebox, simpledialog, font
 from pathlib import Path
 from PIL import Image, ImageTk
 import engine as E
+import render_options as O
 import i18n
 from i18n import tr
 import localized_ui as UI
@@ -44,7 +45,13 @@ class App(tk.Tk):
         self.language=prefs.get('language','en');i18n.set_language(self.language);self.language=i18n.language
         self.title(tr('FellowStudio · 动作工坊'))
         if not self.state_path.exists():self.project=self.make_project('stand')
-        if self.display_preferences:self.project['render']=copy.deepcopy(self.display_preferences)
+        if self.display_preferences:
+            # Frame and lighting belong to a saved project, rather than silently
+            # inheriting another project's personal display preferences.
+            saved=self.project.get('render',{});self.project['render']=copy.deepcopy(self.display_preferences)
+            for key in O.DEFAULTS:
+                if key in saved:self.project['render'][key]=saved[key]
+                elif self.state_path.exists():self.project['render'].pop(key,None)
         self.ui_font=font.Font(family='精品点阵体9×9 1.9 R',size=-round(24*self.ui_scale));self.option_add('*Font',self.ui_font)
         self.caption_font=font.Font(family='精品点阵体9×9 1.9 R',size=-round(18*self.ui_scale))
         self.executor=None;self.future_job=None;self.latest_request=None;self.revision=0;self.raw_images={};self.resize_job=None;self.resizing=False;self.focus_view=0;self.active_project=copy.deepcopy(self.project)
@@ -82,7 +89,12 @@ class App(tk.Tk):
         self.outline=tk.BooleanVar(value=self.project.get('render',{}).get('outline',True))
         self.outline_color=tk.StringVar(value=self.project.get('render',{}).get('outline_color','auto'))
         self.button(options,'边线颜色',self.choose_outline_color).pack(side='right',padx=4)
+        self.button(options,'光照设置…',lambda:self.edit_render_options('lighting')).pack(side='right',padx=4)
         for t,v in [('外边线',self.outline),('交叠留缝',self.gaps),('部位分色',self.parts),('显示贴图',self.textures)]:PixelCheck(options,text=t,variable=v,command=self.display).pack(side='right',padx=4)
+        self.light_enabled=tk.BooleanVar(value=O.normalized(self.project.get('render'))['lighting']);self.self_shadow=tk.BooleanVar(value=O.normalized(self.project.get('render'))['self_shadow'])
+        self.render_flag_checks={}
+        for text,key,var in (('自阴影','self_shadow',self.self_shadow),('光照','lighting',self.light_enabled)):
+            check=PixelCheck(options,text=text,variable=var,command=lambda k=key,v=var:self.toggle_render_flag(k,v));check.pack(side='right',padx=4);self.render_flag_checks[key]=check
         body=tk.PanedWindow(self,orient='horizontal',bg='#8d7257',bd=0,sashwidth=14,sashpad=2,showhandle=True,handlesize=22,handlepad=16,opaqueresize=False);self.panes=body;body.pack(fill='both',expand=True,padx=8)
         body.bind('<ButtonRelease-1>',lambda e:self.after_idle(self.remember_panel_widths))
         body.bind('<Configure>',lambda e:self.fit_panels(e.width))
@@ -102,7 +114,7 @@ class App(tk.Tk):
         add_value=tk.StringVar(value='＋ 添加')
         def add_selected(label):
             key=next(k for k,v in E.ACTIONS.items() if v==label);self.add(key);add_value.set('＋ 添加')
-        PixelOption(r,add_value,*[E.ACTIONS[k] for k in ('pose','raise','wave','bow','nod','shake','stretch','squat','bounce','thrust','swing','kick','hit','jump','fall','getup','roll','climb','turn','swim','hover','tail')],command=add_selected).pack(side='left',fill='x',expand=True)
+        PixelOption(r,add_value,*[E.ACTIONS[k] for k in ('pose','raise','wave','bow','nod','shake','stretch','squat','bounce','thrust','swing','kick','hit','jump','fall','getup','roll','climb','turn','swim','hover','tail','hair')],command=add_selected).pack(side='left',fill='x',expand=True)
         self.button(left,'移除',self.remove).pack(fill='x',padx=10,pady=(0,5))
         self.button(left,'创作资源库…',self.load_motion_resource).pack(fill='x',padx=10,pady=4)
         self.label(left,'整体控制',fg=DIM).pack(fill='x',padx=10,pady=(18,5))
@@ -110,6 +122,7 @@ class App(tk.Tk):
         for i,(k,t) in enumerate(E.LABELS.items()):
             button=PixelButton(grid,text=t,command=lambda k=k:self.select('body',k),compact=True,accent=self.selection==('body',k));button.grid(row=i//2,column=i%2,sticky='ew',padx=2,pady=3);self.part_buttons[k]=button
             if k=='tail' and not any(p.get('kind')=='tail' for p in (self.project.get('model') or {}).get('attachments',[])):button.grid_remove()
+            if k=='hair' and not any(p.get('kind')=='hair' for p in (self.project.get('model') or {}).get('attachments',[])):button.grid_remove()
         grid.columnconfigure((0,1),weight=1,uniform='parts')
         self.label(left,'控制作用于整段动作\n基础件始终保留',fg=DIM,justify='left',wraplength=200).pack(side='bottom',fill='x',padx=10,pady=12)
         center=tk.Frame(body,bg=BG);body.add(center,minsize=360,stretch='always',padx=8)
@@ -117,6 +130,7 @@ class App(tk.Tk):
         self.handles=tk.BooleanVar(value=True);PixelCheck(viewbar,text='IK 手柄',variable=self.handles,command=self.render,bg=BG).pack(side='left')
         self.label(viewbar,'朝向',bg=BG,fg=DIM).pack(side='left',padx=(10,0))
         self.yaw=tk.StringVar(value=str(int(self.project.get('yaw',0))));PixelOption(viewbar,self.yaw,*[str(v) for v in sorted(set(range(0,360,30))|set(range(0,360,45)))],command=self.turn).pack(side='left')
+        self.button(viewbar,'画幅尺寸…',self.edit_render_options).pack(side='left',padx=6)
         self.label(viewbar,'画幅 Y（px）',bg=BG,fg=DIM).pack(side='left',padx=(10,4))
         self.camera_y=tk.StringVar(value=str(int(self.project.get('camera_y',0))))
         self.camera_entry=PixelEntry(viewbar,textvariable=self.camera_y,width=4,bg=FIELD);self.camera_entry.pack(side='left')
@@ -212,8 +226,9 @@ class App(tk.Tk):
         dst.append(copy.deepcopy(self.project));self.project=src.pop();self.sync();self.changed()
     def current_display(self):
         if hasattr(self,'parts'):
-            result=dict(parts=self.parts.get(),textures=self.textures.get(),gaps=self.gaps.get(),outline=self.outline.get(),perfect=True)
+            result={**self.project.get('render',{}),**dict(parts=self.parts.get(),textures=self.textures.get(),gaps=self.gaps.get(),outline=self.outline.get(),perfect=True)}
             if self.outline_color.get()!='auto':result['outline_color']=self.outline_color.get()
+            else:result.pop('outline_color',None)
             return result
         return copy.deepcopy(self.project.get('render',{}))
 
@@ -224,6 +239,8 @@ class App(tk.Tk):
         self.textures.set(self.project['render'].get('textures',True))
         self.frame_count.set(str(max(1,min(120,round(self.project['seconds']*self.project.get('fps',12))))));self.fps_value.set(str(self.project.get('fps',12)))
         self.camera_y.set(str(int(self.project.get('camera_y',0))))
+        self.sync_render_flags()
+        for dialog in getattr(self,'render_settings_editors',{}).values():dialog.refresh()
     def rename(self):
         self.project['name']=self.name.get()
         if self.project.get('auto_name_key') and self.project['name']!=E.automatic_name(self.project['auto_name_key']):self.project.pop('auto_name_key',None)
@@ -237,6 +254,10 @@ class App(tk.Tk):
         try:E.save(self.project,self.state_path)
         except OSError as ex:self.status.set('保存失败：'+str(ex))
     def changed(self):
+        if hasattr(self,'part_buttons') and 'hair' in self.part_buttons:
+            button=self.part_buttons['hair']
+            if any(p.get('kind')=='hair' for p in (self.project.get('model') or {}).get('attachments',[])):button.grid()
+            else:button.grid_remove()
         if hasattr(self,'part_buttons') and 'tail' in self.part_buttons:
             button=self.part_buttons['tail']
             if any(p.get('kind')=='tail' for p in (self.project.get('model') or {}).get('attachments',[])):button.grid()
@@ -414,7 +435,7 @@ class App(tk.Tk):
                 self.slide('影响比例',e,'mix',0,1,1,.05)
                 if e.get('blend') in ('posture','replace'):
                     self.slide('保留原摆动',e,'retain',0,1,1,.05)
-                if e['kind']!='tail':self.choice('作用部位',e,'scope',{'all':'相关部位','upper':'上半身','lower':'下半身','head':'头颈','torso':'腰 / 躯干','armL':'左臂','armR':'右臂','arms':'双臂','legs':'双腿','legL':'左腿','legR':'右腿'})
+                if e['kind'] not in ('tail','hair'):self.choice('作用部位',e,'scope',{'all':'相关部位','upper':'上半身','lower':'下半身','head':'头颈','hair':'头发','torso':'腰 / 躯干','armL':'左臂','armR':'右臂','arms':'双臂','legs':'双腿','legL':'左腿','legR':'右腿'})
                 self.note('叠加选定部位的改动，原动画保留。' if e.get('blend')=='add' else '姿态和摆动分别混合。比例为 0 时完全回到原动作。')
                 if e['kind'] in ('thrust','swing','kick'):self.note('需要完整身体带动时，将作用部位设为“相关部位”。')
             for d in C.params:
@@ -432,8 +453,11 @@ class App(tk.Tk):
                     self.slide('淡入淡出',e,'fade',0,.4,0,.025)
             self.note('直接调动作的整体感觉，不需要编辑关键帧。')
         else:
-            self.param_title.set('整体控制 · '+E.LABELS[key]);c=self.project['controls'].setdefault(key,{})
-            if key=='tail':
+            self.param_title.set('整体控制 · '+E.LABELS[key]);c=self.project['controls'].get(key,{}) if key=='hair' else self.project['controls'].setdefault(key,{})
+            if key=='hair':
+                import hair_controls
+                hair_controls.mount(self,c)
+            elif key=='tail':
                 bones={'尾根':'root','尾中':'middle','尾尖':'tip'}
                 selected=getattr(self,'selected_tail_bone','尾根')
                 value=tk.StringVar(master=self,value=selected)
@@ -491,6 +515,16 @@ class App(tk.Tk):
     def choose_outline_color(self):
         from outline_color import OutlineColorDialog
         return OutlineColorDialog(self)
+    def sync_render_flags(self):
+        settings=O.normalized(self.project.get('render'))
+        self.light_enabled.set(settings['lighting']);self.self_shadow.set(settings['self_shadow'])
+    def toggle_render_flag(self,key,var):
+        self.snapshot();settings=self.project.setdefault('render',{});settings.setdefault('self_shadow',self.self_shadow.get());settings[key]=var.get();self.save_preferences();self.changed()
+    def edit_render_options(self,section='canvas'):
+        if not hasattr(self,'render_settings_editors'):self.render_settings_editors={}
+        if section in self.render_settings_editors:self.render_settings_editors[section].lift();return self.render_settings_editors[section]
+        from render_options_editor import RenderOptionsEditor
+        return RenderOptionsEditor(self,section)
     def duration(self,v):self.snapshot();self.project['seconds']=float(v);self.changed()
     def set_frame_count(self,event=None):
         old=max(1,min(120,round(self.project['seconds']*self.project.get('fps',12))))
@@ -503,7 +537,7 @@ class App(tk.Tk):
         self.snapshot();self.stop();self.project['fps']=int(value);self.project['seconds']=count/int(value);self.seconds.set(str(self.project['seconds']));self.frame=0;self.changed()
     def set_camera_y(self,event=None):
         old=int(self.project.get('camera_y',0))
-        try:value=int(self.camera_y.get());assert -64<=value<=64
+        try:value=int(self.camera_y.get());assert -256<=value<=256
         except (ValueError,AssertionError):self.camera_y.set(str(old));return
         if value==old:return
         self.snapshot();self.project['camera_y']=value;self.changed()
@@ -518,7 +552,8 @@ class App(tk.Tk):
                 if available:a=self.raw_images[v,min(available,key=lambda f:abs(f-i))]
                 else:return None
             if a is None:a=E.rgba(seq[i%len(seq)],self.active_project['render'],VIEWS[v])
-            source=ImageTk.PhotoImage(Image.fromarray(a),master=self);self.photos[key]=source._PhotoImage__photo.zoom(max(1,size//64))
+            image=Image.fromarray(a);target=(size,round(size*image.height/image.width))
+            source=ImageTk.PhotoImage(image.resize(target,Image.Resampling.NEAREST),master=self);self.photos[key]=source
             while len(self.photos)>8 and sum(k[2]*k[2]*4 for k in self.photos)>96*1024*1024:self.photos.pop(next(iter(self.photos)))
         return self.photos[key]
     def render(self):
@@ -526,8 +561,8 @@ class App(tk.Tk):
         position=self.frame/max(1,len(self.seq)-1)*1000
         if abs(self.scrub.get()-position)>.1:self.scrub.set(position)
         w,h=self.canvas.winfo_width(),self.canvas.winfo_height()
-        size=max(64,int(min(w/2,(h-44)/2)//64)*64);x=(w-size*2)//2;y=(h-size*2)//2
-        self.cells=[(x+(v%2)*size,y+(v//2)*size,size) for v in range(4)]
+        settings=self.active_project.get('render');size,cell_height=O.fit(w/2,(h-44)/2,settings);x=(w-size*2)//2;y=(h-cell_height*2)//2
+        self.cells=[(x+(v%2)*size,y+(v//2)*cell_height,size) for v in range(4)]
         layout_key=(w,h,size,self.handles.get(),self.compare,self.focus_view,self.playing)
         if self.playing and getattr(self,'layout_key',None)==layout_key and hasattr(self,'image_items'):
             for v,item in enumerate(self.image_items):self.canvas.itemconfigure(item,image=self.photo(v,self.frame))
@@ -536,9 +571,9 @@ class App(tk.Tk):
         self.layout_key=layout_key;self.canvas.delete('all');self.refs=[];self.image_items=[]
         for v,(x,y,size) in enumerate(self.cells):
             im=self.photo(v,self.frame);self.refs.append(im);self.image_items.append(self.canvas.create_image(x,y,anchor='nw',image=im))
-            self.canvas.create_rectangle(x,y,x+size,y+size,outline=ACC if v==self.focus_view else '#776554',width=3 if v==self.focus_view else 1);self.canvas.create_text(x+10,y+12,text=tr(VN[v])+((' · '+tr('焦点')) if v==self.focus_view and size>=256 else (' *' if v==self.focus_view else '')),anchor='nw',width=max(40,size-20),fill=ACC if v==self.focus_view else '#d7c5ac',font=self.caption_font)
+            self.canvas.create_rectangle(x,y,x+size,y+cell_height,outline=ACC if v==self.focus_view else '#776554',width=3 if v==self.focus_view else 1);self.canvas.create_text(x+10,y+12,text=tr(VN[v])+((' · '+tr('焦点')) if v==self.focus_view and size>=256 else (' *' if v==self.focus_view else '')),anchor='nw',width=max(40,size-20),fill=ACC if v==self.focus_view else '#d7c5ac',font=self.caption_font)
             if self.handles.get() and not self.playing and not self.compare:
-                p=self.view_pose(v);j=E.R.joints(p);scale=size/64
+                p=self.view_pose(v);j=O.joints(p,settings);scale=size/O.size(settings)[0]
                 for key in E.LIMBS:
                     selected=self.selection==('body',key);color='#f2b95c' if selected else '#b7ac99'
                     points=[j[key][q] for q in ('root','mid','tip')]
@@ -559,6 +594,12 @@ class App(tk.Tk):
                         self.canvas.create_line(*[value for point in points for value in point],fill=ACC,width=2)
                         active={'尾根':0,'尾中':1,'尾尖':2}.get(getattr(self,'selected_tail_bone','尾根'),0)
                         for index,(px,py) in enumerate(points[:3]):self.canvas.create_oval(px-6,py-6,px+6,py+6,fill=ACC if index==active else CELL,outline=ACC,width=2)
+                if self.selection==('body','hair'):
+                    import hair_controls
+                    points=[(x+px*scale,y+py*scale) for px,py in hair_controls.points(self,v)]
+                    if points:
+                        self.canvas.create_line(*[a for p in points for a in p],fill=ACC,width=2)
+                        for index,(px,py) in enumerate(points[:3]):self.canvas.create_oval(px-5,py-5,px+5,py+5,fill=ACC if index==getattr(self,'hair_bone',0) else CELL,outline=ACC,width=2)
         self.time_label.set(f'{self.frame/self.project.get("fps",12):.2f} / {self.project["seconds"]:g}'+tr(' 秒'))
     def view_pose(self,v):
         p=copy.deepcopy(self.seq[self.frame]);p['yaw']+=VIEWS[v][0];p['pitch']+=VIEWS[v][1];return p
@@ -566,22 +607,31 @@ class App(tk.Tk):
         import tails
         pose=self.view_pose(view);model=pose.get('_model') or {}
         item=next((p for p in model.get('attachments',[]) if p.get('kind')=='tail'),None)
-        return [E.R._project(pose,p) for p in tails.joints(item,model,pose)] if item else []
+        dx,dy=O.offset(self.active_project.get('render'))
+        return [(x+dx,y+dy) for x,y in (E.R._project(pose,p) for p in tails.joints(item,model,pose))] if item else []
     def start_drag(self,event):
         if self.compare:return
+        settings=self.active_project.get('render');cw,ch=O.size(settings)
         for v,(x,y,size) in enumerate(self.cells):
-            if x<=event.x<x+size and y<=event.y<y+size:
+            if x<=event.x<x+size and y<=event.y<y+size*ch/cw:
+                if self.selection==('body','hair') and self.handles.get():
+                    import hair_controls
+                    points=hair_controls.points(self,v)
+                    if points:
+                        distance,index=min((math.hypot(x+px*size/cw-event.x,y+py*size/cw-event.y),i) for i,(px,py) in enumerate(points[:3]))
+                        if distance<20:
+                            self.stop();self.snapshot();self.hair_bone=index;self.drag=('hair',index,v,size,self.hair_channel);self.drag_origin=(event.x,event.y,copy.deepcopy(self.project['controls'].get('hair',{})));self.drag_physics=copy.deepcopy(self.project['physics'].get('hair',hair_controls.hair.DEFAULT_PHYSICS));self.project['physics']['hair']={'strength':0};self.show_params();self.render();return
                 if self.selection==('body','tail') and self.handles.get():
                     points=self.tail_points(v)
                     if points:
-                        distance,index=min((math.hypot(x+px*size/64-event.x,y+py*size/64-event.y),i) for i,(px,py) in enumerate(points[:3]))
+                        distance,index=min((math.hypot(x+px*size/cw-event.x,y+py*size/cw-event.y),i) for i,(px,py) in enumerate(points[:3]))
                         if distance<20:
                             self.stop();self.snapshot();self.selected_tail_bone=('尾根','尾中','尾尖')[index]
                             self.drag=('tail',index,v,size);self.drag_origin=(event.x,event.y,copy.deepcopy(self.project['controls'].get('tail',{})));self.drag_physics=None
                             self.show_params();self.render();return
                 self.focus_view=v;self.layout_key=None;self.render()
                 if not self.handles.get() or self.playing:return
-                p=self.view_pose(v);j=E.R.joints(p);scale=size/64
+                p=self.view_pose(v);j=O.joints(p,settings);scale=size/cw
                 opts=[(math.hypot(x+d[q][0]*scale-event.x,y+d[q][1]*scale-event.y),k,q) for k,d in j.items() if k in E.LIMBS for q in ('mid','tip')]
                 for body_key,handle_key,joint_key in (('torso','waist','root'),('torso','torso','tip'),('head','head','tip')):
                     px,py=j[handle_key]['tip'];opts.append((math.hypot(x+px*scale-event.x,y+py*scale-event.y),body_key,joint_key))
@@ -590,20 +640,24 @@ class App(tk.Tk):
                 self.stop();self.snapshot();self.selection=('body',key);self.show_params();self.drag=(v,key,joint,p);self.drag_origin=(event.x,event.y,copy.deepcopy(self.project['controls'].get(key,{})));self.drag_physics=copy.deepcopy(self.project['physics'].get(key));self.render();return
     def move_drag(self,event):
         if not self.drag:return
+        if self.drag[0]=='hair':
+            _,index,view,size,channel=self.drag;ox,oy,original=self.drag_origin;prefix=channel+'_'+('root','middle','tip')[index];control=self.project['controls'].setdefault('hair',{});sensitivity=180/size*O.size(self.active_project.get('render'))[0]/64;axis='roll' if view==1 else 'yaw'
+            control[prefix+'_'+axis]=max(-90,min(90,original.get(prefix+'_'+axis,0)+(event.x-ox)*sensitivity));control[prefix+'_pitch']=max(-90,min(90,original.get(prefix+'_pitch',0)-(event.y-oy)*sensitivity));self.update_drag_preview();self.schedule_save();return
         if self.drag[0]=='tail':
             _,index,view,size=self.drag;ox,oy,original=self.drag_origin;prefix=('root','middle','tip')[index]
             control=self.project['controls'].setdefault('tail',{});axis='roll' if view==1 else 'yaw'
-            control[prefix+'_'+axis]=max(-120,min(120,original.get(prefix+'_'+axis,0)+(event.x-ox)*180/size))
-            control[prefix+'_pitch']=max(-120,min(120,original.get(prefix+'_pitch',0)-(event.y-oy)*180/size))
+            sensitivity=180/size*O.size(self.active_project.get('render'))[0]/64
+            control[prefix+'_'+axis]=max(-120,min(120,original.get(prefix+'_'+axis,0)+(event.x-ox)*sensitivity))
+            control[prefix+'_pitch']=max(-120,min(120,original.get(prefix+'_pitch',0)-(event.y-oy)*sensitivity))
             self.update_drag_preview();self.schedule_save();return
-        v,key,joint,start=self.drag;x,y,size=self.cells[v];target=((event.x-x)*64/size,(event.y-y)*64/size)
+        v,key,joint,start=self.drag;x,y,size=self.cells[v];cw=O.size(self.active_project.get('render'))[0];target=O.target(((event.x-x)*cw/size,(event.y-y)*cw/size),self.active_project.get('render'))
         p=self.view_pose(v)
         c=self.project['controls'].setdefault(key,{})
         if key in ('torso','head'):
             ox,oy,original=self.drag_origin
             if key=='torso' and joint=='root':
-                c['height']=max(-8,min(8,original.get('height',0)+(event.y-oy)*64/size))
-                c['shift']=max(-12,min(12,original.get('shift',0)+(event.x-ox)*64/size))
+                c['height']=max(-8,min(8,original.get('height',0)+(event.y-oy)*cw/size))
+                c['shift']=max(-12,min(12,original.get('shift',0)+(event.x-ox)*cw/size))
             else:
                 solution=E.R.aim_body(p,key,target)
                 mapping={'lean':'lean','rot':'tilt'} if key=='torso' else {'head_pitch':'nod','head':'tilt'}
@@ -619,7 +673,7 @@ class App(tk.Tk):
         self.seq=E.poses(self.project);self.active_project=copy.deepcopy(self.project);self.raw_images={};self.photos.clear();self.epoch+=1;self.render()
     def end_drag(self,event):
         if self.drag:
-            if self.drag_physics is not None:self.project['physics'][self.drag[1]]=self.drag_physics
+            if self.drag_physics is not None:self.project['physics']['hair' if self.drag[0]=='hair' else self.drag[1]]=self.drag_physics
             self.drag=None;self.drag_physics=None;self.show_params();self.changed()
     def ab_view(self,on):
         if on==self.compare:return
@@ -678,7 +732,7 @@ class App(tk.Tk):
             batch=view.get() in batch_views
             if 'strip' in format_controls:
                 control=format_controls['strip'];control.text='PNG 方向图集 · 透明背景' if batch else 'PNG 横向条带 · 透明背景';control.draw()
-            export_hint.set(tr('1x = 64 × 64；仅整数倍最近邻放大。')+('\n'+tr('每个方向一行，自动附带帧信息JSON；大图集自动分页。') if batch else ''))
+            cw,ch=O.size(self.project.get('render'));export_hint.set(f'1x = {cw} × {ch} px · '+tr('仅整数倍最近邻放大。')+('\n'+tr('每个方向一行，自动附带帧信息JSON；大图集自动分页。') if batch else ''))
         self.label(dialog,'导出目录').pack(fill='x',padx=20,pady=(20,4))
         row=tk.Frame(dialog);row.pack(fill='x',padx=20)
         PixelEntry(row,textvariable=directory,bg=FIELD,bd=0).pack(side='left',fill='x',expand=True)
