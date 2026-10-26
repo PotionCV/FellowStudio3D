@@ -1,4 +1,4 @@
-"""Head-local attachment resources. Geometry and UV identity stay independent of pose."""
+"""Ears, tails and hand props: geometry/UV identity independent of placement."""
 import math,re
 from functools import lru_cache
 import numpy as np
@@ -19,6 +19,16 @@ def normalize(records):
  for source in records:
   if not isinstance(source,dict):raise ValueError('Invalid attachment')
   key=source.get('id','');preset=source.get('preset','cat')
+  if isinstance(key,str) and key.startswith('prop'):
+   import hand_props
+   item=hand_props.normalize(source)
+   if key in seen:raise ValueError('Invalid or duplicate attachment ID')
+   seen.add(key);result.append(item);continue
+  if isinstance(key,str) and key.startswith('tail'):
+   import tails
+   item=tails.normalize(source)
+   if key in seen:raise ValueError('Invalid or duplicate attachment ID')
+   seen.add(key);result.append(item);continue
   if not re.fullmatch(r'ear[1-9][0-9]{0,5}[LR]',key) or key in seen:raise ValueError('Invalid or duplicate attachment ID')
   if preset not in PRESETS or source.get('parent','head')!='head':raise ValueError('Invalid attachment preset or parent')
   item=dict(PRESETS[preset],id=key,parent='head',kind='ear',preset=preset,linked=True)
@@ -44,12 +54,38 @@ def record(model,key):return next(p for p in model.get('attachments',[]) if p['i
 def name(key,model):
  from i18n import tr
  item=record(model,key)
+ if item.get('kind')=='prop':
+  import hand_props
+  return f"{tr(hand_props.LABELS.get(item['preset'],'旧版物品'))} {key[4:]} · {tr('左侧' if item['parent']=='armL' else '右侧')}"
+ if item.get('kind')=='tail':
+  import tails
+  return f"{tr(tails.LABELS[item['preset']])} {key[4:]}"
  return f"{tr(LABELS[item['preset']])} {key[3:-1]} · {tr('左侧' if key.endswith('L') else '右侧')}"
 
-def dimensions(item):return item['width'],item['height'],item['thickness']
-def surface(item):return {k:item[k] for k in ('shape','width','height','thickness','tip')}
+def dimensions(item):
+ if item.get('kind')=='prop':
+  import hand_props
+  return hand_props.dimensions(item)
+ if item.get('kind')=='tail':
+  import tails
+  return tails.dimensions(item)
+ return item['width'],item['height'],item['thickness']
+def surface(item):
+ if item.get('kind')=='prop':
+  import hand_props
+  return hand_props.surface(item)
+ if item.get('kind')=='tail':
+  import tails
+  return tails.surface(item)
+ return {k:item[k] for k in ('shape','width','height','thickness','tip')}
 
 def frame(item,model,head,pose=None):
+ if item.get('kind')=='prop':
+  import hand_props
+  return hand_props.frame(item,model,pose or {'_model':model})
+ if item.get('kind')=='tail':
+  import tails
+  return tails.frame(item,model,pose or {'_model':model})
  if model.get('structure')=='plush' and pose is not None:
   import plush
   return plush.attachment_frame(item,model,pose)
@@ -63,6 +99,12 @@ def frame(item,model,head,pose=None):
  return origin+rotation@anchor,rotation@rz(-sign*item['outward'])@rx(item['lean'])@ry(sign*item['twist'])
 
 def mesh(item):
+ if item.get('kind')=='prop':
+  import hand_props
+  return hand_props.mesh(item)
+ if item.get('kind')=='tail':
+  import tails
+  return tails.mesh(item)
  return _mesh(tuple(item[k] for k in ('shape','width','height','thickness','tip')))
 
 def taper_depth(local,item):
@@ -71,6 +113,10 @@ def taper_depth(local,item):
  Apply after computing UV coordinates so existing painted texels keep their
  positions on the six face charts.
  """
+ if item.get('kind')=='prop':return local
+ if item.get('kind')=='tail':
+  import tails
+  return tails.deform(local,item)
  shaped=local.copy()
  shaped[:,2]*=np.clip(1-shaped[:,1]/item['height'],0,1)
  return shaped

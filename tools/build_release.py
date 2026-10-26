@@ -7,10 +7,10 @@ from importlib.metadata import distribution
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
-MODULES=('plush','plush_editor','attachments','attachment_editor','app','core3d','data_paths','engine','fellow','gaitdata','i18n','layers',
+MODULES=('resource_library','resource_browser','tail_motion','hand_props','hand_prop_editor','pose_animation','pose_animation_editor','directional_export','tails','tail_editor','aerial_actions','action_sequence','plush','plush_editor','attachments','attachment_editor','app','core3d','data_paths','engine','fellow','gaitdata','i18n','layers',
  'localized_ui','model_data','model_editor','outline_color','pixel_protection',
  'pixel_ui','preview_worker','protection_editor','rig','rounded_scene','studio_ui','paint_workspace',
- 'texture_editor','uv_assets','uv_i18n','uv_panel_legacy','game_actions','motion_timing','motion_resources','sculpt')
+ 'texture_editor','image_clipboard','uv_assets','uv_i18n','uv_panel_legacy','game_actions','motion_timing','motion_resources','sculpt')
 PUBLIC=('README.md','LICENSE','VERSION','THIRD_PARTY_NOTICES.md','requirements.txt','requirements-lock.txt',
  'FellowStudio3D.bat','FellowStudio3D.ico','launch.py','Boutique9.ttf','Boutique9_Bold.ttf','Boutique9_OFL.txt',
  '.gitignore','.gitattributes')
@@ -20,15 +20,17 @@ def copy_application(dest,source=False):
     files=[*(f'{name}.py' for name in MODULES),*PUBLIC]
     if source:files += ['tests.py','test_ui.py','test_export_preferences.py','test_release.py','test_extensions.py']
     for name in files:shutil.copy2(ROOT/name,dest/name)
-    for name in ('source','defaults','docs','examples/poses','examples/UV','examples/characters'):
+    for name in ('source','defaults','docs','examples/poses','examples/UV','examples/atlases'):
         shutil.copytree(ROOT/name,dest/name)
+    for name in ('DefaultCharacter.json','CustomCharacter.json','README.md'):
+        target=dest/'examples/characters'/name;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(ROOT/'examples/characters'/name,target)
     sys.path.insert(0,str(ROOT))
     from motion_resources import BUILTIN_MOTIONS
     from model_data import BUILTIN_MODELS
     for name in (*BUILTIN_MODELS,'README.md'):
         target=dest/'examples/models'/name;target.parent.mkdir(parents=True,exist_ok=True)
         shutil.copy2(ROOT/'examples/models'/name,target)
-    for name in (*BUILTIN_MOTIONS,'README.md'):
+    for name in (*BUILTIN_MOTIONS,'README.md','posecards/README.md'):
         target=dest/'examples/motions'/name;target.parent.mkdir(parents=True,exist_ok=True)
         shutil.copy2(ROOT/'examples/motions'/name,target)
     if source:
@@ -64,7 +66,7 @@ def build_launcher(dest):
         '/reference:System.Windows.Forms.dll',f'/win32icon:{ROOT/"FellowStudio3D.ico"}',
         f'/out:{Path(dest).resolve()}',str(ROOT/'tools'/'Launcher.cs')],check=True)
 
-def build(output,portable=False):
+def build(output,portable=False,personal=False):
     output=Path(output).resolve()
     if output.exists():raise FileExistsError(f'Refusing to overwrite {output}')
     # Keep packaged offline instructions synchronized with their editable sources.
@@ -73,6 +75,12 @@ def build(output,portable=False):
     output.parent.mkdir(parents=True,exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='fellow-release-') as td:
         pack=Path(td)/'FellowStudio3D';copy_application(pack,source=not portable)
+        if personal:
+            # Explicit private delivery only. Never part of the public build.
+            for name in ('KumamonBag','CatBag'):
+                source=ROOT/'user_data/models'/(name+'.json')
+                if source.is_file():
+                    target=pack/'local_characters'/source.name;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(source,target)
         if portable:
             copy_runtime(pack/'runtime')
             build_launcher(pack/'FellowStudio3D.exe')
@@ -88,6 +96,7 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--portable',action='store_true',help='Include a Windows x64 Python runtime')
     parser.add_argument('--output',type=Path)
+    parser.add_argument('--personal',action='store_true',help='Private local delivery: include the two curated personal mascot models')
     args=parser.parse_args()
     path=args.output or ROOT/'dist'/('FellowStudio3D-Windows-x64.zip' if args.portable else 'FellowStudio3D-source.zip')
-    print(build(path,args.portable))
+    print(build(path,args.portable,args.personal))

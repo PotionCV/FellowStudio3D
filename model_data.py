@@ -2,8 +2,7 @@
 import copy,json,math
 import sculpt
 from pathlib import Path
-BUILTIN_MODELS=('DefaultModel.json','CustomModel.json','TaperedCylinder.json','MuzzleHead.json',
- 'LongMuzzleHead.json','ConeHead.json','PyramidHead.json','BarrelBody.json','CurvedLimbs.json','PlushModel.json')
+BUILTIN_MODELS=('DefaultModel.json','CustomModel.json','PlushModel.json')
 DEFAULT={'version':1,'torso':{'height':1.,'shoulder':1.,'waist':1.,'hip':1.},'head':{'size':1.,'gap':0.}}
 for key in ('armL','armR','legL','legR'):
     DEFAULT[key]={'upper':5.8,'lower':5.8,'thickness':1.,'spread':0.,'vertical':0.,'gap':0.,'connected':True}

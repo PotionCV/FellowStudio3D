@@ -1,12 +1,12 @@
 """Zoomable UV selection workspace with paint, erase and cross-face groups."""
-import copy
+import copy,json
 import tkinter as tk
-from tkinter import font
+from tkinter import font,filedialog,messagebox
 import numpy as np
 from PIL import Image,ImageTk
 import uv_assets as U
 from pixel_protection import valid_groups,group_faces,pixel_face
-from pixel_ui import PixelButton,PixelCheck,PixelScale,ScrollPanel,PANEL,INK,ACC
+from pixel_ui import PixelButton,PixelCheck,PixelScale,ScrollPanel,FlowBar,PANEL,INK,ACC
 from localized_ui import Label
 from i18n import tr
 
@@ -16,19 +16,22 @@ class ProtectionEditor(tk.Toplevel):
         self.owner=owner;self.part=part;self.ui_scale=owner.ui_scale
         self.ui_font=font.Font(self,family=owner.ui_font.actual('family'),size=-round(18*self.ui_scale))
         self.resource=copy.deepcopy(owner.project['textures'][part]);self.groups=valid_groups(self.resource)
-        self.selection=set();self.start=None;self.history=[];self.editing=None
+        self.selection=set();self.start=None;self.history=[];self.editing=None;self.texture_dirty=False
         self.zoom=1;self.offset=None;self.auto_fit=True;self.photo_zoom=None;self.space=False;self.pan_start=None
         self.tool='box';self.operation='replace';self.last_pixel=None
-        self.title(tr('像素保护')+' · '+part);self.transient(owner);self.configure(bg=PANEL)
+        self.title(tr('UV 贴图')+' · '+tr(U.part_name(part,owner.project)));self.transient(owner);self.configure(bg=PANEL)
         w=min(self.winfo_screenwidth()-60,round(1200*self.ui_scale));h=min(self.winfo_screenheight()-90,round(820*self.ui_scale))
         self.geometry(f'{w}x{h}');self.minsize(920,620)
         header=tk.Frame(self,bg=PANEL);header.pack(fill='x',padx=12,pady=8)
-        Label(header,text='像素保护',font=self.ui_font,anchor='w').pack(side='left')
+        Label(header,text=U.part_name(part,owner.project)+' · UV',font=self.ui_font,anchor='w').pack(side='left')
         self.counter=tk.StringVar(master=self,value='0 px');Label(header,textvariable=self.counter,anchor='e').pack(side='right')
         footer=tk.Frame(self,bg=PANEL);footer.pack(side='bottom',fill='x',padx=12,pady=10)
-        PixelButton(footer,text='应用保护组',command=self.apply,accent=True).pack(side='right',padx=4)
+        PixelButton(footer,text='应用贴图',command=self.apply,accent=True).pack(side='right',padx=4)
         PixelButton(footer,text='取消',command=self.destroy).pack(side='right',padx=4)
         self.status=tk.StringVar(master=self);Label(footer,textvariable=self.status,wrap=True,anchor='w').pack(side='left',fill='both',expand=True,padx=5)
+        transfer=FlowBar(self,compact=True,bg=PANEL);transfer.pack(fill='x',padx=12,pady=(0,8));self.transfer_buttons={}
+        for key,label,command in (('save','保存 PNG…',self.save_texture),('copy','复制贴图（Ctrl+C）',self.copy_texture),('paste','粘贴替换（Ctrl+V）',self.paste_texture)):
+            button=PixelButton(transfer,text=label,command=command);button.pack(side='left',padx=3);self.transfer_buttons[key]=button
         body=tk.PanedWindow(self,orient='horizontal',sashwidth=12,bg='#8d7257',bd=0,opaqueresize=False);body.pack(fill='both',expand=True,padx=12)
         left=tk.Frame(body,bg=PANEL);body.add(left,minsize=460,stretch='always')
         tools=tk.Frame(left,bg=PANEL);tools.pack(fill='x',pady=(0,6));self.tool_buttons={}
@@ -56,13 +59,48 @@ class ProtectionEditor(tk.Toplevel):
         self.bind('<KeyPress-space>',lambda e:setattr(self,'space',True));self.bind('<KeyRelease-space>',lambda e:setattr(self,'space',False))
         self.bind('<Escape>',lambda e:self.destroy());self.bind('<Control-z>',lambda e:(self.undo(),'break')[1]);self.bind('<Delete>',lambda e:self.clear_selection())
         self.bind('<KeyPress-b>',lambda e:self.set_tool('brush'));self.bind('<KeyPress-m>',lambda e:self.set_tool('box'))
+        self.bind('<Control-c>',lambda e:(self.copy_texture(),'break')[1]);self.bind('<Control-v>',lambda e:(self.paste_texture(),'break')[1])
+        self.bind('<Control-C>',lambda e:(self.copy_texture(),'break')[1]);self.bind('<Control-V>',lambda e:(self.paste_texture(),'break')[1])
         self.set_tool('box');self.set_operation('replace')
-        im=U.texture_image({'textures':{part:self.resource}},part);yy,xx=np.indices((im.height,im.width))
+        self.refresh_image()
+
+    def current_bundle(self):return dict(self.owner.project,textures={**self.owner.project['textures'],self.part:self.resource})
+    def refresh_image(self):
+        im=U.texture_image(self.current_bundle(),self.part);yy,xx=np.indices((im.height,im.width))
         a=np.full((im.height,im.width,4),(211,199,181,255),np.uint8);a[((xx//4+yy//4)%2)==0]=(234,224,207,255)
-        self.image=Image.fromarray(a);self.image.alpha_composite(im)
+        self.image=Image.fromarray(a);self.image.alpha_composite(im);self.photo_zoom=None;self.draw()
+
+    def report_error(self,error):messagebox.showerror(tr('操作失败'),tr(str(error)),parent=self)
+    def save_texture(self,path=None):
+        path=path or filedialog.asksaveasfilename(parent=self,title=tr('保存 PNG…'),initialfile=self.part+'.png',defaultextension='.png',filetypes=[('PNG','*.png')])
+        if not path:return False
+        try:U.save_painting(self.current_bundle(),self.part,path);self.status.set(tr('贴图已保存')+' · '+str(path));return True
+        except Exception as ex:self.report_error(ex);return False
+    def copy_texture(self):
+        import image_clipboard as C
+        try:
+            C.copy_image(U.texture_image(self.current_bundle(),self.part),self.winfo_id(),json.dumps(U.painting_info(self.current_bundle(),self.part,False)))
+            self.status.set(tr('贴图已复制；保留原始尺寸与透明度。'));return True
+        except Exception as ex:self.report_error(ex);return False
+    def paste_texture(self):
+        import image_clipboard as C
+        try:
+            candidate=self.current_bundle();candidate['textures']=copy.deepcopy(candidate['textures'])
+            U.import_image(candidate,self.part,C.read_image(),tr('剪贴板贴图'))
+            self.checkpoint();self.resource=candidate['textures'][self.part];self.texture_dirty=True
+            self.refresh_image();self.status.set(tr('贴图已替换；应用后写入项目，可撤销。'));return True
+        except Exception as ex:self.report_error(ex);return False
 
     def button(self,parent,text,fn):return PixelButton(parent,text=text,command=fn)
-    def checkpoint(self):self.history.append((copy.deepcopy(self.groups),set(self.selection),self.editing,self.angle.get()))
+    def destroy(self):
+        if getattr(self,'closed',False):return
+        self.closed=True;super().destroy()
+        # Release Tcl objects on the UI thread before preview worker GC runs.
+        self.photo=None;self.tool_buttons.clear();self.mode_buttons.clear();self.transfer_buttons.clear()
+        for key,value in list(vars(self).items()):
+            if isinstance(value,tk.Variable):setattr(self,key,None)
+        self.ui_font=None
+    def checkpoint(self):self.history.append((copy.deepcopy(self.groups),set(self.selection),self.editing,self.angle.get(),copy.deepcopy(self.resource),self.texture_dirty))
     def set_tool(self,key):
         self.tool=key
         for k,b in self.tool_buttons.items():b.accent=k==key;b.draw()
@@ -199,8 +237,13 @@ class ProtectionEditor(tk.Toplevel):
         self.refresh_groups();self.draw()
     def undo(self):
         if self.history:
-            self.groups,self.selection,self.editing,angle=self.history.pop();self.set_angle(angle);self.refresh_groups();self.draw()
+            self.groups,self.selection,self.editing,angle,self.resource,self.texture_dirty=self.history.pop();self.set_angle(angle);self.refresh_groups();self.refresh_image()
     def apply(self):
         if self.selection:self.status.set(tr('还有未建立保护组的选择，请先保护或清除。'));return
-        self.owner.snapshot();self.owner.project['textures'][self.part]['protected_groups']=copy.deepcopy(self.groups)
+        self.owner.snapshot()
+        if self.texture_dirty:
+            self.resource.update(painting_override=True,painting_pending=True)
+            self.owner.project['textures'][self.part]=copy.deepcopy(self.resource)
+            self.owner.match_states.pop(self.part,None)
+        self.owner.project['textures'][self.part]['protected_groups']=copy.deepcopy(self.groups)
         self.owner.changed();self.owner.populate();self.destroy()

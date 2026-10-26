@@ -1,7 +1,18 @@
 """Local painting files with provenance checks and stable-save polling."""
-import copy,json
+import copy,json,hashlib
 from pathlib import Path
 import uv_assets as U
+
+def painting_key(project):
+ """Local preference key for artwork, independent of motion and model sizing.
+
+ Use the project's original embedded PNGs, before model-to-UV adaptation. A
+ resize can still reconnect and offer adaptation; another painted character
+ does not inherit its predecessor's folder. No paths enter portable projects.
+ """
+ bundle=project.get('assets3d') or {}
+ payload={part:resource.get('png') for part,resource in bundle.get('textures',{}).items() if resource.get('png')}
+ return hashlib.sha256(json.dumps(payload,sort_keys=True).encode('utf-8')).hexdigest()
 
 class PaintWorkspace:
  def __init__(self,folder):
@@ -20,6 +31,7 @@ class PaintWorkspace:
  def poll(self,bundle,force=False,skip=()):
   candidate=copy.deepcopy(bundle);changed=False;self.states={}
   for part in U.parts(bundle):
+   if bundle['textures'][part].get('painting_override'):self.states[part]='embedded';continue
    if part in skip:self.states[part]='external';continue
    if part in bundle.get('shared_textures',{}):self.states[part]='shared';continue
    if not self.compatible(bundle,part):self.states[part]='mapping';continue
@@ -67,3 +79,16 @@ def adapted_folder(bundle,old_folder,skip=()):
  while (old.parent/(old.name+f'-v{index}')).exists():index+=1
  new=old.parent/(old.name+f'-v{index}');U.export_pack(candidate,new)
  return PaintWorkspace(new)
+
+def project_copy(bundle,folder):
+ """Prepare current project pixels without reading or overwriting older art."""
+ target=Path(folder);chosen=target;index=2
+ if target.exists() and any(target.iterdir()):
+  while True:
+   target=chosen.parent/(chosen.name+f'-project-v{index}')
+   try:target.mkdir(exist_ok=False);break
+   except FileExistsError:index+=1
+ candidate=copy.deepcopy(bundle)
+ for resource in candidate['textures'].values():resource.pop('painting_pending',None)
+ U.export_pack(candidate,target)
+ return PaintWorkspace(target)

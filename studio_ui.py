@@ -34,6 +34,8 @@ class App(tk.Tk):
         except (ValueError,TypeError):self.ui_scale=1.5
         self.export_directory=str(prefs.get('export_directory') or E.ROOT)
         self.paint_directory=str(prefs.get('painting_directory') or '')
+        bindings=prefs.get('painting_bindings',{})
+        self.paint_bindings={k:v for k,v in list(bindings.items())[-32:] if isinstance(k,str) and len(k)==64 and isinstance(v,str)} if isinstance(bindings,dict) else {}
         if not Path(self.export_directory).is_dir():self.export_directory=str(E.ROOT)
         self.panel_widths=prefs.get('panels',[340,400])
         if not isinstance(self.panel_widths,list) or len(self.panel_widths)!=2 or not all(isinstance(x,(int,float)) and math.isfinite(x) and 150<=x<=900 for x in self.panel_widths):self.panel_widths=[340,400]
@@ -89,7 +91,10 @@ class App(tk.Tk):
         self.label(left,'基础动作',fg=DIM).pack(fill='x',padx=10,pady=(12,5))
         self.base_name=tk.StringVar();self.base_menu=PixelOption(left,self.base_name,*[v for k,v in E.ACTIONS.items() if k!='pose'],command=self.change_base);self.base_menu.configure(bd=0,highlightthickness=0,bg=FIELD);self.base_menu.pack(fill='x',padx=10)
         self.button(left,'调整基础动作',lambda:self.select('base',0)).pack(fill='x',padx=10,pady=5)
-        self.button(left,'从姿势开始…',self.choose_pose).pack(fill='x',padx=10)
+        creation=tk.StringVar(value='制作动画…')
+        creation_actions={'从姿势开始…':self.choose_pose,'姿势动画…':self.edit_pose_animation,'动作串联…':self.arrange_actions,'保存动画…':self.save_motion_resource}
+        def create_motion(label):creation.set('制作动画…');creation_actions[label]()
+        PixelOption(left,creation,*creation_actions,command=create_motion).pack(fill='x',padx=10,pady=4)
         self.label(left,'叠加动作',fg=DIM).pack(fill='x',padx=10,pady=(18,5))
         stack_frame=tk.Frame(left,bg=INK,padx=4,pady=4);stack_frame.pack(fill='x',padx=10)
         self.stack=tk.Listbox(stack_frame,height=6,bd=0,bg=FIELD,selectbackground=ACC,selectforeground=INK,exportselection=False,activestyle='none');self.stack.pack(fill='x');self.stack.bind('<<ListboxSelect>>',self.pick_layer)
@@ -97,13 +102,14 @@ class App(tk.Tk):
         add_value=tk.StringVar(value='＋ 添加')
         def add_selected(label):
             key=next(k for k,v in E.ACTIONS.items() if v==label);self.add(key);add_value.set('＋ 添加')
-        PixelOption(r,add_value,*[E.ACTIONS[k] for k in ('pose','raise','wave','bow','nod','shake','stretch','squat','bounce','thrust','swing','kick','hit','jump','fall','getup','roll','climb','turn')],command=add_selected).pack(side='left',fill='x',expand=True)
+        PixelOption(r,add_value,*[E.ACTIONS[k] for k in ('pose','raise','wave','bow','nod','shake','stretch','squat','bounce','thrust','swing','kick','hit','jump','fall','getup','roll','climb','turn','swim','hover','tail')],command=add_selected).pack(side='left',fill='x',expand=True)
         self.button(left,'移除',self.remove).pack(fill='x',padx=10,pady=(0,5))
-        self.button(left,'动作案例…',self.load_motion_resource).pack(fill='x',padx=10,pady=4)
+        self.button(left,'创作资源库…',self.load_motion_resource).pack(fill='x',padx=10,pady=4)
         self.label(left,'整体控制',fg=DIM).pack(fill='x',padx=10,pady=(18,5))
         grid=tk.Frame(left);grid.pack(fill='x',padx=8);self.part_buttons={}
         for i,(k,t) in enumerate(E.LABELS.items()):
             button=PixelButton(grid,text=t,command=lambda k=k:self.select('body',k),compact=True,accent=self.selection==('body',k));button.grid(row=i//2,column=i%2,sticky='ew',padx=2,pady=3);self.part_buttons[k]=button
+            if k=='tail' and not any(p.get('kind')=='tail' for p in (self.project.get('model') or {}).get('attachments',[])):button.grid_remove()
         grid.columnconfigure((0,1),weight=1,uniform='parts')
         self.label(left,'控制作用于整段动作\n基础件始终保留',fg=DIM,justify='left',wraplength=200).pack(side='bottom',fill='x',padx=10,pady=12)
         center=tk.Frame(body,bg=BG);body.add(center,minsize=360,stretch='always',padx=8)
@@ -172,7 +178,7 @@ class App(tk.Tk):
 
     def save_preferences(self):
         self.preferences_path.parent.mkdir(parents=True,exist_ok=True)
-        tmp=self.preferences_path.with_suffix('.tmp');tmp.write_text(json.dumps({'scale':self.ui_scale,'export_directory':self.export_directory,'painting_directory':self.paint_directory,'language':self.language,'panels':self.panel_widths,'render':self.current_display()}),encoding='utf-8');tmp.replace(self.preferences_path)
+        tmp=self.preferences_path.with_suffix('.tmp');tmp.write_text(json.dumps({'scale':self.ui_scale,'export_directory':self.export_directory,'painting_directory':self.paint_directory,'painting_bindings':self.paint_bindings,'language':self.language,'panels':self.panel_widths,'render':self.current_display()}),encoding='utf-8');tmp.replace(self.preferences_path)
     def refresh_control_styles(self):
         def visit(widget):
             if hasattr(widget,'refresh_style'):widget.refresh_style()
@@ -231,6 +237,10 @@ class App(tk.Tk):
         try:E.save(self.project,self.state_path)
         except OSError as ex:self.status.set('保存失败：'+str(ex))
     def changed(self):
+        if hasattr(self,'part_buttons') and 'tail' in self.part_buttons:
+            button=self.part_buttons['tail']
+            if any(p.get('kind')=='tail' for p in (self.project.get('model') or {}).get('attachments',[])):button.grid()
+            else:button.grid_remove()
         self.schedule_save()
         if self.pending:self.after_cancel(self.pending)
         self.revision+=1;self.pending=self.after(100,self.request_preview)
@@ -294,12 +304,24 @@ class App(tk.Tk):
             e['pose']=MR.pose_channels(self.seq[self.frame]);e['scope']='upper'
         self.project['layers'].append(e);self.selection=('layer',len(self.project['layers'])-1);self.refresh_lists();self.show_params();self.changed()
     def load_motion_resource(self):
+        import resource_browser
+        return resource_browser.show(self)
+    def arrange_actions(self):
+        import action_sequence
+        return action_sequence.show(self)
+    def save_motion_resource(self):
         import motion_resources as MR
-        path=filedialog.askopenfilename(parent=self,initialdir=E.ROOT/'examples'/'motions',filetypes=[(tr('动作配方'),'*.json')])
+        folder=self.state_path.parent/'motions';folder.mkdir(parents=True,exist_ok=True)
+        path=filedialog.asksaveasfilename(parent=self,title=tr('保存动画'),initialdir=folder,initialfile='MyMotion.json',defaultextension='.json',filetypes=[(tr('动作配方'),'*.json')])
         if not path:return
-        try:project=MR.apply_motion(self.project,E.load(path))
-        except Exception as ex:messagebox.showerror(tr('动作配方'),str(ex),parent=self);return
-        self.snapshot();self.stop();self.project=project;self.frame=0;self.sync(('base',0));self.changed()
+        try:MR.save_motion(self.project,path);self.status.set('已保存：'+str(path))
+        except Exception as ex:messagebox.showerror(tr('保存失败'),str(ex),parent=self)
+    def edit_pose_animation(self):
+        if getattr(self,'pose_editor',None) is not None and self.pose_editor.winfo_exists():self.pose_editor.lift();return self.pose_editor
+        self.stop()
+        from pose_animation_editor import PoseAnimationEditor
+        self.pose_editor=PoseAnimationEditor(self)
+        return self.pose_editor
     def pose_resource(self,e,action):
         import motion_resources as MR
         try:
@@ -362,6 +384,9 @@ class App(tk.Tk):
             self.choice('播放方式',self.project if kind=='base' else e,'playback' if kind=='base' else 'mode',{'loop':'循环','once':'播放一次','hold':'保持末帧'})
             if e['kind']=='roll':self.choice('接触方式',e,'contact',{'auto':'跟随基础动作','ground':'地面翻滚','air':'空中翻滚'})
             if e['kind']=='kick':self.choice('踢腿方式',e,'style',{'swing':'摆踢','push':'踹腿'})
+            if e['kind']=='swim':self.choice('游泳方式',e,'style',{'breast':'蛙泳','crawl':'自由泳','tread':'踩水'})
+            if e['kind'] in ('swim','hover'):self.note('不锁定地面；可叠加头部、挥手或脱力。')
+            if e['kind']=='poseclip':self.button(self.params,'编辑姿势卡…',self.edit_pose_animation).pack(fill='x',padx=12,pady=6)
             if e['kind']=='raise':self.choice('举手方向',e,'plane',{'side':'向两侧','front':'向前'})
             if e['kind']=='lift':self.choice('取放方向',e,'operation',{'pickup':'从地上捧起','putdown':'放回地面'})
             if e['kind']=='lift':self.note('高举时手肘会逐渐伸直；取物下蹲会按模型比例适配。')
@@ -389,10 +414,11 @@ class App(tk.Tk):
                 self.slide('影响比例',e,'mix',0,1,1,.05)
                 if e.get('blend') in ('posture','replace'):
                     self.slide('保留原摆动',e,'retain',0,1,1,.05)
-                self.choice('作用部位',e,'scope',{'all':'相关部位','upper':'上半身','lower':'下半身','head':'头颈','torso':'腰 / 躯干','armL':'左臂','armR':'右臂','arms':'双臂','legs':'双腿','legL':'左腿','legR':'右腿'})
+                if e['kind']!='tail':self.choice('作用部位',e,'scope',{'all':'相关部位','upper':'上半身','lower':'下半身','head':'头颈','torso':'腰 / 躯干','armL':'左臂','armR':'右臂','arms':'双臂','legs':'双腿','legL':'左腿','legR':'右腿'})
                 self.note('叠加选定部位的改动，原动画保留。' if e.get('blend')=='add' else '姿态和摆动分别混合。比例为 0 时完全回到原动作。')
                 if e['kind'] in ('thrust','swing','kick'):self.note('需要完整身体带动时，将作用部位设为“相关部位”。')
             for d in C.params:
+                if e['kind']=='swim' and d['key']=='roll' and e.get('style','breast')!='crawl':continue
                 if not d.get('hide'):self.slide(d['label'],e['params'],d['key'],d['lo'],d['hi'],d['dflt'],d['step'])
             if e['kind'] not in ('raise','pose') and (E.MT.mode(self.project) if kind=='base' else e.get('mode',E.MT.mode(self.project)))=='loop':self.slide('这一轮做几次',e,'cycles',1,8,1,1)
             if kind=='layer':
@@ -407,7 +433,16 @@ class App(tk.Tk):
             self.note('直接调动作的整体感觉，不需要编辑关键帧。')
         else:
             self.param_title.set('整体控制 · '+E.LABELS[key]);c=self.project['controls'].setdefault(key,{})
-            if key in ('head','torso'):
+            if key=='tail':
+                bones={'尾根':'root','尾中':'middle','尾尖':'tip'}
+                selected=getattr(self,'selected_tail_bone','尾根')
+                value=tk.StringVar(master=self,value=selected)
+                def pick_bone(label):self.selected_tail_bone=label;self.show_params();self.render()
+                PixelOption(self.params,value,*bones,command=pick_bone).pack(fill='x',padx=12,pady=8)
+                for axis,label in (('pitch','上下弯曲（度）'),('yaw','左右弯曲（度）'),('roll','扭转（度）')):self.slide(label,c,bones[selected]+'_'+axis,-120,120,0,1)
+                self.slide('摆动幅度',c,'range',-2,2,1,.05)
+                self.note('尾根、尾中、尾尖分别控制；可叠加尾巴摆动，并使用影响比例、时段与融合方式。')
+            elif key in ('head','torso'):
                 if key=='head':
                     self.slide('低头 / 抬头',c,'nod',-65,65);self.slide('左右转头',c,'turn',-90,90);self.slide('左右歪头',c,'tilt',-45,45);self.slide('头部前后位置（px）',c,'depth',-8,8,0,.25)
                     follow=tk.BooleanVar(value=c.get('follow_chest',True));self.head_follow_var=follow
@@ -422,7 +457,7 @@ class App(tk.Tk):
                     def pin_changed():self.snapshot();c['pin_feet']=pin.get();self.changed()
                     PixelCheck(self.params,text='调整身体时保持脚的位置',variable=pin,command=pin_changed).pack(fill='x',padx=10,pady=8)
                     self.note('脚部锁定受腿长限制；小幅调整身体高低时更自然。')
-            else:
+            elif key!='tail':
                 self.slide('抬起 / 放下',c,'raise',-90,160);self.slide('前伸 / 后摆',c,'forward',-90,90)
                 self.slide('侧向弯曲',c,'bend',-100,100);self.slide('前后屈伸',c,'fold',-135,135)
                 self.slide('摆动幅度',c,'range',-2,2,1,.05)
@@ -431,10 +466,13 @@ class App(tk.Tk):
                 if key in E.LIMBS:
                     self.button(self.params,'翻转肘 / 膝弯向',lambda:self.reverse_bend(key)).pack(fill='x',padx=12,pady=6)
             self.button(self.params,'重置这个部位',lambda:self.reset_part(key)).pack(fill='x',padx=12,pady=8)
-            if key in E.LIMBS or key=='head':
+            if key in E.LIMBS or key in ('head','tail'):
                 phy=self.project['physics'].setdefault(key,{})
                 self.note('物理跟随 · 随身体运动产生惯性')
-                if key in E.LIMBS:
+                if key=='tail':
+                    for bone,label in (('root','尾根松软'),('middle','尾中松软'),('tip','尾尖松软')):
+                        self.slide(label,phy,bone,0,1,phy.get('strength',0),.05)
+                elif key in E.LIMBS:
                     self.slide('上段松软',phy,'upper',0,1,phy.get('strength',0),.05)
                     self.slide('下段松软',phy,'lower',0,1,phy.get('strength',0),.05)
                 else:self.slide('头颈松软',phy,'strength',0,1,0,.05)
@@ -514,13 +552,33 @@ class App(tk.Tk):
                     px,py=j[key]['tip'];cx,cy=x+px*scale,y+py*scale
                     color=ACC if self.selection==('body','torso' if key=='waist' else key) else '#b7ac99'
                     self.canvas.create_rectangle(cx-5,cy-5,cx+5,cy+5,outline=color,fill=CELL,width=2)
+                if self.selection==('body','tail'):
+                    tail=self.tail_points(v)
+                    if tail:
+                        points=[(x+px*scale,y+py*scale) for px,py in tail]
+                        self.canvas.create_line(*[value for point in points for value in point],fill=ACC,width=2)
+                        active={'尾根':0,'尾中':1,'尾尖':2}.get(getattr(self,'selected_tail_bone','尾根'),0)
+                        for index,(px,py) in enumerate(points[:3]):self.canvas.create_oval(px-6,py-6,px+6,py+6,fill=ACC if index==active else CELL,outline=ACC,width=2)
         self.time_label.set(f'{self.frame/self.project.get("fps",12):.2f} / {self.project["seconds"]:g}'+tr(' 秒'))
     def view_pose(self,v):
         p=copy.deepcopy(self.seq[self.frame]);p['yaw']+=VIEWS[v][0];p['pitch']+=VIEWS[v][1];return p
+    def tail_points(self,view):
+        import tails
+        pose=self.view_pose(view);model=pose.get('_model') or {}
+        item=next((p for p in model.get('attachments',[]) if p.get('kind')=='tail'),None)
+        return [E.R._project(pose,p) for p in tails.joints(item,model,pose)] if item else []
     def start_drag(self,event):
         if self.compare:return
         for v,(x,y,size) in enumerate(self.cells):
             if x<=event.x<x+size and y<=event.y<y+size:
+                if self.selection==('body','tail') and self.handles.get():
+                    points=self.tail_points(v)
+                    if points:
+                        distance,index=min((math.hypot(x+px*size/64-event.x,y+py*size/64-event.y),i) for i,(px,py) in enumerate(points[:3]))
+                        if distance<20:
+                            self.stop();self.snapshot();self.selected_tail_bone=('尾根','尾中','尾尖')[index]
+                            self.drag=('tail',index,v,size);self.drag_origin=(event.x,event.y,copy.deepcopy(self.project['controls'].get('tail',{})));self.drag_physics=None
+                            self.show_params();self.render();return
                 self.focus_view=v;self.layout_key=None;self.render()
                 if not self.handles.get() or self.playing:return
                 p=self.view_pose(v);j=E.R.joints(p);scale=size/64
@@ -532,6 +590,12 @@ class App(tk.Tk):
                 self.stop();self.snapshot();self.selection=('body',key);self.show_params();self.drag=(v,key,joint,p);self.drag_origin=(event.x,event.y,copy.deepcopy(self.project['controls'].get(key,{})));self.drag_physics=copy.deepcopy(self.project['physics'].get(key));self.render();return
     def move_drag(self,event):
         if not self.drag:return
+        if self.drag[0]=='tail':
+            _,index,view,size=self.drag;ox,oy,original=self.drag_origin;prefix=('root','middle','tip')[index]
+            control=self.project['controls'].setdefault('tail',{});axis='roll' if view==1 else 'yaw'
+            control[prefix+'_'+axis]=max(-120,min(120,original.get(prefix+'_'+axis,0)+(event.x-ox)*180/size))
+            control[prefix+'_pitch']=max(-120,min(120,original.get(prefix+'_pitch',0)-(event.y-oy)*180/size))
+            self.update_drag_preview();self.schedule_save();return
         v,key,joint,start=self.drag;x,y,size=self.cells[v];target=((event.x-x)*64/size,(event.y-y)*64/size)
         p=self.view_pose(v)
         c=self.project['controls'].setdefault(key,{})
@@ -607,7 +671,14 @@ class App(tk.Tk):
         dialog=export_scroll.content
         directory=tk.StringVar(value=self.export_directory if Path(self.export_directory).is_dir() else str(E.ROOT));name=tk.StringVar(value=self.project.get('name','Animation'));create_folder=tk.BooleanVar(value=False);output_scale=tk.StringVar(value=str(self.project.get('export_scale',1) if self.project.get('export_scale',1) in (1,4,8) else 1)+'x')
         selected=self.focus_view if self.export_view.get()=='焦点视图' else VN.index(self.export_view.get())
-        view=tk.StringVar(value=VN[selected]);types={key:tk.BooleanVar(value=key in ('png','strip')) for key in ('png','strip','gif','recipe')}
+        batch_views={'四方向（水平）':4,'八方向（水平）':8}
+        view=tk.StringVar(value=next((label for label,count in batch_views.items() if count==self.project.get('export_directions')),VN[selected]));types={key:tk.BooleanVar(value=key in ('png','strip')) for key in ('png','strip','gif','recipe')}
+        format_controls={};export_hint=tk.StringVar()
+        def update_view(_=None):
+            batch=view.get() in batch_views
+            if 'strip' in format_controls:
+                control=format_controls['strip'];control.text='PNG 方向图集 · 透明背景' if batch else 'PNG 横向条带 · 透明背景';control.draw()
+            export_hint.set(tr('1x = 64 × 64；仅整数倍最近邻放大。')+('\n'+tr('每个方向一行，自动附带帧信息JSON；大图集自动分页。') if batch else ''))
         self.label(dialog,'导出目录').pack(fill='x',padx=20,pady=(20,4))
         row=tk.Frame(dialog);row.pack(fill='x',padx=20)
         PixelEntry(row,textvariable=directory,bg=FIELD,bd=0).pack(side='left',fill='x',expand=True)
@@ -619,21 +690,24 @@ class App(tk.Tk):
         self.label(dialog,'导出名称',wraplength=580).pack(fill='x',padx=20,pady=(18,4))
         PixelEntry(dialog,textvariable=name,bg=FIELD,bd=0).pack(fill='x',padx=20)
         PixelCheck(dialog,text='创建同名子文件夹',variable=create_folder).pack(fill='x',padx=20,pady=8)
-        self.label(dialog,'导出视角').pack(fill='x',padx=20,pady=(18,4));PixelOption(dialog,view,*VN).pack(fill='x',padx=20)
+        self.label(dialog,'导出视角').pack(fill='x',padx=20,pady=(18,4));PixelOption(dialog,view,*VN,*batch_views,command=update_view).pack(fill='x',padx=20)
         self.label(dialog,'输出比例').pack(fill='x',padx=20,pady=(18,4))
         PixelOption(dialog,output_scale,'1x','4x','8x').pack(fill='x',padx=20)
-        self.label(dialog,'1x = 64 × 64；仅整数倍最近邻放大。',wraplength=580).pack(fill='x',padx=20,pady=5)
+        UI.Label(dialog,textvariable=export_hint,wrap=True,justify='left').pack(fill='x',padx=20,pady=5)
         for key,label in (('png','PNG 序列 · 透明背景'),('strip','PNG 横向条带 · 透明背景'),('gif','GIF 动画预览'),('recipe','JSON 动作配方')):
-            PixelCheck(dialog,text=label,variable=types[key]).pack(fill='x',padx=20,pady=5)
+            control=PixelCheck(dialog,text=label,variable=types[key]);control.pack(fill='x',padx=20,pady=5);format_controls[key]=control
+        update_view()
         error=tk.StringVar();UI.Label(dialog,textvariable=error,fg='#a34d35',wraplength=590,justify='left').pack(fill='x',padx=20,pady=8)
         def submit():
             if getattr(shell,'exporting',False):return
             if not directory.get().strip():error.set('请选择导出目录');return
             formats=[key for key,value in types.items() if value.get()]
             if not formats:error.set('请至少选择一种文件类型');return
-            project=copy.deepcopy(self.project);index=VN.index(view.get());project['export_view']=dict(name=VN[index],yaw=VIEWS[index][0],pitch=VIEWS[index][1])
+            project=copy.deepcopy(self.project);directions=batch_views.get(view.get(),1)
+            project['export_directions']=directions
+            index=VN.index(view.get()) if directions==1 else 0;project['export_view']=dict(name=view.get(),yaw=VIEWS[index][0],pitch=VIEWS[index][1])
             output=directory.get().strip();folder=create_folder.get()
-            options=dict(out=output,name=name.get(),formats=formats,create_folder=folder,scale=int(output_scale.get()[:-1]))
+            options=dict(out=output,name=name.get(),formats=formats,create_folder=folder,scale=int(output_scale.get()[:-1]),directions=directions)
             shell.exporting=True;start.configure(state='disabled');cancel.configure(state='disabled');error.set('正在导出…')
             if not hasattr(self,'export_pool'):self.export_pool=ProcessPoolExecutor(max_workers=1)
             task=self.export_pool.submit(E.export,project,**options)

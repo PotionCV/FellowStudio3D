@@ -445,3 +445,12 @@ MENU = ('walk', 'run', 'wave', 'raise', 'stretch', 'squat', 'bounce',
 from game_actions import CLASSES
 KINDS.update({C.kind:C for C in CLASSES})
 MENU += tuple(C.kind for C in CLASSES if C.kind!='pose')
+from aerial_actions import CLASSES as AERIAL_CLASSES
+KINDS.update({C.kind:C for C in AERIAL_CLASSES})
+MENU += tuple(C.kind for C in AERIAL_CLASSES)
+from pose_animation import PoseAnimation
+KINDS[PoseAnimation.kind]=PoseAnimation
+MENU += (PoseAnimation.kind,)
+from tail_motion import TailMotion
+KINDS[TailMotion.kind]=TailMotion
+MENU += (TailMotion.kind,)

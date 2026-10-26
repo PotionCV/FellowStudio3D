@@ -11,7 +11,7 @@ def mount(editor):
  bar=FlowBar(box,compact=True);bar.pack(fill='x')
  for preset,label in A.LABELS.items():
   PixelButton(bar,text='+ '+tr(label),compact=True,command=lambda p=preset:add(editor,p)).pack(side='left')
- items=editor.draft.get('attachments',[])
+ items=[p for p in editor.draft.get('attachments',[]) if p.get('kind','ear')=='ear']
  if not items:return
  keys={A.name(item['id'],editor.draft):item['id'] for item in items}
  selected=getattr(editor,'attachment_id',None)

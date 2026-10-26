@@ -55,7 +55,7 @@ class App(UI.App):
  def rebuild(self):
   import rounded_scene as S
   self.seq=E.authored(self.project);bundle=S.assets(self.project)
-  for pose in self.seq:pose['_assets3d']=bundle
+  self.seq=E.visible(self.seq,self.project,bundle)
   self.frame%=len(self.seq);self.raw_images=frame_images(self.seq,self.project['render'],self.frame)
   self.active_project=copy.deepcopy(self.project);self.preview_incomplete=True
   self.photos.clear();self.layout_key=None;self.render();self.revision+=1
@@ -67,7 +67,7 @@ class App(UI.App):
   if self.pending:self.after_cancel(self.pending);self.pending=None
   self.revision+=1;self.preview_control.value=self.revision;self.latest_request=None
   self.seq=E.authored(self.project);bundle=S.assets(self.project)
-  for pose in self.seq:pose['_assets3d']=bundle
+  self.seq=E.visible(self.seq,self.project,bundle)
   self.active_project=copy.deepcopy(self.project);self.preview_incomplete=True
   self.raw_images=frame_images(self.seq,self.project['render'],self.frame)
   self.photos.clear();self.layout_key=None;self.render()

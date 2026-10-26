@@ -1,0 +1,103 @@
+{
+  "version": 2,
+  "name": "ComboPunchKick",
+  "seconds": 4.0,
+  "fps": 12,
+  "base": {
+    "kind": "stand",
+    "params": {
+      "breath": 0.9,
+      "sway": 0.0
+    },
+    "cycles": 1,
+    "mix": 1.0,
+    "retain": 1.0,
+    "enabled": true,
+    "scope": "all",
+    "phase": 0.0,
+    "blend": "add"
+  },
+  "layers": [
+    {
+      "kind": "thrust",
+      "params": {
+        "reach": 1,
+        "angle": 0,
+        "windup": 1,
+        "prepare": 0.22,
+        "release": 0.15,
+        "twist": 1
+      },
+      "cycles": 1,
+      "mix": 1.0,
+      "retain": 0.0,
+      "enabled": true,
+      "scope": "all",
+      "phase": 0.0,
+      "blend": "add",
+      "mode": "once",
+      "side": "right",
+      "start": 0.0,
+      "end": 0.3333333333333333,
+      "fade": 0.12
+    },
+    {
+      "kind": "thrust",
+      "params": {
+        "reach": 1,
+        "angle": 0,
+        "windup": 1,
+        "prepare": 0.22,
+        "release": 0.15,
+        "twist": 1
+      },
+      "cycles": 1,
+      "mix": 1.0,
+      "retain": 0.0,
+      "enabled": true,
+      "scope": "all",
+      "phase": 0.0,
+      "blend": "add",
+      "mode": "once",
+      "side": "left",
+      "start": 0.3333333333333333,
+      "end": 0.6666666666666666,
+      "fade": 0.12
+    },
+    {
+      "kind": "kick",
+      "params": {
+        "reach": 1,
+        "angle": 0,
+        "prepare": 0.22,
+        "release": 0.15,
+        "twist": 1
+      },
+      "cycles": 1,
+      "mix": 1.0,
+      "retain": 0.0,
+      "enabled": true,
+      "scope": "all",
+      "phase": 0.0,
+      "blend": "add",
+      "mode": "once",
+      "side": "right",
+      "style": "push",
+      "start": 0.6666666666666666,
+      "end": 1.0,
+      "fade": 0.12
+    }
+  ],
+  "controls": {},
+  "physics": {},
+  "render": {
+    "parts": true,
+    "textures": true,
+    "gaps": true,
+    "outline": true,
+    "perfect": true
+  },
+  "yaw": 0.0,
+  "pitch": 0.0,
+  "playback": "once"
+}

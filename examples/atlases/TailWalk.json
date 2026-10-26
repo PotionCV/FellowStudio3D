@@ -1,0 +1,916 @@
+{
+  "version": 2,
+  "name": "TailWalk",
+  "seconds": 1.5,
+  "fps": 8,
+  "base": {
+    "kind": "walk",
+    "params": {
+      "stride": 1.6,
+      "knee": 1.4,
+      "swing": 2.0,
+      "bob": 2.0,
+      "elbow": 1.0
+    },
+    "cycles": 1.0,
+    "mix": 1.0,
+    "retain": 1.0,
+    "enabled": true,
+    "scope": "all",
+    "phase": 0.0
+  },
+  "layers": [],
+  "controls": {
+    "torso": {
+      "height": 0.8,
+      "lean": -7.0,
+      "tilt": 0.0
+    },
+    "legs": {
+      "range": 1.45,
+      "bend": 0.0,
+      "forward": 0.0,
+      "raise": 0.0
+    },
+    "legL": {},
+    "legR": {},
+    "body": {},
+    "armL": {},
+    "armR": {},
+    "head": {
+      "nod": -12.0
+    }
+  },
+  "physics": {
+    "legL": {
+      "lower": 1.0,
+      "bounce": 1.0
+    },
+    "legR": {
+      "lower": 1.0,
+      "bounce": 1.0
+    },
+    "armL": {
+      "lower": 0.75,
+      "bounce": 1.0
+    },
+    "armR": {
+      "lower": 0.75,
+      "bounce": 1.0
+    },
+    "head": {
+      "strength": 1.0,
+      "bounce": 1.0
+    }
+  },
+  "render": {
+    "parts": true,
+    "textures": true,
+    "gaps": true,
+    "outline": true,
+    "perfect": true
+  },
+  "yaw": 0.0,
+  "pitch": 0.0,
+  "model": {
+    "version": 1,
+    "torso": {
+      "height": 1.0,
+      "shoulder": 1.0,
+      "waist": 1.0,
+      "hip": 1.0,
+      "shape": "tapered",
+      "pelvis_depth": 2.5,
+      "thickness": 1.15
+    },
+    "head": {
+      "size": 1.0,
+      "gap": 0.0,
+      "shape": "ellipsoid",
+      "depth": 0.0
+    },
+    "armL": {
+      "upper": 3.0,
+      "lower": 3.0,
+      "thickness": 1.0,
+      "spread": 0.0,
+      "vertical": 0.0,
+      "gap": 0.0,
+      "connected": true,
+      "shape": "capsule"
+    },
+    "armR": {
+      "upper": 3.0,
+      "lower": 3.0,
+      "thickness": 1.0,
+      "spread": 0.0,
+      "vertical": 0.0,
+      "gap": 0.0,
+      "connected": true,
+      "shape": "capsule"
+    },
+    "legL": {
+      "upper": 3.0,
+      "lower": 3.0,
+      "thickness": 1.0,
+      "spread": 0.0,
+      "vertical": 0.0,
+      "gap": 0.0,
+      "connected": true,
+      "shape": "capsule"
+    },
+    "legR": {
+      "upper": 3.0,
+      "lower": 3.0,
+      "thickness": 1.0,
+      "spread": 0.0,
+      "vertical": 0.0,
+      "gap": 0.0,
+      "connected": true,
+      "shape": "capsule"
+    },
+    "structure": "plush",
+    "body": {
+      "height": 30.0,
+      "upper_width": 22.0,
+      "belly_width": 24.0,
+      "bottom_width": 18.0,
+      "depth": 15.0,
+      "head_link": true,
+      "flex": 0.65
+    },
+    "attachments": [
+      {
+        "shape": "pointed",
+        "x": 0.65,
+        "y": 0.64,
+        "z": 0.0,
+        "width": 4.0,
+        "height": 4.5,
+        "thickness": 2.6,
+        "tip": 0,
+        "outward": 12.0,
+        "lean": 0.0,
+        "twist": 0.0,
+        "id": "ear1L",
+        "parent": "head",
+        "kind": "ear",
+        "preset": "cat",
+        "linked": true
+      },
+      {
+        "shape": "pointed",
+        "x": 0.65,
+        "y": 0.64,
+        "z": 0.0,
+        "width": 4.0,
+        "height": 4.5,
+        "thickness": 2.6,
+        "tip": 0,
+        "outward": 12.0,
+        "lean": 0.0,
+        "twist": 0.0,
+        "id": "ear1R",
+        "parent": "head",
+        "kind": "ear",
+        "preset": "cat",
+        "linked": true
+      },
+      {
+        "shape": "tube",
+        "length": 18.0,
+        "width": 2.5,
+        "thickness": 2.5,
+        "curl": 90.0,
+        "lean": -75.0,
+        "wag": 18.0,
+        "cycles": 1.0,
+        "x": 0.0,
+        "y": 2.0,
+        "z": 0.0,
+        "outward": 0.0,
+        "id": "tail1",
+        "parent": "pelvis",
+        "kind": "tail",
+        "preset": "long_tail"
+      }
+    ]
+  },
+  "assets3d": {
+    "model": {
+      "armL": {
+        "connected": true,
+        "gap": 0.0,
+        "lower": 3.0,
+        "shape": "capsule",
+        "spread": 0.0,
+        "thickness": 1.0,
+        "upper": 3.0,
+        "vertical": 0.0
+      },
+      "armR": {
+        "connected": true,
+        "gap": 0.0,
+        "lower": 3.0,
+        "shape": "capsule",
+        "spread": 0.0,
+        "thickness": 1.0,
+        "upper": 3.0,
+        "vertical": 0.0
+      },
+      "attachments": [
+        {
+          "height": 4.5,
+          "id": "ear1L",
+          "kind": "ear",
+          "lean": 0.0,
+          "linked": true,
+          "outward": 12.0,
+          "parent": "head",
+          "preset": "cat",
+          "shape": "pointed",
+          "thickness": 2.6,
+          "tip": 0,
+          "twist": 0.0,
+          "width": 4.0,
+          "x": 0.65,
+          "y": 0.64,
+          "z": 0.0
+        },
+        {
+          "height": 4.5,
+          "id": "ear1R",
+          "kind": "ear",
+          "lean": 0.0,
+          "linked": true,
+          "outward": 12.0,
+          "parent": "head",
+          "preset": "cat",
+          "shape": "pointed",
+          "thickness": 2.6,
+          "tip": 0,
+          "twist": 0.0,
+          "width": 4.0,
+          "x": 0.65,
+          "y": 0.64,
+          "z": 0.0
+        },
+        {
+          "curl": 90.0,
+          "cycles": 1.0,
+          "id": "tail1",
+          "kind": "tail",
+          "lean": -75.0,
+          "length": 18.0,
+          "outward": 0.0,
+          "parent": "pelvis",
+          "preset": "long_tail",
+          "shape": "tube",
+          "thickness": 2.5,
+          "wag": 18.0,
+          "width": 2.5,
+          "x": 0.0,
+          "y": 2.0,
+          "z": 0.0
+        }
+      ],
+      "body": {
+        "belly_width": 24.0,
+        "bottom_width": 18.0,
+        "depth": 15.0,
+        "flex": 0.65,
+        "head_link": true,
+        "height": 30.0,
+        "upper_width": 22.0
+      },
+      "head": {
+        "depth": 0.0,
+        "gap": 0.0,
+        "shape": "ellipsoid",
+        "size": 1.0
+      },
+      "legL": {
+        "connected": true,
+        "gap": 0.0,
+        "lower": 3.0,
+        "shape": "capsule",
+        "spread": 0.0,
+        "thickness": 1.0,
+        "upper": 3.0,
+        "vertical": 0.0
+      },
+      "legR": {
+        "connected": true,
+        "gap": 0.0,
+        "lower": 3.0,
+        "shape": "capsule",
+        "spread": 0.0,
+        "thickness": 1.0,
+        "upper": 3.0,
+        "vertical": 0.0
+      },
+      "structure": "plush",
+      "torso": {
+        "height": 1.0,
+        "hip": 1.0,
+        "pelvis_depth": 2.5,
+        "shape": "tapered",
+        "shoulder": 1.0,
+        "thickness": 1.15,
+        "waist": 1.0
+      },
+      "version": 1
+    },
+    "textures": {
+      "upperArmL": {
+        "layout": {
+          "size": [
+            32,
+            32
+          ],
+          "rects": {
+            "front": [
+              8,
+              8,
+              6,
+              9
+            ],
+            "left": [
+              2,
+              8,
+              6,
+              9
+            ],
+            "right": [
+              14,
+              8,
+              6,
+              9
+            ],
+            "back": [
+              20,
+              8,
+              6,
+              9
+            ],
+            "top": [
+              8,
+              2,
+              6,
+              6
+            ],
+            "bottom": [
+              8,
+              17,
+              6,
+              6
+            ]
+          }
+        },
+        "png": null,
+        "name": "Default"
+      },
+      "lowerArmL": {
+        "layout": {
+          "size": [
+            32,
+            32
+          ],
+          "rects": {
+            "front": [
+              8,
+              8,
+              6,
+              8
+            ],
+            "left": [
+              2,
+              8,
+              6,
+              8
+            ],
+            "right": [
+              14,
+              8,
+              6,
+              8
+            ],
+            "back": [
+              20,
+              8,
+              6,
+              8
+            ],
+            "top": [
+              8,
+              2,
+              6,
+              6
+            ],
+            "bottom": [
+              8,
+              16,
+              6,
+              6
+            ]
+          }
+        },
+        "png": null,
+        "name": "Default"
+      },
+      "thighL": {
+        "layout": {
+          "size": [
+            32,
+            32
+          ],
+          "rects": {
+            "front": [
+              8,
+              8,
+              6,
+              9
+            ],
+            "left": [
+              2,
+              8,
+              6,
+              9
+            ],
+            "right": [
+              14,
+              8,
+              6,
+              9
+            ],
+            "back": [
+              20,
+              8,
+              6,
+              9
+            ],
+            "top": [
+              8,
+              2,
+              6,
+              6
+            ],
+            "bottom": [
+              8,
+              17,
+              6,
+              6
+            ]
+          }
+        },
+        "png": null,
+        "name": "Default"
+      },
+      "shinL": {
+        "layout": {
+          "size": [
+            32,
+            32
+          ],
+          "rects": {
+            "front": [
+              8,
+              8,
+              6,
+              8
+            ],
+            "left": [
+              2,
+              8,
+              6,
+              8
+            ],
+            "right": [
+              14,
+              8,
+              6,
+              8
+            ],
+            "back": [
+              20,
+              8,
+              6,
+              8
+            ],
+            "top": [
+              8,
+              2,
+              6,
+              6
+            ],
+            "bottom": [
+              8,
+              16,
+              6,
+              6
+            ]
+          }
+        },
+        "png": null,
+        "name": "Default"
+      },
+      "upperArmR": {
+        "layout": {
+          "size": [
+            32,
+            32
+          ],
+          "rects": {
+            "front": [
+              8,
+              8,
+              6,
+              9
+            ],
+            "left": [
+              2,
+              8,
+              6,
+              9
+            ],
+            "right": [
+              14,
+              8,
+              6,
+              9
+            ],
+            "back": [
+              20,
+              8,
+              6,
+              9
+            ],
+            "top": [
+              8,
+              2,
+              6,
+              6
+            ],
+            "bottom": [
+              8,
+              17,
+              6,
+              6
+            ]
+          }
+        },
+        "png": null,
+        "name": "Default",
+        "protected_groups": []
+      },
+      "lowerArmR": {
+        "layout": {
+          "size": [
+            32,
+            32
+          ],
+          "rects": {
+            "front": [
+              8,
+              8,
+              6,
+              8
+            ],
+            "left": [
+              2,
+              8,
+              6,
+              8
+            ],
+            "right": [
+              14,
+              8,
+              6,
+              8
+            ],
+            "back": [
+              20,
+              8,
+              6,
+              8
+            ],
+            "top": [
+              8,
+              2,
+              6,
+              6
+            ],
+            "bottom": [
+              8,
+              16,
+              6,
+              6
+            ]
+          }
+        },
+        "png": null,
+        "name": "Default",
+        "protected_groups": []
+      },
+      "thighR": {
+        "layout": {
+          "size": [
+            32,
+            32
+          ],
+          "rects": {
+            "front": [
+              8,
+              8,
+              6,
+              9
+            ],
+            "left": [
+              2,
+              8,
+              6,
+              9
+            ],
+            "right": [
+              14,
+              8,
+              6,
+              9
+            ],
+            "back": [
+              20,
+              8,
+              6,
+              9
+            ],
+            "top": [
+              8,
+              2,
+              6,
+              6
+            ],
+            "bottom": [
+              8,
+              17,
+              6,
+              6
+            ]
+          }
+        },
+        "png": null,
+        "name": "Default",
+        "protected_groups": []
+      },
+      "shinR": {
+        "layout": {
+          "size": [
+            32,
+            32
+          ],
+          "rects": {
+            "front": [
+              8,
+              8,
+              6,
+              8
+            ],
+            "left": [
+              2,
+              8,
+              6,
+              8
+            ],
+            "right": [
+              14,
+              8,
+              6,
+              8
+            ],
+            "back": [
+              20,
+              8,
+              6,
+              8
+            ],
+            "top": [
+              8,
+              2,
+              6,
+              6
+            ],
+            "bottom": [
+              8,
+              16,
+              6,
+              6
+            ]
+          }
+        },
+        "png": null,
+        "name": "Default",
+        "protected_groups": []
+      },
+      "body": {
+        "layout": {
+          "size": [
+            128,
+            64
+          ],
+          "rects": {
+            "front": [
+              17,
+              17,
+              24,
+              30
+            ],
+            "left": [
+              2,
+              17,
+              15,
+              30
+            ],
+            "right": [
+              41,
+              17,
+              15,
+              30
+            ],
+            "back": [
+              56,
+              17,
+              24,
+              30
+            ],
+            "top": [
+              17,
+              2,
+              24,
+              15
+            ],
+            "bottom": [
+              17,
+              47,
+              24,
+              15
+            ]
+          }
+        },
+        "png": null,
+        "name": "Default"
+      },
+      "ear1L": {
+        "layout": {
+          "size": [
+            32,
+            16
+          ],
+          "rects": {
+            "front": [
+              5,
+              5,
+              4,
+              5
+            ],
+            "left": [
+              2,
+              5,
+              3,
+              5
+            ],
+            "right": [
+              9,
+              5,
+              3,
+              5
+            ],
+            "back": [
+              12,
+              5,
+              4,
+              5
+            ],
+            "top": [
+              5,
+              2,
+              4,
+              3
+            ],
+            "bottom": [
+              5,
+              10,
+              4,
+              3
+            ]
+          }
+        },
+        "png": null,
+        "name": "Default"
+      },
+      "ear1R": {
+        "layout": {
+          "size": [
+            32,
+            16
+          ],
+          "rects": {
+            "front": [
+              5,
+              5,
+              4,
+              5
+            ],
+            "left": [
+              2,
+              5,
+              3,
+              5
+            ],
+            "right": [
+              9,
+              5,
+              3,
+              5
+            ],
+            "back": [
+              12,
+              5,
+              4,
+              5
+            ],
+            "top": [
+              5,
+              2,
+              4,
+              3
+            ],
+            "bottom": [
+              5,
+              10,
+              4,
+              3
+            ]
+          }
+        },
+        "png": null,
+        "name": "Default",
+        "protected_groups": []
+      },
+      "tail1": {
+        "layout": {
+          "size": [
+            16,
+            32
+          ],
+          "rects": {
+            "front": [
+              5,
+              5,
+              3,
+              18
+            ],
+            "left": [
+              2,
+              5,
+              3,
+              18
+            ],
+            "right": [
+              8,
+              5,
+              3,
+              18
+            ],
+            "back": [
+              11,
+              5,
+              3,
+              18
+            ],
+            "top": [
+              5,
+              2,
+              3,
+              3
+            ],
+            "bottom": [
+              5,
+              23,
+              3,
+              3
+            ]
+          }
+        },
+        "png": null,
+        "name": "Default"
+      }
+    },
+    "shared_textures": {
+      "upperArmR": "upperArmL",
+      "lowerArmR": "lowerArmL",
+      "thighR": "thighL",
+      "shinR": "shinL",
+      "ear1R": "ear1L"
+    }
+  },
+  "export_directions": 8
+}

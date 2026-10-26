@@ -12,12 +12,28 @@ Automatically generated project names stay in English (Idle, Walk, Run) in every
 
 For a quick first result:
 
-1. Open **Character model → Load model** and select `examples/models/CustomModel.json`.
-2. Click **Apply model** to use the included painted character with your current motion.
-3. Choose **Walk** or **Run**, then play the animation.
+1. Open **Creation library… → Character** and choose **Kumamon** (private local package) or **Painted character**.
+2. Switch to **Motion**, choose walking, swimming or your own animation, and play the four views.
+3. **Apply combination**, then edit further; authoring tools share **Create animation…**.
 4. Click a preview to focus that view, then export it as a PNG strip at **1x**.
 
 `DefaultModel.json` restores the built-in appearance. A new installation starts with the default mannequin, not the painted example or another user's session.
+
+**Creation library: audition before applying**
+
+**Creation library…** replaces the motion-example file picker. Switch between **Motion / Character**, filter a category, or search Chinese, English or Japanese names and filenames. Try `swim`, `Kumamon` or `MyMotion`. Clear the query if there are no matches. Filtering and switching tabs leave the staged combination intact.
+
+Select a motion to audition it on the chosen character; select a character to keep the chosen motion. The summary names both choices and shows duration/FPS. Play, scrub and double-click a view to enlarge it. Preview runs in the background and cancels obsolete requests. **Apply combination** becomes available after the complete preview succeeds and creates one undo step. **Cancel** leaves the project untouched; **Reset selections** restores the character and motion from when you entered.
+
+**Load file…** auditions your own models or motion recipes with the same Apply step. The default catalog indexes only registered public examples and does not scan personal saves. **Character model → Character library…** selects appearance inside the existing model draft; **Apply model** in the outer editor still commits the draft, and Cancel still discards it. The original **Load model** file picker remains available.
+
+The character catalog now has three distinct starting models: default, painted and seamless mascot. Repetitive tail/equipment/face variants were removed. Complete Kumamon and cat paintings appear under My characters in the private local package; public packages exclude these personal models.
+
+**Save and transfer animation**: Create animation… → Save animation… stores base motion, layers, pose cards, tail channels, controllers and physics, without appearance. Files default to local `user_data/motions` and appear under My animations. Apply one on another character to retain the target model, painting and display. The top Save button still saves a complete project.
+
+**Tail joints and animation**: the model editor sets shape. After Apply, choose Tail in body controls and select root, middle or tip to edit pitch/yaw/roll, or drag joint handles in the four views. Add a Tail motion layer for sway and tip follow-through with mix, timing, fades and blend modes. Pose cards also store all three joints. This uses three-joint FK and continuous skinning. Physics below the controls offers root/middle/tip softness and bounce. Softness defaults to zero; try 0.2/0.45/0.65. These settings are saved with animations and simulated consistently in preview and export. Collision is not simulated.
+
+**Held objects** start from Box, Cylinder, Sphere or Cone. Define their purpose through shape and painting instead of selecting weapons. Change shape, dimensions and grip while retaining independent UVs and pixel groups. Legacy weapon models remain readable but are no longer defaults or catalog characters.
 
 ## 2. Poses and animation without keyframes
 
@@ -28,6 +44,16 @@ Selecting a body part changes its pose across the whole animation. Use both arms
 Add another motion as a layer. **Mix** controls its influence: zero removes that layer's contribution. For raising or waving an arm, **Keep base swing** keeps some of the base motion. For example, combine Run with a right-arm raise, then adjust Mix and Keep base swing until the arm stays raised while moving. Layers have an enabled state and applicable body-part scope.
 
 Changing the base motion resets motion adjustments to that base's defaults. It preserves the character's model, textures and display settings. Save a project before switching if you want to keep a particular combination. **Undo / Ctrl+Z** reverses edits; **Ctrl+Y** redoes them.
+
+**Action sequence…** arranges 1–6 actions without keyframes. Add actions, move selected rows up/down or remove them, then choose frames per step and Soft/Snappy/Direct transitions. Total frames and FPS are shown before applying. Creating a sequence keeps the character, base motion and pose controls, replacing current layers with ordinary editable layers; Undo restores the previous motion. Playback runs once, while a walking/running base keeps its cadence. Steps recover toward the base between actions; this does not automatically solve physically continuous combo contact or momentum. Try the three recipes under `examples/motions/sequences`.
+
+**Swim** is a looping base motion with **Swimming style → Breaststroke / Front crawl / Tread water**. Adjust Arm stroke, Kick strength, Float bob and Swimming tilt; Body roll is shown only for front crawl. **Hover** controls height, bobbing, arm spread/beat, airborne leg bend and forward/back tilt. Both are also available as layers and preserve airborne height when combined with a grounded attack. Add a head motion or a single-arm wave to make a character look around or signal while floating. Normal breathing foot locks do not apply to airborne poses; optional softness remains available. These generate character motion, without a water surface, buoyancy or wing geometry. Try SwimBreaststroke, SwimFrontCrawl, TreadWater and Hover under `examples/motions/game`, and HoverWave, FloatingMage and SwimLookAround under `examples/motions/fusions`.
+
+**Pose animation…** animates 2–6 authored pose cards. Select a card, drag limbs in the four views, or choose a body part and adjust its angles. Add a built-in pose, load a saved pose, or choose a Source frame and Capture pose card. Duplicate, mirror, reorder and remove cards. Each card has hold/transition beats and Smooth/Linear/Snappy easing: beats set relative timing, while Duration sets total seconds. Loop transitions from the last card back to the first; Once/Hold ends on the last card.
+
+Card views show raw poses; playback includes layers and overall edits. Creating a new clip retains character, textures and framing, bakes sampled edits into captured poses and resets old layers/controls/physics to avoid applying them twice. Re-editing an existing pose clip retains its layers and overall edits. **Apply pose animation** is one undo step; Cancel leaves the project unchanged. Add ordinary layers/physics afterward and reopen **Edit pose cards…** from base parameters. Ground contact aligns foot height; disable it for airborne poses. Joint interpolation does not plan footsteps, collisions or fixed-foot trajectories: check crossings and sliding in playback. Duration is limited to 2–120 frames. Try SideStepDance, GuardSignal and ShyGreeting under `examples/motions/posecards`.
+
+When re-editing a pose clip, **Base frame** captures only the base pose. Layers and overall edits stay separate, so captured cards do not receive those edits twice.
 
 ## 3. Head, torso, IK and physical follow
 
@@ -63,7 +89,7 @@ For a somersault, combine Run, Jump and Roll. Roll's **Follow base motion** mode
 
 **Playback** offers Loop, Play once and Hold last frame. Non-looping motions include the final pose and stop there; GIF previews also play once. Fall holds its lying pose, and Get up ends standing. Soft follow starts fresh for non-looping actions.
 
-**Motion examples…** opens recipes while retaining your model, textures and display. The `game` folder adds Jump and land, Thrust, Swing attack, Kick, Hit reaction, Fall, Get up, Roll, Climb cycle and Turn in place. Attacks have anticipation and strike timing; Jump has preparation, flight and landing. Hit reaction with Recovery amount = 0 retains the recoil. Walk/Run offer Travel direction for strafing/backpedaling, Stance width and Support time.
+**Creation library… → Motion** previews recipes while retaining your model, textures and display. The `game` folder adds Jump and land, Thrust, Swing attack, Kick, Hit reaction, Fall, Get up, Roll, Climb cycle and Turn in place. Attacks have anticipation and strike timing; Jump has preparation, flight and landing. Hit reaction with Recovery amount = 0 retains the recoil. Walk/Run offer Travel direction for strafing/backpedaling, Stance width and Support time.
 
 Add **Pose layer** to capture the current frame. Load Carry, Aim, Guard or Crouch from `examples/poses`, or save your own. Select affected body parts, Mix and Keep base swing. Waving and attacks support Left, Right or Both, together or alternating. Under **Timing and blend**, set the start, end position, fade and blend mode. Pose and motion adjusts posture while retaining base swing; Replace follows the action; Add applies changes relative to neutral. Play once layers exit after their interval; Hold last frame retains the final pose. Prefer Replace for short actions and inspect transitions before export. The `fusions` examples demonstrate these combinations. Save your current motion before replacing it with an example.
 
@@ -93,15 +119,19 @@ Edits are staged. **Apply model** commits them; **Cancel** discards them. **Save
 
 ## 6. Paint and replace textures
 
+Click a part texture to open its UV window. **Save PNG…** saves the original texture. **Copy texture (Ctrl+C) / Paste to replace (Ctrl+V)** exchange images with painting applications, preserving native size and alpha without grid, selection or guide overlays. Pasted images must match the current atlas size; they are never resized. Protection groups remain. Undo and Cancel are available; Apply texture stages the result in the parent editor. Older painting files cannot overwrite a pasted texture. Prepare painting for the new texture creates a new folder copy.
+
 In **Character model → Shape details**, Section profile adjusts top/middle/bottom width and depth independently. Front / back profile adjusts the contours and curve. Local projection adds an adjustable face or muzzle. Tapering changes the actual mesh, not only the joints. Cone and Pyramid are additional head bases. Try TaperedCylinder, MuzzleHead, LongMuzzleHead, BarrelBody and CurvedLimbs in `examples/models`. Set the shape before painting: adaptation after shape edits may need manual touch-up.
 
 Use an external pixel-painting application; painting directly on the model is not supported.
 
-1. Set the shape first, then open **UV textures → Start / resume painting** and choose a painting folder.
+1. Set the shape first, then open **UV textures → Start / resume painting** and choose a painting folder. On later visits, **Resume last painting** connects to the folder shown below the button without another picker. Opening the editor alone does not import artwork. Use **Advanced texture tools → Switch painting folder** to choose another folder.
 2. Edit the part PNGs in your painting app. Keep the canvas size and the UV face positions unchanged. `*_Guide.png` files are references, not replacement textures.
 3. Keep `UV_Model.json` beside the PNGs. Guide labels F/R/B/L/T/D mean front/right/back/left/top/bottom.
 4. Save the PNG to refresh the preview automatically. An incomplete or unreadable save leaves the last valid texture in place. **Open painting folder** returns to the folder.
 5. To replace one part, use **Swap** or drag its PNG onto that part's card. Check the preview and click **Apply textures**. Cancel discards this editor's unapplied changes.
+
+Resume folders are remembered by embedded artwork. Switching to different paint does not automatically reconnect the previous character's folder. Identical artwork can share the remembered folder; after an upgrade or on another computer, select it once again. Paths stay in local preferences, outside portable models. Unpainted characters share the default entry, with UV matching still checked on connection.
 
 Cards report whether the mapping matches, its source is unknown, or a file is missing/unreadable. Matching checks the part, UV layout and surface shape; it cannot tell whether you painted an eye or garment in the right place. A correctly sized PNG without reliable metadata is accepted as **unknown source**. Similar transparent areas do not prove a match.
 
@@ -133,6 +163,8 @@ Open **Export frames** and choose the directory, file name, view, scale and form
 **1x** gives 64 × 64 frames; **4x** gives 256 × 256; **8x** gives 512 × 512. Scaling uses nearest-neighbor integer enlargement. A one-pixel outline becomes four display pixels at 4x.
 
 **Create same-name subfolder** is off by default: files go directly into the selected directory. The last directory is remembered. Existing output files are not overwritten; change the name or directory if there is a conflict. Export runs in the background; wait for the completion status.
+
+For a game direction set, choose **Four directions (level)** or **Eight directions (level)** in the same Export view menu. The strip option becomes a transparent directional atlas: each direction is a row and frames run left to right. PNG sequences and GIF previews can also be generated for each angle. A separate **NAME_atlas.json** records image/rectangle, frame duration, playback and a shared pivot; JSON recipe still saves an editable project. Wide atlases split into pages automatically (maximum width 4096 pixels), retaining all direction rows on each page. Output is staged, existing files are preserved and the descriptor is published last. See [Directional atlas format](DIRECTIONAL-ATLASES.md) or try the TailWalk, HoverWave and FrontCrawl packs under `examples/atlases`.
 
 ## 9. Save, share and recover work
 

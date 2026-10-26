@@ -23,7 +23,7 @@ class TextureEditor(M.ModelEditor):
    if isinstance(child,PixelButton) and child.text=='应用模型':child.configure(text='应用贴图')
   for child in self.scroll.content.winfo_children():child.destroy()
   self.content=self.scroll.content
-  self.advanced=tk.BooleanVar(master=self,value=False);self.auto_reload=tk.BooleanVar(master=self,value=True);self.paint_message=tk.StringVar(master=self,value='选择绘画文件夹，保存 PNG 后自动更新。')
+  self.advanced=tk.BooleanVar(master=self,value=False);self.auto_reload=tk.BooleanVar(master=self,value=True);self.paint_message=tk.StringVar(master=self,value=self.painting_hint())
   self.scroll.master.master.paneconfigure(self.scroll.master,width=round(550*self.ui_scale))
  def show_params(self):self.populate()
  def populate(self):
@@ -40,22 +40,44 @@ class TextureEditor(M.ModelEditor):
   if self.uv_history:self.project=self.uv_history.pop();self.changed();self.populate()
  def changed(self):U.apply_shared(self.project);self.request_preview()
  def reset_textures(self):self.snapshot();self.project=S.assets({'model':self.source.get('model')});self.links={};self.workspace=None;self.paint_message.set('选择绘画文件夹，保存 PNG 后自动更新。');self.changed();self.populate()
- def apply(self):self.owner.snapshot();self.owner.project['assets3d']=copy.deepcopy(self.project);self.owner.changed();self.destroy()
+ def apply(self):
+  self.owner.snapshot();self.owner.project['assets3d']=copy.deepcopy(self.project)
+  if self.workspace:self.remember_painting()
+  self.owner.changed();self.destroy()
  def destroy(self):
   super().destroy();self.owner.texture_editor=None
  def label(self,parent,text,**kw):return Label(parent,text=text,**kw)
  def hint(self,text):self.label(self.content,text,wrap=True,anchor='w',justify='left',fg='#8a7967').pack(fill='x',padx=14,pady=10)
  def error(self,text):messagebox.showerror(tr('操作失败'),tr(text),parent=self)
+ def last_painting_folder(self):
+  from paint_workspace import painting_key
+  saved=self.owner.paint_bindings.get(painting_key(self.source))
+  folder=Path(saved) if saved else None
+  return folder if folder is not None and (folder/'UV_Model.json').is_file() else None
+ def remember_painting(self):
+  from paint_workspace import painting_key
+  folder=str(self.workspace.folder.resolve());self.owner.paint_directory=folder
+  # Keep the pre-edit artwork reconnectable after Cancel, and the applied
+  # artwork reconnectable after Save/reopen. Both were explicitly connected.
+  for project in (self.source,dict(self.source,assets3d=self.project)):
+   key=painting_key(project);self.owner.paint_bindings.pop(key,None);self.owner.paint_bindings[key]=folder
+  while len(self.owner.paint_bindings)>32:self.owner.paint_bindings.pop(next(iter(self.owner.paint_bindings)))
+  self.owner.save_preferences()
+ def painting_hint(self):
+  folder=self.last_painting_folder()
+  return tr('上次绘画文件夹：')+'\n'+str(folder) if folder else tr('选择绘画文件夹，保存 PNG 后自动更新。')
  def texture_controls(self):
+  pending=any(r.get('painting_pending') for r in self.project['textures'].values())
+  if pending:self.hint('新贴图尚未连接绘画文件；开始绘画会创建项目副本，旧文件保留。')
   bar=FlowBar(self.content,compact=True,bg=self.cget('bg'));bar.pack(fill='x',padx=12,pady=6)
-  PixelButton(bar,text='打开绘画文件夹' if self.workspace else '开始 / 继续绘制',command=self.open_painting_folder if self.workspace else self.start_painting,accent=True).pack(side='left')
+  PixelButton(bar,text='为新贴图准备绘画' if pending else '打开绘画文件夹' if self.workspace else '继续上次绘制' if self.last_painting_folder() else '开始 / 继续绘制',command=self.open_painting_folder if self.workspace and not pending else self.start_painting,accent=True).pack(side='left')
   PixelButton(bar,text='重新读取',command=self.reload_textures).pack(side='left')
   PixelCheck(bar,text='自动刷新',variable=self.auto_reload).pack(side='left')
   Label(self.content,textvariable=self.paint_message,wrap=True,anchor='w',justify='left').pack(fill='x',padx=14,pady=8)
   if self.workspace and any(not self.workspace.compatible(self.project,p) for p in U.parts(self.project)):PixelButton(self.content,text='适配到新绘画文件夹',command=self.adapt_painting).pack(fill='x',padx=14,pady=4)
   PixelCheck(self.content,text='高级贴图操作',variable=self.advanced,command=self.populate).pack(fill='x',padx=14,pady=6)
   if self.advanced.get():
-   PixelButton(self.content,text='切换绘画文件夹',command=self.start_painting).pack(fill='x',padx=14,pady=3)
+   PixelButton(self.content,text='切换绘画文件夹',command=lambda:self.start_painting(reuse_last=False)).pack(fill='x',padx=14,pady=3)
    for label,fn in (('导出整套 UV',self.export_uv),('导入整套 UV',self.import_uv),('恢复全部贴图',self.reset_textures)):
     PixelButton(self.content,text=label,command=fn).pack(fill='x',padx=14,pady=3)
   self.cards=tk.Frame(self.content);self.cards.pack(fill='x',padx=8);self.cards.columnconfigure((0,1),weight=1,uniform='uvcards')
@@ -123,16 +145,21 @@ class TextureEditor(M.ModelEditor):
   folder=filedialog.askdirectory(parent=self,title=tr('导入整套 UV'))
   if not folder:return
   try:
-   candidate=copy.deepcopy(self.project);U.import_pack(candidate,folder);self.snapshot();self.project=candidate;self.links={};self.workspace=PaintWorkspace(folder);self.owner.paint_directory=folder;self.owner.save_preferences();self.changed();self.populate();self.update_paint_message()
+   candidate=copy.deepcopy(self.project);U.import_pack(candidate,folder);self.snapshot();self.project=candidate;self.links={};self.workspace=PaintWorkspace(folder);self.remember_painting();self.changed();self.populate();self.update_paint_message()
   except Exception as ex:self.error(str(ex))
- def start_painting(self,folder=None):
+ def start_painting(self,folder=None,*,reuse_last=True):
   from paint_workspace import prepare,PaintWorkspace
   interactive=folder is None
+  if folder is None and reuse_last:folder=self.last_painting_folder()
   folder=folder or filedialog.askdirectory(parent=self,title=tr('选择绘画文件夹'),initialdir=self.owner.paint_directory or self.owner.state_path.parent)
   if not folder:return
   try:
-   workspace=PaintWorkspace(folder) if (Path(folder)/'UV_Model.json').exists() else prepare(self.project,folder)
-   self.workspace=workspace;self.links={};self.owner.paint_directory=str(Path(folder).resolve());self.owner.save_preferences()
+   if any(r.get('painting_pending') for r in self.project['textures'].values()):
+    from paint_workspace import project_copy
+    workspace=project_copy(self.project,folder);folder=workspace.folder;self.snapshot()
+    for resource in self.project['textures'].values():resource.pop('painting_pending',None);resource.pop('painting_override',None)
+   else:workspace=PaintWorkspace(folder) if (Path(folder)/'UV_Model.json').exists() else prepare(self.project,folder)
+   self.workspace=workspace;self.links={};self.remember_painting()
    self.reload_textures();self.populate()
    if interactive:self.open_painting_folder()
   except Exception as ex:self.error(str(ex))
@@ -144,7 +171,7 @@ class TextureEditor(M.ModelEditor):
   if not self.workspace:return
   from paint_workspace import adapted_folder
   try:
-   self.workspace=adapted_folder(self.project,self.workspace.folder,skip=self.links);self.links={};self.owner.paint_directory=str(self.workspace.folder);self.owner.save_preferences();self.match_states={};self.reload_textures();self.update_paint_message();self.populate()
+   self.workspace=adapted_folder(self.project,self.workspace.folder,skip=self.links);self.links={};self.remember_painting();self.match_states={};self.reload_textures();self.update_paint_message();self.populate()
   except Exception as ex:self.error(str(ex))
  def reload_textures(self):
   if not self.workspace:return Cards.reload_textures(self)
@@ -167,6 +194,7 @@ class TextureEditor(M.ModelEditor):
  def watch_linked_files(self,force=False):
   candidate=copy.deepcopy(self.project);changed=False
   for part,path in self.links.items():
+   if self.project['textures'][part].get('painting_override'):continue
    if part in self.project.get('shared_textures',{}):continue
    stamp=self.file_stamp(path)
    if stamp is None:self.match_states[part]='missing';continue
@@ -187,7 +215,7 @@ class TextureEditor(M.ModelEditor):
   if self.paint_message.get()!=message:self.paint_message.set(message)
  def model_status(self):return '贴图修改仅在应用后写入当前项目'
  def update_match_labels(self):
-  labels={'shared':'共用左侧贴图','external':'使用单独绘画文件','ready':'绘画文件已连接','updated':'贴图已更新','waiting':'等待文件保存完成','missing':'绘画文件缺失','invalid':'文件暂不可读，保留上次贴图','mapping':'需要更新绘画模板','matched':'匹配当前布局','unknown':'尺寸符合，来源未知','adapted':'贴图已适配，请检查细节'}
+  labels={'embedded':'已内嵌贴图','shared':'共用左侧贴图','external':'使用单独绘画文件','ready':'绘画文件已连接','updated':'贴图已更新','waiting':'等待文件保存完成','missing':'绘画文件缺失','invalid':'文件暂不可读，保留上次贴图','mapping':'需要更新绘画模板','matched':'匹配当前布局','unknown':'尺寸符合，来源未知','adapted':'贴图已适配，请检查细节'}
   for part,var in self.match_vars.items():
    resource=self.project['textures'][part]
    state='shared' if part in self.project.get('shared_textures',{}) else self.match_states.get(part,resource.get('provenance',''))

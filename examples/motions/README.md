@@ -4,6 +4,14 @@ Use **Motion examples…** to retain your character, textures and display settin
 The regular **Open** command instead opens a complete project.
 
 - Idle, Walk, Run preserve the published defaults.
+- `posecards/SideStepDance.json`, `GuardSignal.json`, `ShyGreeting.json`: authored
+  poses with holds, different transition rhythms and loop/once/hold playback.
+  Reopen **Edit base motion → Edit pose cards…** to change them or capture your
+  own poses. Ordinary layers and physics can be added after applying.
+- `game/SwimBreaststroke.json`, `SwimFrontCrawl.json`, `TreadWater.json` and
+  `Hover.json`: airborne looping motion; swim style and float settings remain editable.
+- `fusions/HoverWave.json`, `FloatingMage.json`, `SwimLookAround.json`:
+  floating gestures, soft head follow and looking around while treading water.
 - `game/PushKick.json`: chamber, forward push and retract; Kick style remains editable.
 - `game/`: staged jump, attacks, hit, fall, get up, roll, climb and turn.
 - `fusions/`: carrying, aiming, guarding, left-hand waving, timed attack,

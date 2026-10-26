@@ -3,6 +3,294 @@ from pathlib import Path
 import app,engine as E,uv_assets as U
 from pixel_ui import PixelButton
 class UITests(unittest.TestCase):
+ def test_uv_clipboard_replacement_survives_link_refresh_and_can_resume_painting(self):
+  import copy,image_clipboard as C
+  from unittest.mock import patch
+  from PIL import Image
+  a=self.a;a.edit_textures();e=a.texture_editor;folder=Path(self.temp.name)/'painting';e.start_painting(folder)
+  old=U.texture_image(e.project,'head');linked=Path(self.temp.name)/'old-head.png';old.save(linked);e.replace_texture('head',linked)
+  image=old.copy();image.putpixel((0,0),(12,34,56,78));d=e.inspect_uv('head');a.update()
+  with patch.object(C,'read_image',return_value=image):self.assertTrue(d.paste_texture())
+  d.apply();e.watch_linked_files(force=True);e.reload_textures();self.assertEqual(U.texture_image(e.project,'head').tobytes(),image.tobytes())
+  e.start_painting(folder);self.assertNotEqual(e.workspace.folder,folder)
+  self.assertEqual(Image.open(e.workspace.folder/'head.png').convert('RGBA').tobytes(),image.tobytes())
+  self.assertNotIn('painting_override',e.project['textures']['head']);e.apply()
+  saved=Path(self.temp.name)/'pasted-project.json';E.save(a.project,saved);self.assertEqual(U.texture_image(E.load(saved)['assets3d'],'head').tobytes(),image.tobytes())
+  a.undo();self.assertNotIn('assets3d',a.project)
+
+ def test_uv_single_texture_save_copy_paste_cancel_apply_and_undo(self):
+  import copy,image_clipboard as C
+  from unittest.mock import patch
+  from PIL import Image
+  a=self.a;a.edit_textures();e=a.texture_editor;before=copy.deepcopy(e.project);d=e.inspect_uv('head');a.update()
+  original=U.texture_image(e.project,'head');image=original.copy();image.putpixel((0,0),(12,34,56,0));image.putpixel((1,1),(78,90,12,123))
+  with patch.object(C,'read_image',return_value=image),patch.object(C,'copy_image') as copied:
+   d.canvas.focus_force();a.update();d.event_generate('<Control-v>');a.update();self.assertTrue(d.texture_dirty);self.assertEqual(e.project,before)
+   self.assertTrue(d.copy_texture());self.assertEqual(copied.call_args.args[0].tobytes(),image.tobytes())
+   saved=Path(self.temp.name)/'single.png';self.assertTrue(d.save_texture(saved));self.assertEqual(Image.open(saved).convert('RGBA').tobytes(),image.tobytes())
+   self.assertEqual(U.texture_match(d.current_bundle(),'head',saved),'matched')
+   d.undo();self.assertEqual(U.texture_image(d.current_bundle(),'head').tobytes(),original.tobytes())
+   self.assertTrue(d.paste_texture());d.destroy();self.assertEqual(e.project,before)
+   d=e.inspect_uv('head');a.update();d.transfer_buttons['paste'].invoke();d.apply()
+  self.assertEqual(U.texture_image(e.project,'head').tobytes(),image.tobytes());self.assertTrue(e.project['textures']['head']['painting_override'])
+  e.undo_texture();self.assertEqual(e.project,before)
+  d=e.inspect_uv('head');a.update()
+  with patch.object(C,'read_image',return_value=Image.new('RGBA',(1,1))),patch.object(d,'report_error') as error:
+   self.assertFalse(d.paste_texture());self.assertEqual(len(d.history),0);self.assertEqual(e.project,before);error.assert_called_once()
+  d.destroy();e.cancel();self.assertNotIn('assets3d',a.project)
+
+ def test_tail_softness_controls_reset_and_undo(self):
+  import copy,tails as T,model_data as M
+  a=self.a;a.project['model']=M.normalize();T.add(a.project['model']);a.changed();a.select('body','tail');a.update()
+  def labels(widget):
+   result=[]
+   try:result.append(widget.cget('text'))
+   except Exception:pass
+   for child in widget.winfo_children():result.extend(labels(child))
+   return result
+  import i18n
+  for text in ('尾根松软','尾中松软','尾尖松软','回弹'):self.assertIn(i18n.tr(text),[' '.join(value.split()) for value in labels(a.params)])
+  a.project['physics']['tail']=dict(root=.2,middle=.5,tip=.7,bounce=.4);before=copy.deepcopy(a.project)
+  a.reset_part('tail');self.assertEqual(a.project['physics'].get('tail',{}),{});a.undo();self.assertEqual(a.project,before)
+
+ def test_tail_handles_wait_for_matching_model_when_switching_characters(self):
+  import model_data as M,tails as T
+  a=self.a;a.project['model']=M.normalize({'structure':'plush'});T.add(a.project['model']);a.changed()
+  # Current preview can still be the old humanoid while the new clip queues.
+  a.seq=[E.norm(E.F.POSES['stand'])];a.frame=0;a.select('body','tail')
+  self.assertEqual(a.tail_points(0),[])
+
+ def test_tail_controllers_drag_and_pose_cards_work_with_undo(self):
+  import copy,types,tails as T,model_data as M
+  a=self.a;a.project['model']=M.normalize();T.add(a.project['model']);a.changed();a.select('body','tail')
+  deadline=time.perf_counter()+15
+  while (a.active_project!=a.project or a.preview_incomplete) and time.perf_counter()<deadline:a.update();time.sleep(.01)
+  a.render();a.update();self.assertTrue(a.part_buttons['tail'].winfo_ismapped());before=copy.deepcopy(a.project)
+  x,y,size=a.cells[1];px,py=a.tail_points(1)[1];start=types.SimpleNamespace(x=x+px*size/64,y=y+py*size/64)
+  a.start_drag(start);self.assertIsNotNone(a.drag);self.assertEqual(a.selected_tail_bone,'尾中')
+  a.move_drag(types.SimpleNamespace(x=start.x+35,y=start.y-15));a.end_drag(None);a.update()
+  self.assertGreater(a.project['controls']['tail']['middle_roll'],0);self.assertGreater(a.project['controls']['tail']['middle_pitch'],0)
+  a.undo();self.assertEqual(a.project,before)
+  editor=a.edit_pose_animation();editor.select('tail');editor.set_pose(1,35)
+  self.assertEqual(editor.cards[editor.card_index]['pose']['tail'][1],35);editor.apply();a.update()
+  self.assertEqual(a.project['base']['cards'][0]['pose']['tail'][1],35)
+
+ def test_sequence_window_has_fixed_rows_and_visible_footer_at_normal_scaling(self):
+  import i18n
+  a=self.a;dialog=a.arrange_actions();a.update()
+  deadline=time.perf_counter()+.4
+  while time.perf_counter()<deadline:a.update();time.sleep(.01)
+  self.assertGreaterEqual(dialog.winfo_width(),920);self.assertGreaterEqual(dialog.winfo_height(),660)
+  self.assertGreaterEqual(dialog.sequence_panels[1].winfo_width(),dialog.winfo_width()*.3)
+  def descendants(w):return [child for c in w.winfo_children() for child in (c,*descendants(c))]
+  buttons=[w for w in descendants(dialog) if isinstance(w,PixelButton)]
+  for button in buttons:
+   text=[button.itemcget(item,'text') for item in button.find_all() if button.type(item)=='text']
+   self.assertNotIn('\n',''.join(text),button.text)
+   self.assertLess(button.winfo_rooty()+button.winfo_height(),dialog.winfo_rooty()+dialog.winfo_height()+1)
+  dialog.destroy()
+
+ def test_kumamon_library_keeps_original_png_and_animation_save_is_separate(self):
+  import copy,json,shutil,motion_resources as MR,model_data as M
+  from unittest.mock import patch
+  folder=Path(self.temp.name)/'models';folder.mkdir();source=E.ROOT/'user_data/models/KumamonBag.json'
+  # The local personal model is deliberately absent in clean public builds.
+  if source.is_file():shutil.copy2(source,folder/source.name)
+  else:M.save(M.normalize(),folder/'KumamonBag.json')
+  a=self.a;original=copy.deepcopy(a.project);browser=a.load_motion_resource();browser.change_kind('models');browser.query.set('熊本熊')
+  self.assertEqual(len(browser.filtered),1);browser.choose(browser.filtered[0]);self.wait_library(browser)
+  resource=M.load_resource(folder/'KumamonBag.json');self.assertEqual(browser.candidate['assets3d'],resource.get('assets3d',__import__('rounded_scene').assets(browser.candidate)))
+  browser.apply();a.update();a.add('wave');a.add('tail');destination=Path(self.temp.name)/'motions/MyMotion.json'
+  with patch('studio_ui.filedialog.asksaveasfilename',return_value=str(destination)):a.save_motion_resource()
+  recipe=E.load(destination);self.assertEqual(len(recipe['layers']),2);self.assertNotIn('model',recipe);self.assertNotIn('assets3d',recipe)
+  browser=a.load_motion_resource();browser.query.set('MyMotion');self.assertEqual(len(browser.filtered),1);browser.cancel()
+
+ def test_painting_resume_is_bound_to_artwork_and_survives_preferences_reload(self):
+  import copy,json
+  from unittest.mock import patch
+  from paint_workspace import painting_key
+  a=self.a;first=copy.deepcopy(a.project);folder1=Path(self.temp.name)/'first-paint'
+  a.edit_textures();e=a.texture_editor;e.start_painting(folder1);e.cancel()
+  second=copy.deepcopy(first);second['assets3d']=__import__('rounded_scene').assets(second)
+  im=U.texture_image(second['assets3d'],'head');im.putpixel((1,1),(220,50,80,255));second['assets3d']['textures']['head']['png']=U.encode(im)
+  a.project=second;a.changed();a.edit_textures();e=a.texture_editor
+  self.assertIsNone(e.last_painting_folder());self.assertNotIn(str(folder1),e.paint_message.get())
+  with patch('texture_editor.filedialog.askdirectory',return_value='') as picker:e.start_painting();picker.assert_called_once()
+  self.assertIsNone(e.workspace);self.assertEqual(U.texture_image(e.project,'head').tobytes(),im.tobytes())
+  folder2=Path(self.temp.name)/'second-paint';e.start_painting(folder2);e.apply()
+  second=copy.deepcopy(a.project);saved=json.loads(a.preferences_path.read_text());self.assertEqual(saved['painting_bindings'][painting_key(second)],str(folder2.resolve()))
+  a.paint_bindings=saved['painting_bindings'];a.project=first;a.changed();a.edit_textures();e=a.texture_editor
+  self.assertEqual(e.last_painting_folder(),folder1);e.cancel()
+  a.project=second;a.changed();a.edit_textures();e=a.texture_editor;self.assertEqual(e.last_painting_folder(),folder2);e.cancel()
+
+ def wait_library(self,browser):
+  deadline=time.perf_counter()+25
+  while browser.apply_button.state=='disabled' and time.perf_counter()<deadline:self.a.update();time.sleep(.01)
+  self.assertEqual(browser.apply_button.state,'normal',browser.status.get())
+
+ def test_resource_browser_search_combine_cancel_apply_undo_and_preview(self):
+  import copy,resource_library as L,numpy as np
+  a=self.a;before=copy.deepcopy(a.project);browser=a.load_motion_resource();a.update()
+  browser.query.set('游泳');self.assertEqual(len(browser.filtered),4)
+  browser.query.set('not a resource');self.assertEqual(len(browser.filtered),0)
+  browser.query.set('');browser.change_kind('models');browser.query.set('CustomModel');browser.choose(browser.filtered[0])
+  browser.change_kind('motions');browser.query.set('ShyGreeting');browser.choose(browser.filtered[0])
+  self.assertEqual(a.project,before);self.assertEqual(browser.apply_button.state,'disabled');browser.apply();self.assertTrue(browser.winfo_exists())
+  heartbeat=[];a.after(10,lambda:heartbeat.append(True));self.wait_library(browser)
+  self.assertTrue(heartbeat);self.assertEqual(browser.candidate['base']['kind'],'poseclip');self.assertTrue(browser.candidate['assets3d']['textures']['head']['png'])
+  expected=E.poses(browser.candidate)
+  for view,cam in enumerate(((0,0),(90,0),(45,0),(45,30))):np.testing.assert_array_equal(browser.raw[view,0],E.rgba(expected[0],browser.candidate.get('render'),cam))
+  candidate=copy.deepcopy(browser.candidate);browser.cancel();self.assertEqual(a.project,before)
+  browser=a.load_motion_resource();browser.choose(next(r for r in browser.resources if r.key=='CustomModel'));browser.reset_selection()
+  self.assertEqual(browser.candidate,before)
+  browser.choose(next(r for r in browser.resources if r.key=='CustomModel'));self.wait_library(browser);candidate=copy.deepcopy(browser.candidate);browser.apply();a.update()
+  self.assertEqual(a.project,candidate);a.undo();self.assertEqual(a.project,before)
+
+ def test_model_library_stays_inside_model_draft_and_external_files_are_staged(self):
+  import copy
+  from unittest.mock import patch
+  a=self.a;before=copy.deepcopy(a.project);a.edit_model();editor=a.model_editor;editor.set_value('height',1.2);draft=copy.deepcopy(editor.draft)
+  browser=editor.browse_models();a.update();self.assertEqual(set(browser.tabs),{'models'});self.assertEqual(browser.candidate['model'],draft)
+  browser.query.set('CustomModel');browser.choose(browser.filtered[0]);self.wait_library(browser);browser.apply();a.update()
+  self.assertIs(a.model_editor,editor);self.assertEqual(a.project,before);self.assertNotEqual(editor.draft,draft);self.assertTrue(editor.replace_assets)
+  self.assertIs(editor.grab_current(),editor);editor.cancel();self.assertEqual(a.project,before)
+  browser=a.load_motion_resource()
+  with patch('resource_browser.filedialog.askopenfilename',return_value=str(E.ROOT/'examples/motions/game/Jump.json')):browser.load_file()
+  self.assertEqual(browser.candidate['base']['kind'],'jump');self.assertEqual(a.project,before)
+  candidate=copy.deepcopy(browser.candidate);broken=Path(self.temp.name)/'broken.json';invalid=copy.deepcopy(candidate);invalid['seconds']='2';E.save(invalid,broken)
+  with patch('resource_browser.filedialog.askopenfilename',return_value=str(broken)),patch('resource_browser.messagebox.showerror') as error:
+   browser.load_file();error.assert_called_once()
+  self.assertEqual(browser.candidate,candidate);browser.cancel()
+
+
+
+ def test_hand_prop_editor_stages_transfer_and_uv_resources_with_undo(self):
+  import copy,hand_prop_editor as HP
+  a=self.a;before=copy.deepcopy(a.project);a.edit_model();e=a.model_editor;e.select('armR');a.update()
+  next(w for w in e.params.winfo_children()[0].winfo_children() if isinstance(w,PixelButton) and w.text=='手持道具').invoke()
+  self.assertTrue(e.prop_mode);HP.add(e,'sword');a.update()
+  self.assertEqual(a.project,before);HP.set_value(e,'pitch',-75);HP.transfer(e);a.update()
+  self.assertEqual(e.part,'armL');self.assertEqual(e.draft['attachments'][0]['parent'],'armL')
+  e.apply();a.update();self.assertEqual(a.project['model']['attachments'][0]['pitch'],-75)
+  a.edit_textures();uv=a.texture_editor;a.update();self.assertIn('prop1',uv.project['textures']);self.assertEqual(len(uv.card_photos),11);uv.cancel()
+  a.edit_model();e=a.model_editor;e.prop_mode=True;e.select('armL');HP.remove(e);e.cancel();self.assertEqual(len(a.project['model']['attachments']),1)
+  a.undo();self.assertEqual(a.project,before)
+
+ def test_pose_card_source_capture_and_four_view_ik_edit_only_selected_card(self):
+  import copy,types
+  a=self.a;a.project=E.new_project('walk');a.project['controls']={'head':{'turn':22}};a.project['seconds']=.5;a.project['fps']=8;a.changed()
+  editor=a.edit_pose_animation();a.update();editor.capture_frame.set('3');editor.capture_card()
+  np_pose=editor.cards[-1]['pose'];self.assertAlmostEqual(np_pose['head_yaw'],22)
+  original=copy.deepcopy(editor.cards[0]);editor.select('armR');deadline=time.perf_counter()+10
+  while getattr(editor,'accepted_revision',None)!=editor.revision and time.perf_counter()<deadline:a.update();time.sleep(.01)
+  self.assertEqual(editor.accepted_revision,editor.revision);editor.draw()
+  x,y,size=editor.cells[0];p=editor.seq[0];tip=E.R.joints(p)['armR']['tip']
+  start=types.SimpleNamespace(x=x+tip[0]*size/64,y=y+tip[1]*size/64)
+  before=copy.deepcopy(editor.cards[-1]['pose']['armR']);editor.pick(start)
+  self.assertIsNotNone(editor.drag_pose);editor.move_pose(types.SimpleNamespace(x=start.x+size/12,y=start.y-size/10));editor.end_pose(None)
+  self.assertNotEqual(editor.cards[-1]['pose']['armR'],before);self.assertEqual(editor.cards[0],original)
+  editor.cancel()
+
+ def test_pose_cards_editor_is_staged_editable_playable_and_undoable(self):
+  import copy
+  a=self.a;original=copy.deepcopy(a.project);editor=a.edit_pose_animation();a.update()
+  self.assertEqual(a.project,original);self.assertEqual(len(editor.cards),2)
+  editor.select('armR');editor.set_pose(2,65);editor.duplicate_card();editor.mirror_card();editor.move_card(-1)
+  self.assertEqual(len(editor.cards),3);self.assertEqual(editor.cards[0]['pose']['armL'][2],65)
+  editor.set_timing('hold',1.);editor.duration.set('1.0');editor.mode.set('播放一次');editor.toggle_play()
+  heart=[];a.after(10,lambda:heart.append(True));deadline=time.perf_counter()+15
+  while (not editor.raw or editor.queued_play) and time.perf_counter()<deadline:a.update();time.sleep(.01)
+  self.assertTrue(heart);self.assertTrue(editor.raw);self.assertFalse(editor.queued_play)
+  self.assertEqual(a.project,original);editor.apply();a.update()
+  self.assertEqual(a.project['base']['kind'],'poseclip');self.assertEqual(a.project['playback'],'once');self.assertEqual(len(a.project['base']['cards']),3)
+  a.project['layers']=[E.entry('nod')];a.project['controls']={'head':{'turn':22}};saved=copy.deepcopy(a.project)
+  editor=a.edit_pose_animation();editor.capture_card();self.assertEqual(editor.cards[-1]['pose']['head_yaw'],0)
+  editor.set_timing('ease','snappy');editor.cancel();self.assertEqual(a.project,saved)
+  a.project['layers']=[];a.undo();self.assertEqual(a.project,original)
+
+ def test_directional_export_uses_existing_dialog_and_background_worker(self):
+  import tkinter as tk,json
+  from pixel_ui import PixelOption,PixelCheck,PixelEntry
+  a=self.a;a.export();a.update();dialog=next(w for w in a.winfo_children() if isinstance(w,tk.Toplevel))
+  def children(widget):return [w for child in widget.winfo_children() for w in [child]+children(child)]
+  widgets=children(dialog);choice=next(w for w in widgets if isinstance(w,PixelOption) and '八方向（水平）' in w.values)
+  choice.pick('八方向（水平）');choice.pick('正面');a.update()
+  self.assertTrue(any(isinstance(w,PixelCheck) and w.text=='PNG 横向条带 · 透明背景' for w in widgets))
+  choice.pick('四方向（水平）');a.update()
+  self.assertTrue(any(isinstance(w,PixelCheck) and w.text=='PNG 方向图集 · 透明背景' for w in widgets))
+  entries=[w.field for w in widgets if isinstance(w,PixelEntry)];entries[0].delete(0,'end');entries[0].insert(0,self.temp.name);entries[1].delete(0,'end');entries[1].insert(0,'Directions')
+  start=next(w for w in widgets if isinstance(w,PixelButton) and w.text=='开始导出');start.invoke();self.assertEqual(start.state,'disabled')
+  heartbeat=[];a.after(10,lambda:heartbeat.append(True));deadline=time.perf_counter()+15
+  while dialog.winfo_exists() and time.perf_counter()<deadline:a.update();time.sleep(.005)
+  self.assertTrue(heartbeat);self.assertFalse(dialog.winfo_exists())
+  data=json.loads((Path(self.temp.name)/'Directions_atlas.json').read_text());self.assertEqual(len(data['directions']),4)
+  self.assertTrue((Path(self.temp.name)/'Directions_atlas.png').is_file())
+
+ def test_tail_editor_is_staged_with_dynamic_uv_and_undo(self):
+  import copy,tail_editor as TE,attachment_editor as AE
+  a=self.a;before=copy.deepcopy(a.project);a.edit_model();e=a.model_editor;e.select('torso');TE.add(e,'fluffy_tail');a.update()
+  self.assertEqual(a.project,before);self.assertEqual(e.tail_id,'tail1');TE.set_value(e,'wag',-30);TE.set_value(e,'curl',-25)
+  e.select('head');AE.add(e,'cat');a.update();self.assertEqual(len(e.draft['attachments']),3)
+  e.select('torso');e.apply();a.update();self.assertEqual(a.project['model']['attachments'][0]['wag'],-30)
+  a.edit_textures();uv=a.texture_editor;a.update();self.assertIn('tail1',uv.project['textures']);self.assertEqual(len(uv.card_photos),13)
+  panel=uv.inspect_uv('tail1');a.update();self.assertEqual(panel.part,'tail1');panel.destroy();uv.cancel()
+  a.edit_model();e=a.model_editor;e.select('torso');TE.remove(e);self.assertEqual(len(e.draft['attachments']),2);e.cancel()
+  self.assertEqual(len(a.project['model']['attachments']),3);a.undo();self.assertEqual(a.project,before)
+  import plush_editor as PE
+  a.edit_model();e=a.model_editor;PE.change(e,'plush');TE.add(e,'bob_tail');e.apply();a.update()
+  a.edit_textures();uv=a.texture_editor;a.update();self.assertIn('tail1',uv.project['textures']);self.assertEqual(len(uv.card_photos),10);uv.cancel()
+  a.undo();self.assertEqual(a.project,before)
+
+ def test_swim_hover_use_existing_base_layer_and_style_controls(self):
+  from pixel_ui import PixelOption,PixelScale
+  import copy
+  a=self.a;model=copy.deepcopy(a.project.get('model'));a.change_base('游泳');a.update()
+  self.assertEqual(a.project['base']['kind'],'swim');self.assertEqual(a.project.get('model'),model)
+  self.assertEqual(a.project['playback'],'loop')
+  option=next(w for w in a.params.winfo_children() if isinstance(w,PixelOption) and '自由泳' in w.values)
+  option.pick('自由泳');a.update();self.assertEqual(a.project['base']['style'],'crawl')
+  a.add('swim');a.update()
+  option=next(w for w in a.params.winfo_children() if isinstance(w,PixelOption) and '踩水' in w.values)
+  option.pick('踩水');a.update();self.assertEqual(a.project['layers'][-1]['style'],'tread')
+  a.change_base('悬浮');a.update();self.assertEqual(a.project['base']['kind'],'hover')
+  scale=next(w for w in a.params.winfo_children() if isinstance(w,PixelScale) and w.lo==0 and w.hi==14)
+  scale.command(9);self.assertEqual(a.project['base']['params']['height'],9)
+  a.undo();self.assertEqual(a.project['base']['kind'],'swim')
+
+ def test_action_sequence_cancel_reorder_apply_and_undo(self):
+  import copy
+  a=self.a;original=copy.deepcopy(a.project);dialog=a.arrange_actions();a.update()
+  self.assertEqual(a.project,original);dialog.destroy()
+  dialog=a.arrange_actions();a.update();dialog.step_list.selection_clear(0,'end');dialog.step_list.selection_set(1);dialog.move_step(-1)
+  self.assertEqual(dialog.steps[:2],['punchL','punchR']);dialog.apply_sequence();a.update()
+  self.assertEqual(len(a.project['layers']),3);self.assertEqual(a.project['layers'][0]['side'],'left')
+  self.assertEqual(a.project['playback'],'once');a.undo();self.assertEqual(a.project,original)
+
+ def test_resume_last_painting_without_picker_and_switch_explicitly(self):
+  from unittest.mock import patch
+  import copy
+  a=self.a;original=copy.deepcopy(a.project);folder=Path(self.temp.name)/'paint'
+  a.edit_textures();e=a.texture_editor;e.start_painting(folder);e.cancel()
+  a.edit_textures();e=a.texture_editor;a.update()
+  self.assertIn(str(folder),e.paint_message.get());self.assertIsNone(e.workspace)
+  # Opening the editor alone must not import last folder's artwork.
+  self.assertEqual(a.project,original)
+  with patch('texture_editor.filedialog.askdirectory') as picker,patch.object(e,'open_painting_folder') as opened:
+   e.start_painting();picker.assert_not_called();opened.assert_called_once()
+  self.assertEqual(e.workspace.folder,folder);e.cancel()
+  a.project['model']={'head':{'size':1.2}};a.changed();a.edit_textures();e=a.texture_editor
+  with patch('texture_editor.filedialog.askdirectory') as picker,patch.object(e,'open_painting_folder'):
+   e.start_painting();picker.assert_not_called()
+  self.assertEqual(e.match_states['head'],'mapping')
+  other=Path(self.temp.name)/'other'
+  with patch('texture_editor.filedialog.askdirectory',return_value=str(other)) as picker,patch.object(e,'open_painting_folder'):
+   e.start_painting(reuse_last=False);picker.assert_called_once()
+  self.assertEqual(e.workspace.folder,other);e.cancel()
+  (other/'UV_Model.json').unlink();a.edit_textures();e=a.texture_editor
+  with patch('texture_editor.filedialog.askdirectory',return_value='') as picker:
+   e.start_painting();picker.assert_called_once()
+  self.assertIsNone(e.workspace);e.cancel()
+
  def test_plush_structure_panel_stages_applies_loads_and_exposes_one_body_uv(self):
   import copy,plush_editor as PE,model_data as M
   from pixel_ui import PixelScale
@@ -161,7 +449,11 @@ class UITests(unittest.TestCase):
   with patch('studio_ui.filedialog.askopenfilename',return_value=str(E.ROOT/'examples/poses/Carry.json')):a.pose_resource(e,'load')
   self.assertIn('armR',e['pose']);a.undo();a.update()
   appearance=a.project.get('model');display=a.project['render'].copy()
-  with patch('studio_ui.filedialog.askopenfilename',return_value=str(E.ROOT/'examples/motions/game/Jump.json')):a.load_motion_resource()
+  browser=a.load_motion_resource()
+  with patch('resource_browser.filedialog.askopenfilename',return_value=str(E.ROOT/'examples/motions/game/Jump.json')):browser.load_file()
+  deadline=time.perf_counter()+20
+  while browser.apply_button.state=='disabled' and time.perf_counter()<deadline:a.update();time.sleep(.01)
+  self.assertEqual(browser.apply_button.state,'normal');browser.apply();a.update()
   self.assertEqual(a.project['base']['kind'],'jump');self.assertEqual(a.project.get('model'),appearance);self.assertEqual(a.project['render'],display)
   a.edit_model();a.update();editor=a.model_editor;editor.select('head');editor.toggle_sculpt();a.update();editor.set_value('top_width',1.4)
   self.assertEqual(editor.draft['head']['top_width'],1.4);editor.cancel()

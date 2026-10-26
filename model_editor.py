@@ -27,7 +27,7 @@ class ModelEditor(tk.Toplevel):
         if self.source!=owner.active_project:
             import rounded_scene as S
             self.seq=E.authored(self.source);bundle=S.assets(self.source)
-            for pose in self.seq:pose['_assets3d']=bundle
+            self.seq=E.visible(self.seq,self.source,bundle)
             self.frame%=len(self.seq);self.raw=frame_images(self.seq,self.source.get('render'),self.frame)
         self.frame%=len(self.seq)
         self.original_seq=self.seq;self.original_raw=dict(self.raw);self.original_photos={};self.before_mode=False
@@ -49,7 +49,7 @@ class ModelEditor(tk.Toplevel):
         top=FlowBar(self,compact=True,bg=PANEL);top.pack(fill='x',padx=12,pady=10)
         UI.Label(top,text='角色模型',fg=INK,font=self.ui_font).pack(side='left',padx=8)
         self.comparison_button(top).pack(side='left',padx=4)
-        for label,fn in (('载入模型',self.load_preset),('保存模型',self.save_preset),('重置全部',self.reset_all)):
+        for label,fn in (('角色库…',self.browse_models),('载入模型',self.load_preset),('保存模型',self.save_preset),('重置全部',self.reset_all)):
             self.button(top,label,fn).pack(side='right',padx=4)
         footer=tk.Frame(self,bg=PANEL);footer.pack(side='bottom',fill='x',padx=12,pady=10)
         self.status=tk.StringVar(master=self,value='模型修改仅在应用后写入当前项目')
@@ -72,20 +72,30 @@ class ModelEditor(tk.Toplevel):
         grid=tk.Frame(content,bg=PANEL);grid.pack(fill='x',padx=8,pady=8);grid.columnconfigure((0,1),weight=1,uniform='parts');self.part_buttons={}
         for i,(key,name) in enumerate(PARTS.items()):
             b=PixelButton(grid,text=name,compact=True,command=lambda k=key:self.select(k));b.grid(row=i//2,column=i%2,sticky='ew',padx=3,pady=3);self.part_buttons[key]=b
-        PixelCheck(content,text='左右联动',variable=self.link).pack(fill='x',padx=10,pady=6)
+        self.link_check=PixelCheck(content,text='左右联动',variable=self.link);self.link_check.pack(fill='x',padx=10,pady=6)
         self.params=tk.Frame(content,bg=PANEL);self.params.pack(fill='x')
     def wheel(self,event):
         node=self.winfo_containing(event.x_root,event.y_root)
         while node is not None:
             if isinstance(node,ScrollPanel):return node.wheel(event)
             node=getattr(node,'master',None)
-    def select(self,key):self.part='torso' if key=='head' and plush.active(self.draft) else key;self.show_params();self.draw()
+    def select(self,key):self.face_mode=False;self.part='torso' if key=='head' and plush.active(self.draft) else key;self.show_params();self.draw()
     def show_params(self):
         if plush.active(self.draft) and self.part=='head':self.part='torso'
+        if self.part in ('armL','armR') and getattr(self,'prop_mode',False):self.link_check.pack_forget()
+        elif not self.link_check.winfo_manager():self.link_check.pack(fill='x',padx=10,pady=6,before=self.params)
         plush_editor.refresh(self)
         for child in self.params.winfo_children():child.destroy()
-        for key,b in self.part_buttons.items():b.accent=key==self.part;b.draw()
+        for key,b in self.part_buttons.items():b.accent=key==self.part and not getattr(self,'face_mode',False);b.draw()
         if plush.active(self.draft) and self.part=='torso':plush_editor.panel(self);return
+        if self.part in ('armL','armR'):
+            bar=FlowBar(self.params,compact=True);bar.pack(fill='x',padx=12,pady=6)
+            for enabled,label in ((False,'手臂外形'),(True,'手持道具')):
+                def choose(enabled=enabled):self.prop_mode=enabled;self.show_params()
+                PixelButton(bar,text=label,command=choose,accent=getattr(self,'prop_mode',False)==enabled).pack(side='left')
+            if getattr(self,'prop_mode',False):
+                import hand_prop_editor
+                hand_prop_editor.mount(self);return
         UI.Label(self.params,text=PARTS[self.part],fg=INK,anchor='w').pack(fill='x',padx=12,pady=8)
         UI.Label(self.params,text='基础形状',anchor='w').pack(fill='x',padx=12,pady=(6,2))
         choices={tr(MD.SHAPE_LABELS[key]):key for key in MD.SHAPES[self.part]}
@@ -116,6 +126,9 @@ class ModelEditor(tk.Toplevel):
         if self.part=='head':
             import attachment_editor
             attachment_editor.mount(self)
+        if self.part=='torso':
+            import tail_editor
+            tail_editor.mount(self)
         self.button(self.params,'重置这个部位',self.reset_part).pack(fill='x',padx=12,pady=10)
         UI.Label(self.params,text='偏移可为负：关节向内、接合重叠；正值向外、分离。长度按原始像素计算。',wraplength=360,anchor='w',justify='left',fg='#8a7967').pack(fill='x',padx=12,pady=8)
     def toggle_sculpt(self):self.sculpt_open=not getattr(self,'sculpt_open',False);self.show_params()
@@ -136,6 +149,7 @@ class ModelEditor(tk.Toplevel):
         self.show_params();self.request_preview()
     def request_preview(self):
         self.revision+=1
+        self.latest=None
         if hasattr(self,'preview_control'):self.preview_control.value=self.revision
         if self.pending:self.stop_job(self.pending)
         self.pending=self.later(100,self.submit)
@@ -272,6 +286,9 @@ class ModelEditor(tk.Toplevel):
                 if 'assets3d' in resource:self.draft_assets=resource['assets3d'];self.replace_assets=True
                 self.show_params();self.request_preview()
             except Exception as ex:messagebox.showerror(tr('无法打开'),str(ex),parent=self)
+    def browse_models(self):
+        import resource_browser
+        return resource_browser.show(self.owner,self)
     def apply(self):
         model=MD.normalize(self.draft);self.owner.snapshot();self.owner.project['model']=model
         if self.replace_assets:

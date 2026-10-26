@@ -11,6 +11,12 @@ Japanese, with scalable pixel controls.
 
 [English](docs/GUIDE.en.md) · [简体中文](docs/GUIDE.zh-CN.md) · [日本語](docs/GUIDE.ja.md)
 
+[v0.3.0 release notes / 更新说明](docs/RELEASE-v0.3.0.md)
+
+**Tail controls** now use three FK joints with continuous skinning. Control root/middle/tip, drag their handles, blend a Tail motion layer, or author tail poses in pose cards. The sequence window uses a larger two-column layout with fixed action buttons.
+
+Tail controls also offer independent root/middle/tip softness and bounce under Physics. Zero preserves the authored motion; settings travel with saved animations and use the same deterministic simulation for preview and export. Collision is not simulated.
+
 For offline reading, open `docs/GUIDE.en.html`, `docs/GUIDE.zh-CN.html` or
 `docs/GUIDE.ja.html`. In the app, click **User guide** or press **F1** to open the
 guide for the current interface language. All three guides cover the same workflow.
@@ -20,11 +26,46 @@ guide for the current interface language. All three guides cover the same workfl
 [Current feature inventory / 当前功能清单](docs/FEATURES.zh-CN.md) ·
 [Iteration reports / 迭代报告](docs/ITERATION-REPORT.zh-CN.md)
 
+[2026-10-26 earlier snapshot / 早间迭代快照](docs/START-HERE-20261026.zh-CN.md)
+
+**Creation library…** has Motion and Character tabs. Three distinct starting models replace the repetitive variants. The private local package also includes the original Kumamon and painted cat, with their painting intact. **Create animation… → Save animation…** saves a reusable animation without character appearance; your files appear under My animations and can be applied to another character.
+
 The source branch now also includes human/cat/long ears with linked editing and
 their own texture cards, and a seamless mascot body with five shape controls,
 soft upper-body movement and one body UV. Try `examples/models/PlushModel.json`.
-These additions postdate the packaged v0.2.0 release; use the current source to
-try them. Near-contact chin/chest outlines have also been refined.
+These features are included in v0.3.0. Near-contact chin/chest outlines have also
+been refined.
+
+**Action sequence…** arranges up to six actions in order, including left/right
+straight punches and push kicks. Choose frames per step and a transition, then
+edit the generated ordinary motion layers. Character, base motion and pose
+controls are retained; existing layers are replaced with one undo step. Try the
+three recipes under `examples/motions/sequences`.
+
+**Swim** adds breaststroke, front crawl and treading water; **Hover** provides
+an airborne loop with height, bobbing, arm beats and leg bend. Choose them as a
+base or layer them using the existing controls. Airborne poses are not pinned
+to the floor. Seven editable examples cover swimming, hovering, waving while
+floating, a floating mage and looking around while treading water.
+
+**Export view → Four / Eight directions (level)** exports the current animation
+from every direction in one background job. Transparent atlases use one row per
+direction and include frame rectangles, timing and a common pivot in JSON.
+Large atlases split into bounded-size pages automatically. Try the three ready
+packs under `examples/atlases`; see [the atlas format](docs/DIRECTIONAL-ATLASES.md).
+
+**Pose animation…** turns two to six editable pose cards into your own motion.
+Capture a frame of the current animation, load a saved pose or start from a
+built-in pose. Drag limbs in four views, mirror/reorder cards, and choose holds,
+transitions and loop/once/hold playback. Apply is one undo step. Add normal
+motion layers afterward, or reopen **Edit pose cards…** to refine the motion.
+Try SideStepDance, GuardSignal and ShyGreeting under `examples/motions/posecards`.
+
+**Held objects** use Box, Cylinder, Sphere and Cone shapes, with independent dimensions, grip, UV painting and pixel groups. Legacy weapon files remain readable but are no longer the primary examples.
+
+**Single UV images** offer Save PNG, Copy texture (Ctrl+C) and Paste to replace
+(Ctrl+V). Images retain native size and alpha; paste validates the UV size,
+preserves protection groups and supports Undo/Cancel before Apply.
 
 Version 0.2.0 adds tapered profiles and projecting faces, portable
 pose layers, regional/timed blending, staged game actions and once/hold playback.

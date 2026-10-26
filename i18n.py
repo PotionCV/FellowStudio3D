@@ -2,6 +2,194 @@
 LANGUAGES={'en':'English','zh':'简体中文','ja':'日本語'}
 language='en'
 ROWS=r"""
+时间安排|Timing overview|時間の配置
+动作保留已选角色，角色保留已选动作；应用后可继续编辑。|Motion keeps your character; character keeps your motion. Edit further after applying.|動作はキャラクターを保持し、キャラクターは動作を保持します。適用後も編集できます。
+制作动画…|Create animation…|アニメーションを作成…
+保存动画…|Save animation…|アニメーションを保存…
+保存动画|Save animation|アニメーションを保存
+动作顺序|Action order|動作の順序
+我的角色|My characters|自分のキャラクター
+我的动画|My animations|自分のアニメーション
+物品形状|Object shape|物の形状
+旧版物品|Legacy object|旧形式の物
+长方体|Box|直方体
+圆柱体|Cylinder|円柱
+球体|Sphere|球体
+圆锥体|Cone|円錐
+尾巴摆动|Tail motion|しっぽの動作
+尾根|Tail root|しっぽの根元
+尾中|Tail middle|しっぽの中間
+尾尖|Tail tip|しっぽの先端
+上下弯曲（度）|Pitch (deg)|上下の曲げ (度)
+左右弯曲（度）|Yaw (deg)|左右の曲げ (度)
+扭转（度）|Roll (deg)|ひねり (度)
+左右摆动（度）|Side sway (deg)|左右の揺れ (度)
+上下摆动（度）|Vertical sway (deg)|上下の揺れ (度)
+尾尖跟随|Tip follow-through|先端の追従
+三段独立骨骼。应用后在整体控制选择尾巴；叠加尾巴摆动可与其他动作融合。|Three independent joints. After Apply, select Tail in body controls; add Tail motion to blend it with other actions.|独立した3関節です。適用後に全体調整のしっぽを選び、しっぽ動作を他の動作と合成できます。
+尾根、尾中、尾尖分别控制；可叠加尾巴摆动，并使用影响比例、时段与融合方式。|Control root, middle and tip separately. Tail motion supports mix, timing and blend modes.|根元・中間・先端を個別に調整し、しっぽ動作に影響度・時間・合成方式を設定できます。
+创作资源库…|Creation library…|制作ライブラリ…
+创作资源库|Creation library|制作ライブラリ
+角色库…|Character library…|キャラクターライブラリ…
+动作|Motion|動作
+角色|Character|キャラクター
+快速搭配|Quick combinations|クイック組み合わせ
+搜索名称或关键词|Search names or keywords|名前やキーワードで検索
+全部|All|すべて
+基础步态|Basic locomotion|基本の移動
+游戏动作|Game actions|ゲーム動作
+动作融合|Motion blends|動作の合成
+姿势表演|Pose performances|ポーズの演技
+表情角色|Expressive characters|表情付きキャラクター
+装备角色|Equipped characters|装備キャラクター
+布偶伙伴|Plush buddies|ぬいぐるみの仲間
+基础造型|Basic shapes|基本形状
+当前角色|Current character|現在のキャラクター
+当前动作|Current motion|現在の動作
+应用搭配|Apply combination|組み合わせを適用
+还原本次选择|Reset selections|選択をリセット
+载入文件…|Load file…|ファイルを読み込む…
+选择资源后先预览，应用后才修改项目。|Preview resources first; the project changes only on Apply.|素材をプレビューし、適用するとプロジェクトを変更します。
+点击条目，使用当前搭配预览。|Select an item to preview it in your current combination.|項目を選ぶと現在の組み合わせでプレビューします。
+预览就绪；应用可撤销。|Preview ready. Applying can be undone.|プレビュー完了。適用後は元に戻せます。
+动作保留已选角色；角色保留已选动作。快速搭配同时选择两者，之后仍可分别替换。|Motion keeps your chosen character; character keeps your motion. Quick combinations choose both; each can still be replaced.|動作は選択中のキャラクターを保持し、キャラクターは動作を保持します。クイック組み合わせは両方を選び、後から個別に変更できます。
+为新贴图准备绘画|Prepare painting for new texture|新しい画像の描画を準備
+新贴图尚未连接绘画文件；开始绘画会创建项目副本，旧文件保留。|The new texture is not connected to painting files yet. Start painting creates a project copy and keeps old files.|新しい画像はまだ描画ファイルと接続していません。開始すると現在の画像をコピーし、旧ファイルを保持します。
+脸部正由像素表情覆盖；要手绘眼口，请在角色模型中关闭表情或转为绘画贴图。|Pixel face currently overlays the face. To paint eyes/mouth, disable it or convert it to a painted texture in Character model.|現在はピクセル表情が顔に重なっています。目や口を描くにはモデル画面で無効にするか描画テクスチャへ変換してください。
+像素表情…|Pixel face…|ピクセル表情…
+像素表情|Pixel face|ピクセル表情
+启用像素表情|Enable pixel face|ピクセル表情を有効にする
+平静|Neutral|通常
+开心|Happy|笑顔
+生气|Angry|怒り
+惊讶|Surprised|驚き
+困倦|Sleepy|眠い
+每段眨眼次数|Blinks per clip|動作ごとのまばたき回数
+每段说话次数|Mouth beats per clip|動作ごとの口の開閉回数
+脸部左右位置|Face horizontal position|顔の左右位置
+脸部上下位置|Face vertical position|顔の上下位置
+脸部大小|Face size|顔の大きさ
+眼睛间距|Eye spacing|目の間隔
+脸部位置与颜色|Face placement and colors|顔の位置と色
+收起脸部细节|Hide face details|顔の詳細を閉じる
+眼口颜色…|Eye/mouth color…|目と口の色…
+脸部底色…|Face background…|顔の背景色…
+自动取脸部底色|Sample face background|顔の背景色を自動取得
+转为绘画贴图|Convert to painted texture|描画テクスチャに変換
+在脸部区域覆盖眼口；原贴图保留，关闭可恢复。绘画PNG仍是原图。|Overlays eyes/mouth in the face region. Disable to restore the original. Painting PNGs remain unchanged.|顔の範囲に目と口を重ねます。無効にすると元に戻り、描画PNGは変更しません。
+眨眼和说话按整段动画重复，次数为0时关闭；关闭显示贴图时表情隐藏。|Blink/mouth beats repeat over the clip; set 0 to disable. Hiding textures hides the face.|まばたきと口の開閉は動作全体で繰り返し、0で無効です。テクスチャ非表示で顔も隠れます。
+转换后关闭自动表情，可继续用UV绘画修改；应用前可取消。|Conversion disables the automatic face so you can paint it in UV. Cancel before Apply to discard.|変換後は自動表情を無効にし、UV描画で編集できます。適用前ならキャンセルできます。
+手持道具|Held objects|手持ちの物
+手臂外形|Arm shape|腕の形状
+复位握持|Reset grip|持ち方をリセット
+剑|Sword|剣
+法杖|Staff|杖
+盾牌|Shield|盾
+添加道具|Add object|物を追加
+道具长度（px）|Prop length (px)|アイテムの長さ (px)
+道具宽度（px）|Prop width (px)|アイテムの幅 (px)
+道具厚度（px）|Prop depth (px)|アイテムの厚み (px)
+握持俯仰（度）|Grip pitch (deg)|持ち方の前後角度 (度)
+握持转向（度）|Grip yaw (deg)|持ち方の向き (度)
+握持侧倾（度）|Grip roll (deg)|持ち方の傾き (度)
+握点左右（px）|Grip side offset (px)|握り位置の左右 (px)
+握点上下（px）|Grip height offset (px)|握り位置の上下 (px)
+握点前后（px）|Grip depth offset (px)|握り位置の前後 (px)
+握持位置与细节|Grip placement and details|握り位置と詳細
+收起握持细节|Hide grip details|握りの詳細を閉じる
+换到另一只手|Move to other hand|反対の手に移す
+删除道具|Remove prop|アイテムを削除
+随手腕移动和转动，独立绘画；尺寸影响UV，握持角度不改变UV。|Follows the wrist and has its own painting. Size affects UVs; grip angles do not.|手首に追従し、個別に描画できます。寸法はUVに影響しますが、持ち方の角度では変わりません。
+姿势动画|Pose animation|ポーズアニメーション
+姿势动画…|Pose animation…|ポーズアニメーション…
+编辑姿势卡…|Edit pose cards…|ポーズカードを編集…
+姿势卡|Pose card|ポーズカード
+原动作帧|Source frame|元のフレーム
+基础动作帧|Base frame|基本動作のフレーム
+卡片视图显示原姿势；播放时显示叠加和整体修改。拍数控制相对节奏，时长控制总长度。|Cards show raw poses; playback includes layers and overall edits. Beats set relative timing; duration sets the clip length.|カードは元のポーズを表示し、再生時はレイヤーと全体調整を含めます。拍は相対的なタイミング、長さは全体の秒数です。
+采集为姿势卡|Capture pose card|ポーズカードとして取得
+应用姿势动画|Apply pose animation|ポーズアニメーションを適用
+姿势卡修改仅在应用后写入项目|Pose cards are saved to the project only when applied.|適用するまでポーズカードはプロジェクトに保存されません。
+用二至六张姿势卡生成动作；选择卡片后可拖动手脚或调整角度。|Animate two to six pose cards. Select a card, then drag limbs or adjust angles.|2〜6枚のポーズカードから動作を作成します。カードを選び、手足をドラッグするか角度を調整します。
+新建时替换原动作与整体修改；已有姿势动画保留叠加与整体修改。应用可撤销。|A new clip replaces motion and overall edits. Editing an existing pose clip retains layers and overall edits. Apply can be undone.|新規作成は動作と全体調整を置き換えます。既存のポーズ動作ではレイヤーと全体調整を保持します。適用は取り消せます。
+停留（拍）|Hold (beats)|保持（拍）
+过渡（拍）|Transition (beats)|補間（拍）
+时长（秒）|Duration (seconds)|長さ（秒）
+复制|Duplicate|複製
+镜像|Mirror|左右反転
+身体高低（px）|Body height (px)|体の高さ (px)
+身体左右（px）|Body side offset (px)|体の左右位置 (px)
+胸腔转向|Chest turn|胸の向き
+骨盆转向|Pelvis turn|骨盤の向き
+请选择二至六张姿势卡。|Choose two to six pose cards.|2〜6枚のポーズカードを選んでください。
+无效的姿势卡。|Invalid pose card.|無効なポーズカードです。
+姿势停留应为0至4拍，过渡应为0.25至4拍。|Hold must be 0–4 beats and transition 0.25–4 beats.|保持は0〜4拍、補間は0.25〜4拍にしてください。
+无效的姿势过渡。|Invalid pose transition.|無効なポーズ補間です。
+动画时长应为0.25至10秒。|Duration must be 0.25–10 seconds.|長さは0.25〜10秒にしてください。
+无效的播放方式。|Invalid playback mode.|無効な再生方式です。
+姿势动画需要2至120帧，请缩短时长或调整FPS。|Pose animation needs 2–120 frames. Shorten the duration or adjust FPS.|2〜120フレームが必要です。長さを短くするかFPSを調整してください。
+四方向（水平）|Four directions (level)|4方向（水平）
+八方向（水平）|Eight directions (level)|8方向（水平）
+PNG 方向图集 · 透明背景|Directional PNG atlas · transparent|方向別PNGアトラス・透過
+每个方向一行，自动附带帧信息JSON；大图集自动分页。|One row per direction, with frame metadata JSON. Large atlases split into pages automatically.|各方向が1行になり、フレーム情報JSONを付属します。大きな画像は自動で分割します。
+方向数必须为4或8。|Use four or eight directions.|4方向または8方向を選んでください。
+方向数必须为1、4或8。|Use one, four or eight directions.|1方向・4方向・8方向を選んでください。
+尾巴|Tail|しっぽ
+长尾|Long tail|長いしっぽ
+蓬松尾|Fluffy tail|ふさふさのしっぽ
+短圆尾|Bobtail|丸いしっぽ
+添加尾巴|Add tail|しっぽを追加
+尾根跟随胯部；摆动按整段循环。幅度为0时静止。|The root follows the pelvis; wagging repeats over the clip. Set amplitude to 0 to keep it still.|根元は骨盤に追従し、動作全体に合わせて揺れます。振幅0で静止します。
+尾巴长度（px）|Tail length (px)|しっぽの長さ (px)
+尾巴粗细（px）|Tail width (px)|しっぽの太さ (px)
+尾巴弯曲（度）|Tail curl (deg)|しっぽの曲がり (度)
+摆尾幅度（度）|Wag amplitude (deg)|しっぽの振幅 (度)
+尾巴厚度（px）|Tail depth (px)|しっぽの厚み (px)
+尾巴抬起（度）|Tail lift (deg)|しっぽの持ち上げ (度)
+尾根左右（px）|Tail root side (px)|根元の左右 (px)
+尾根上下（px）|Tail root height (px)|根元の高さ (px)
+尾根前后（px）|Tail root depth (px)|根元の前後 (px)
+尾巴朝向（度）|Tail direction (deg)|しっぽの向き (度)
+每轮摆尾次数|Wags per clip|動作ごとの揺れ回数
+尾巴位置与细节|Tail placement and details|しっぽの位置と詳細
+收起尾巴细节|Hide tail details|しっぽの詳細を閉じる
+重置尾巴|Reset tail|しっぽをリセット
+删除尾巴|Remove tail|しっぽを削除
+游泳|Swim|泳ぐ
+悬浮|Hover|浮遊
+游泳方式|Swimming style|泳ぎ方
+蛙泳|Breaststroke|平泳ぎ
+自由泳|Front crawl|クロール
+踩水|Tread water|立ち泳ぎ
+划臂幅度|Arm stroke|腕のかき幅
+蹬腿幅度|Kick strength|キックの強さ
+浮动幅度（px）|Float bob (px)|浮き沈み (px)
+泳姿前后倾（度）|Swimming tilt (deg)|泳ぐ姿勢の傾き (度)
+身体滚转（度）|Body roll (deg)|体のロール (度)
+离地高度（px）|Hover height (px)|浮遊の高さ (px)
+手臂展开（度）|Arm spread (deg)|腕の広がり (度)
+拍臂幅度（度）|Arm beat (deg)|羽ばたき幅 (度)
+悬空屈腿（度）|Airborne leg bend (deg)|空中の膝曲げ (度)
+不锁定地面；可叠加头部、挥手或脱力。|No floor lock; add head motion, waving or softness.|地面には固定しません。頭の動き・手振り・柔らかさを重ねられます。
+动作串联…|Action sequence…|動作をつなぐ…
+动作串联|Action sequence|動作をつなぐ
+选择动作、调整顺序，自动安排先后和过渡。|Choose and reorder actions; timing and transitions are arranged for you.|動作を選んで並べると、順番とつなぎを自動で設定します。
+右手直拳|Right straight punch|右ストレート
+左手直拳|Left straight punch|左ストレート
+右腿踹击|Right push kick|右前蹴り
+左腿踹击|Left push kick|左前蹴り
+鞠躬|Bow|お辞儀
+每步帧数|Frames per step|動作ごとのフレーム数
+动作过渡|Transition|つなぎ
+柔和|Soft|柔らかく
+利落|Snappy|素早く
+直接|Direct|直接
+生成串联动作|Create sequence|連続動作を作成
+保留角色、基础动作和姿态控制；替换叠加动作，可撤销。生成后仍可逐项修改。|Keep the character, base motion and pose controls; replace motion layers. Undo and further editing remain available.|キャラクター・基本動作・姿勢設定は保持し、重ねる動作を置き換えます。元に戻す・個別編集が可能です。
+请选择一至六步动作。|Choose one to six actions.|1〜6個の動作を選択してください。
+每步帧数应为6至20。|Use 6 to 20 frames per step.|動作ごとに6〜20フレームを指定してください。
+继续上次绘制|Resume last painting|前回の描画を再開
+上次绘画文件夹：|Last painting folder:|前回の描画フォルダー：
 身体结构|Body structure|体の構造
 一体布偶|Seamless mascot|一体型マスコット
 分体人形|Separate head / body|頭と胴体が分離
@@ -184,6 +372,19 @@ IK 手柄|IK handles|IK ハンドル
 上段松软|Upper softness|上側の柔らかさ
 下段松软|Lower softness|下側の柔らかさ
 头颈松软|Head / neck softness|頭・首の柔らかさ
+尾根松软|Tail root softness|しっぽの根元の柔らかさ
+尾中松软|Tail middle softness|しっぽの中間の柔らかさ
+尾尖松软|Tail tip softness|しっぽの先端の柔らかさ
+保存 PNG…|Save PNG…|PNGを保存…
+复制贴图（Ctrl+C）|Copy texture (Ctrl+C)|画像をコピー (Ctrl+C)
+粘贴替换（Ctrl+V）|Paste to replace (Ctrl+V)|貼り付けて置換 (Ctrl+V)
+贴图已保存|Texture saved|画像を保存しました
+贴图已复制；保留原始尺寸与透明度。|Texture copied with original size and transparency.|元のサイズと透明度でコピーしました。
+贴图已替换；应用后写入项目，可撤销。|Texture replaced. Apply to keep it; Undo is available.|画像を置換しました。適用すると保存され、元に戻せます。
+剪贴板贴图|Clipboard texture|クリップボードの画像
+剪贴板正被占用，请重试。|Clipboard is busy. Please try again.|クリップボードを使用中です。もう一度お試しください。
+剪贴板中没有图片，请先复制一张 UV 贴图。|Clipboard does not contain an image. Copy a UV image first.|クリップボードに画像がありません。先にUV画像をコピーしてください。
+剪贴板图片过大。|Clipboard image is too large.|クリップボードの画像が大きすぎます。
 回弹|Bounce|弾み
 这一轮做几次|Cycles|繰り返し回数
 步幅|Stride|歩幅

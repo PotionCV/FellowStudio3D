@@ -1,24 +1,3 @@
-# Model presets
+# Character starting models
 
-- `DefaultModel.json`: the built-in model with default textures.
-- `TaperedCylinder.json`: independently tapered head width and depth.
-- `MuzzleHead.json`, `LongMuzzleHead.json`: projecting faces with editable size,
-  height, position and tip fullness.
-- `ConeHead.json`, `PyramidHead.json`: additional head bases.
-- `BarrelBody.json`: broader, deeper torso profile.
-- `CurvedLimbs.json`: curved, tapered paired arms.
-- `CustomModel.json`: the painted example character, including its proportions,
-  shapes, embedded PNG textures and pixel protection groups.
-
-Use Character model > Load model, select CustomModel.json, then Apply model.
-The character appears in the preview before applying; Cancel discards it. Your
-current animation and motion controls are retained. Try Walk or Run with it.
-
-Save model creates the same reusable resource, including textures, in one JSON.
-Shape details exposes profile, contour and local projection parameters. Linked
-left/right curve edits are mirrored; other shape dimensions are shared.
-Older shape-only presets are still accepted without replacing current textures.
-For an entire neutral-pose project, use Open on ../characters/CustomCharacter.json.
-
-
-`PlushModel.json` is an unpainted seamless mascot body, with one body UV and short limbs. Choose Body structure in the model editor to switch between the legacy separate head/body and a continuous bag-shaped body.
+The library keeps three distinct starting points: DefaultModel, CustomModel (painted), and PlushModel. Shape variations are edited through the model controls instead of adding almost identical characters. The private local library additionally reads the original KumamonBag and CatBag from user_data/models or local_characters. Personal art stays outside public builds. Older shape presets can still be explicitly loaded from local files.

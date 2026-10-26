@@ -56,5 +56,7 @@ def panel(editor):
   control.configure(command=flex)
  import attachment_editor
  attachment_editor.mount(editor)
+ import tail_editor
+ tail_editor.mount(editor)
  def reset():editor.draft['body']=dict(plush.DEFAULT);editor.show_params();editor.request_preview()
  PixelButton(box,text='重置这个部位',command=reset).pack(fill='x',padx=12,pady=10)

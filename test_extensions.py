@@ -5,6 +5,534 @@ import numpy as np
 import engine as E,model_data as M,rounded_scene as S
 
 class ExtensionTests(unittest.TestCase):
+ @unittest.skipUnless(__import__('os').name=='nt','Windows clipboard memory')
+ def test_uv_clipboard_native_memory_roundtrip_without_changing_desktop_clipboard(self):
+  import image_clipboard as C,io
+  from unittest.mock import patch
+  from PIL import Image
+  _,kernel=C._api()
+  class Clipboard:
+   def __init__(self):self.data={};self.opened=False
+   def RegisterClipboardFormatW(self,name):return 49152
+   def OpenClipboard(self,hwnd):self.opened=True;return True
+   def CloseClipboard(self):self.opened=False;return True
+   def EmptyClipboard(self):return True
+   def SetClipboardData(self,kind,handle):self.data[kind]=handle;return handle
+   def GetClipboardData(self,kind):return self.data.get(kind)
+  user=Clipboard();image=Image.new('RGBA',(3,2),(12,34,56,78));image.putpixel((0,0),(77,88,99,0))
+  try:
+   with patch.object(C,'_api',return_value=(user,kernel)):
+    C.copy_image(image,123,'test');restored=C.read_image()
+   self.assertEqual(restored.tobytes(),image.tobytes());self.assertEqual(restored.info['FellowStudio3D'],'test')
+   self.assertEqual(set(user.data),{49152,17});self.assertFalse(user.opened)
+  finally:
+   for handle in user.data.values():kernel.GlobalFree(handle)
+
+ def test_uv_clipboard_image_validation_alpha_metadata_and_no_resize(self):
+  import image_clipboard as C,io,struct
+  from PIL import Image
+  import uv_assets as U
+  p=S.assets(E.new_project());part='head';im=U.texture_image(p,part)
+  im.putpixel((0,0),(12,34,56,0));im.putpixel((1,1),(76,54,32,123))
+  raw=C.png_bytes(im,json.dumps(U.painting_info(p,part)));image=Image.open(io.BytesIO(raw))
+  x,y,w,h=p['textures'][part]['layout']['rects']['front'];p['textures'][part]['protected_groups']=[{'pixels':[[x,y]],'angle':40}]
+  groups=copy.deepcopy(p['textures'][part]['protected_groups']);U.import_image(p,part,image)
+  self.assertEqual(U.texture_image(p,part).tobytes(),im.tobytes());self.assertEqual(p['textures'][part]['protected_groups'],groups)
+  self.assertEqual(p['textures'][part]['provenance'],'matched');before=copy.deepcopy(p)
+  with self.assertRaises(ValueError):U.import_image(p,part,Image.new('RGBA',(1,1)))
+  self.assertEqual(p,before)
+  for change in ({'guide':True},{'part':'torso'},{'surface':{}}):
+   bad=im.copy();bad.info['FellowStudio3D']=json.dumps(dict(U.painting_info(p,part),**change))
+   with self.assertRaises(ValueError):U.import_image(p,part,bad)
+   self.assertEqual(p,before)
+  dib=C.dib_bytes(im);self.assertEqual(struct.unpack_from('<IiiHHI',dib), (124,im.width,-im.height,1,32,3))
+  self.assertEqual(dib[124:],im.tobytes('raw','BGRA'))
+
+ def test_clipboard_override_survives_workspace_poll_until_explicit_reconnect(self):
+  import uv_assets as U
+  from paint_workspace import prepare
+  p=S.assets(E.new_project())
+  with tempfile.TemporaryDirectory() as folder:
+   workspace=prepare(p,folder);im=U.texture_image(p,'head');im.paste((17,89,111,77),(0,0,*im.size));U.import_image(p,'head',im)
+   p['textures']['head'].update(painting_override=True,painting_pending=True);before=copy.deepcopy(p)
+   self.assertIsNone(workspace.poll(p,force=True));self.assertEqual(p,before);self.assertEqual(workspace.states['head'],'embedded')
+   U.import_texture(p,'head',Path(folder)/'head.png');self.assertNotIn('painting_override',p['textures']['head'])
+
+ def test_tail_softness_is_independent_deterministic_and_saved(self):
+  import tails as T,motion_resources as MR
+  p=E.new_project('walk');p['physics']={};p['model']=M.normalize();T.add(p['model']);p['layers']=[E.entry('tail')]
+  base=E.poses(p);p['physics']={'tail':dict(root=0,middle=0,tip=0,bounce=.6)}
+  self.assertEqual(base,E.poses(p))
+  p['physics']['tail']['tip']=.7;soft=E.poses(p)
+  np.testing.assert_array_equal([q['tail'][:6] for q in base],[q['tail'][:6] for q in soft])
+  self.assertGreater(np.max(np.abs(np.array([q['tail'][6:] for q in soft])-np.array([q['tail'][6:] for q in base]))),.1)
+  for a,b in zip(base,soft):
+   for limb in E.LIMBS:np.testing.assert_array_equal(a[limb],b[limb])
+  p['physics']['tail'].update(root=.35,middle=.55);soft=E.poses(p)
+  self.assertTrue(np.isfinite([q['tail'] for q in soft]).all())
+  E._compiled.cache_clear();self.assertEqual(soft,E.poses(p))
+  with tempfile.TemporaryDirectory() as folder:
+   path=Path(folder)/'tail.json';MR.save_motion(p,path);recipe=E.load(path)
+   self.assertEqual(recipe['physics'],p['physics'])
+   target=MR.apply_motion(p,recipe);self.assertEqual(E.poses(target),soft)
+  p['physics']['tail']=dict(root=0,middle=0,tip=0);self.assertEqual(E.poses(p),base)
+
+ def test_tail_softness_follows_body_without_motion_layer_and_skips_missing_tail(self):
+  import tails as T
+  p=E.new_project('run');p['model']=M.normalize();T.add(p['model']);p['physics']={'tail':dict(root=.5,middle=.65,tip=.8)}
+  seq=E.poses(p);self.assertTrue(any(np.linalg.norm(q['tail'])>.1 for q in seq))
+  p['playback']='once';one=E.poses(p);self.assertTrue(np.isfinite([q['tail'] for q in one]).all())
+  p['model']['attachments']=[];self.assertTrue(all('tail' not in q for q in E.poses(p)))
+
+ def test_tail_bones_skin_closed_mesh_and_keep_uvs_and_body_cache(self):
+  import tails as T,attachments as A
+  from collections import Counter
+  model=M.normalize();key=T.add(model);item=A.record(model,key);pose={'_model':model,'tail':[0.]*9}
+  mesh,bounds=T.mesh(item);raw=np.concatenate([triangle for face,triangle in mesh]);rest=T.deform(raw,item)
+  np.testing.assert_array_equal(rest,T.skin(raw,item,[0.]*9))
+  angles=[10,25,-5,-30,40,15,50,-25,0];skinned=T.skin(raw,item,angles).reshape(-1,3,3)
+  edges=Counter()
+  for triangle in skinned:
+   for i,j in ((0,1),(1,2),(2,0)):edges[tuple(sorted((tuple(np.round(triangle[i],7)),tuple(np.round(triangle[j],7)))))]+=1
+  self.assertEqual(set(edges.values()),{2})
+  original=T.joints(item,model,pose);changed=T.joints(item,model,dict(pose,tail=angles))
+  S.geometry(pose);hits=S._geometry.cache_info().hits;S.geometry(dict(pose,tail=angles));self.assertGreater(S._geometry.cache_info().hits,hits)
+  np.testing.assert_allclose(original[0],changed[0]);self.assertGreater(np.linalg.norm(original[-1]-changed[-1]),1)
+  middle=T.joints(item,model,dict(pose,tail=[0,0,0,0,50,0,0,0,0]))
+  np.testing.assert_allclose(original[1],middle[1]);self.assertFalse(np.allclose(original[-1],middle[-1]))
+  net=S.assets({'model':model})['textures'][key]['layout'];head=S.geometry(pose)[-1]
+  first=S.attachment_triangles(item,model,head,pose,net);second=S.attachment_triangles(item,model,head,dict(pose,tail=angles),net)
+  for a,b in zip(first,second):np.testing.assert_array_equal(a[3],b[3])
+  np.testing.assert_allclose(S.ground_y(dict(pose,tail=angles),{key}),min(t[2][:,1].min() for t in second))
+
+ def test_tail_motion_blends_times_and_controllers_without_changing_body(self):
+  import tails as T
+  p=E.new_project('walk');p['model']=M.normalize();T.add(p['model']);base=E.poses(p)
+  e=E.entry('tail');e.update(start=.25,end=.75,fade=.1,mix=0.);p['layers']=[e]
+  off=E.poses(p);e['mix']=1.;on=E.poses(p)
+  np.testing.assert_allclose(on[0].get('tail',[0]*9),np.zeros(9));self.assertTrue(any(np.linalg.norm(q['tail'])>1 for q in on))
+  for before,after in zip(base,on):
+   for limb in E.LIMBS:np.testing.assert_allclose(before[limb],after[limb])
+  self.assertTrue(all(np.linalg.norm(q['tail'])==0 for q in off))
+  p['controls']={'tail':{'middle_yaw':30,'range':0}};controlled=E.poses(p)
+  for q in controlled:np.testing.assert_allclose(q['tail'],[0,0,0,0,30,0,0,0,0])
+
+ def test_saved_animation_retargets_tail_pose_layers_and_preserves_target_paint(self):
+  import motion_resources as MR,tails as T,pose_animation as PA,uv_assets as U
+  source=E.new_project('walk');source['model']=M.normalize();T.add(source['model']);source['layers']=[E.entry('tail')];source['controls']={'tail':{'tip_pitch':25}}
+  target=E.new_project();target['model']=self.plush_model();T.add(target['model']);target['assets3d']=S.assets(target);target['render']['parts']=False
+  image=U.texture_image(target['assets3d'],'body');image.putpixel((0,0),(123,77,55,255));target['assets3d']['textures']['body']['png']=U.encode(image)
+  with tempfile.TemporaryDirectory() as folder:
+   path=Path(folder)/'motion.json';MR.save_motion(source,path);recipe=E.load(path)
+   self.assertFalse({'model','assets3d','render','camera_y'}&recipe.keys())
+   transferred=MR.apply_motion(target,recipe)
+   for key in ('model','assets3d','render'):self.assertEqual(transferred[key],target[key])
+   for a,b in zip(E.poses(source),E.poses(transferred)):np.testing.assert_allclose(a['tail'],b['tail'])
+  pose=PA.capture_pose(E.poses(source)[3]);self.assertEqual(len(pose['tail']),9)
+  clip=PA.build(source,[dict(pose=pose),dict(pose=E.mirror_pose(pose))]);self.assertEqual(len(E.poses(clip)[0]['tail']),9)
+
+ def test_removed_face_metadata_never_overrides_existing_paint(self):
+  import uv_assets as U
+  p=E.new_project();p['model']=M.normalize();p['assets3d']=S.assets(p);im=U.texture_image(p['assets3d'],'head');im.putpixel((1,1),(99,5,55,255));p['assets3d']['textures']['head']['png']=U.encode(im)
+  baseline=E.rgba(E.poses(p)[0]);p['model']['face']={'enabled':True,'style':'angry','blink':3,'talk':8}
+  self.assertNotIn('face',M.normalize(p['model']));np.testing.assert_array_equal(E.rgba(E.poses(p)[0]),baseline)
+
+ def test_painting_binding_tracks_artwork_but_not_motion_or_model_sizing(self):
+  from paint_workspace import painting_key
+  original=E.new_project();original['assets3d']=S.assets(original)
+  changed=copy.deepcopy(original);changed['base']=E.entry('run');changed['model']={'head':{'size':1.3}}
+  self.assertEqual(painting_key(original),painting_key(changed))
+  import uv_assets as U
+  image=U.texture_image(changed['assets3d'],'head');image.putpixel((0,0),(9,30,70,255));changed['assets3d']['textures']['head']['png']=U.encode(image)
+  self.assertNotEqual(painting_key(original),painting_key(changed))
+  self.assertEqual(painting_key(changed),painting_key(json.loads(json.dumps(changed))))
+
+ def test_resource_catalog_is_public_complete_localized_and_searchable(self):
+  import resource_library as L,motion_resources as MR,i18n
+  catalog=L.catalog()
+  self.assertEqual({r.path for r in catalog if r.kind=='motions'},set(MR.BUILTIN_MOTIONS))
+  self.assertEqual({r.path for r in catalog if r.kind=='models'},set(M.BUILTIN_MODELS))
+  self.assertFalse(any('CombatStance2' in r.path or 'JumpPunch' in r.path or 'RunAtk' in r.path for r in catalog))
+  for resource in catalog:
+   self.assertIn(resource.key,L.NAMES)
+   for language in ('zh','ja'):
+    if resource.kind!='combinations':self.assertNotEqual(L.label(resource.key,language),resource.key)
+   self.assertTrue(L.label(resource.key,'en'))
+  self.assertEqual(len(L.search(catalog,'motions','游泳')),4)
+  self.assertEqual(len(L.search(catalog,'models','weapon')),0)
+  self.assertEqual(len(L.search(catalog,'motions','swim','动作串联')),0)
+  self.assertEqual(len(L.search(catalog,'models','nonexistent')),0)
+
+ def test_resource_combinations_keep_independent_appearance_motion_and_render(self):
+  import resource_library as L,motion_resources as MR
+  original=E.new_project('walk');original['camera_y']=2;original['render']['outline']=False
+  before=copy.deepcopy(original);catalog=L.catalog()
+  mage=next(r for r in catalog if r.key=='CustomModel')
+  project=L.combine(original,mage);self.assertEqual(project['base'],original['base']);self.assertIn('assets3d',project)
+  motion=next(r for r in catalog if r.key=='HoverWave')
+  hover=L.combine(project,motion)
+  for key in ('model','assets3d','render','camera_y'):self.assertEqual(hover[key],project[key])
+  default=L.combine(hover,next(r for r in catalog if r.key=='DefaultModel'))
+  self.assertEqual(default['base'],hover['base']);self.assertNotEqual(default['model'],hover['model'])
+  for resource in catalog:
+   if resource.kind!='combinations':continue
+   combined=L.combine(original,resource);self.assertEqual(combined['render'],original['render']);self.assertEqual(combined['camera_y'],2)
+   poses=E.poses(combined);self.assertGreater(len(poses),1)
+   np.testing.assert_array_equal(E.rgba(poses[0],combined['render']),E.rgba(E.poses(copy.deepcopy(combined))[0],combined['render']))
+  self.assertEqual(original,before)
+
+
+
+
+
+ def test_hand_props_use_scene_depth_in_front_of_and_behind_the_body(self):
+  import hand_props as H,attachments as A,uv_assets as U
+  model=M.normalize();key=H.add(model,'shield');item=A.record(model,key);item.update(length=8,width=6,pitch=0,x=-8,y=8)
+  bundle=S.assets({'model':model});image=U.texture_image(bundle,key);image.paste((255,0,255,255),(0,0,*image.size));bundle['textures'][key]['png']=U.encode(image)
+  counts=[]
+  for depth in (8,-8):
+   item['z']=depth;pose=E.norm(E.F.POSES['stand']);pose.update(_model=model,_assets3d=bundle,armR=[0,0,0,0])
+   rendered=E.rgba(pose);counts.append(int(np.all(rendered[:,:,:3]==[255,0,255],axis=2).sum()))
+  self.assertGreater(counts[0],10);self.assertEqual(counts[1],0)
+
+ def test_hand_props_are_closed_validated_and_coexist_with_ears_and_tails(self):
+  import hand_props as H,attachments as A,tails as T
+  from collections import Counter
+  model=M.normalize();A.add_pair(model,'cat');T.add(model)
+  for preset in H.PRESETS:
+   key=H.add(model,preset);item=A.record(model,key);mesh,bounds=A.mesh(item);edges=Counter()
+   for face,triangle in mesh:
+    self.assertGreater(np.linalg.norm(np.cross(triangle[1]-triangle[0],triangle[2]-triangle[0])),1e-8)
+    for a,b in ((0,1),(1,2),(2,0)):edges[tuple(sorted((tuple(triangle[a]),tuple(triangle[b]))))]+=1
+   self.assertEqual(set(edges.values()),{2});np.testing.assert_allclose(bounds[1]-bounds[0],H.dimensions(item))
+  self.assertEqual(len(M.normalize(model)['attachments']),7)
+  for invalid in ({'id':'prop0'},{'id':'prop1','parent':'head'},{'id':'prop1','pitch':True},{'id':'prop1','x':float('nan')}):
+   with self.assertRaises(ValueError):H.normalize(invalid)
+  with self.assertRaises(ValueError):A.normalize([model['attachments'][-1]]*2)
+
+ def test_hand_prop_frames_follow_wrists_continuously_without_head_or_ground_effects(self):
+  import hand_props as H,attachments as A
+  for model in (M.normalize(),self.plush_model()):
+   key=H.add(model,'staff');item=A.record(model,key)
+   for arm in ('armL','armR'):
+    item['parent']=arm
+    p={'_model':model,arm:[30,-12,45,80], 'lean':15,'chest_yaw':25,'rot':12}
+    origin,rot=H.frame(item,model,p);np.testing.assert_allclose(origin,S.geometry(p)[2][arm][-1])
+    changed=H.frame(item,model,dict(p,head_yaw=70,head_pitch=40))
+    np.testing.assert_allclose(changed[0],origin);np.testing.assert_allclose(changed[1],rot)
+    a=H.frame(item,model,dict(p,**{arm:[89.999,0,0,0]}))[1]
+    b=H.frame(item,model,dict(p,**{arm:[90.001,0,0,0]}))[1]
+    self.assertLess(np.linalg.norm(a-b),.001);self.assertAlmostEqual(np.linalg.det(rot),1,places=10)
+   plain=copy.deepcopy(model);plain.pop('attachments')
+   self.assertAlmostEqual(S.ground_y({'_model':model}),S.ground_y({'_model':plain}),places=8)
+   self.assertAlmostEqual(E._roll_pivot(json.dumps(model,sort_keys=True)),E._roll_pivot(json.dumps(plain,sort_keys=True)),places=8)
+
+ def test_hand_prop_uv_and_pixel_protection_survive_transfer_save_and_export(self):
+  import hand_props as H,attachments as A,uv_assets as U
+  from PIL import Image
+  model=M.normalize();key=H.add(model,'shield','armL');p=E.new_project('wave');p.update(model=model,seconds=.5,fps=8)
+  bundle=S.assets(p);image=U.texture_image(bundle,key);x,y,w,h=bundle['textures'][key]['layout']['rects']['front']
+  image.paste((55,120,190,255),(x,y,x+w,y+h));bundle['textures'][key].update(png=U.encode(image),protected_groups=[{'pixels':[[x+w//2,y+h//2]],'angle':60}]);p['assets3d']=bundle
+  moved=copy.deepcopy(bundle);A.record(moved['model'],key).update(parent='armR',pitch=-75,x=2)
+  self.assertEqual(U.surface_record(bundle,key),U.surface_record(moved,key))
+  A.record(moved['model'],key)['width']+=1;self.assertNotEqual(U.surface_record(bundle,key),U.surface_record(moved,key))
+  seq=E.poses(p);context=S.protection_context(seq[0],bundle);self.assertIn(key,context)
+  with tempfile.TemporaryDirectory() as folder:
+   folder=Path(folder);M.save(model,folder/'prop.json',bundle);loaded=M.load_resource(folder/'prop.json')
+   self.assertEqual(loaded['model'],model);self.assertEqual(U.texture_image(loaded['assets3d'],key).tobytes(),image.tobytes())
+   U.export_pack(bundle,folder/'paint');restored=copy.deepcopy(bundle);U.import_pack(restored,folder/'paint')
+   self.assertEqual(U.texture_image(restored,key).tobytes(),image.tobytes())
+   E.export(p,out=folder,name='Shield',formats={'png'},create_folder=False)
+   with Image.open(folder/'Shield_00.png') as output:np.testing.assert_array_equal(np.array(output),E.rgba(seq[0],p['render']))
+
+ def test_pose_capture_bakes_independent_head_without_changing_geometry(self):
+  import pose_animation as PA
+  source=E.norm(E.F.POSES['stand']);source.update(head_follow_chest=False,chest_yaw=32,head_yaw=-18,head_pitch=20,head=-12,lean=10)
+  captured=E.norm(PA.capture_pose(source));self.assertEqual(captured['head_yaw'],-50)
+  for actual,expected in zip(S.geometry(source)[5],S.geometry(captured)[5]):np.testing.assert_allclose(actual,expected,atol=1e-10)
+  for cam in ((0,0),(90,0),(45,0),(45,30)):np.testing.assert_array_equal(E.rgba(source,cam=cam),E.rgba(captured,cam=cam))
+
+ def test_pose_cards_interpolate_holds_endpoints_loop_and_mirror(self):
+  import pose_animation as PA
+  cards=PA.default_cards();cards[0].update(hold=1.,travel=1.,ease='linear');cards[1].update(hold=1.,travel=1.)
+  cards=PA.normalize_cards(cards);a,b=cards[0]['pose'],cards[1]['pose']
+  self.assertEqual(PA.sample(cards,0,False),a);self.assertEqual(PA.sample(cards,1,False),b)
+  self.assertEqual(PA.sample(cards,.25,False),a)
+  np.testing.assert_allclose(PA.sample(cards,.5,False)['armR'],(np.array(a['armR'])+b['armR'])/2)
+  for card in cards:card['hold']=0
+  self.assertEqual(PA.sample(cards,0,True),PA.sample(cards,1,True))
+  np.testing.assert_allclose(PA.sample(cards,1-1e-7,True)['armR'],a['armR'],atol=1e-6)
+  mirror=E.mirror_pose(PA.sample(cards,.2,True));double=E.mirror_pose(mirror)
+  self.assertEqual(double,PA.sample(cards,.2,True))
+
+ def test_pose_cards_validate_input_and_preserve_appearance_with_one_bake(self):
+  import pose_animation as PA
+  p=E.new_project('run');p.update(yaw=23,camera_y=3,model={'head':{'size':1.1}},assets3d={'test':'portable'})
+  p['controls']={'armR':{'raise':30}};p['layers']=[E.entry('wave')];original=copy.deepcopy(p)
+  result=PA.build(p,PA.default_cards(),2,'once',False)
+  self.assertEqual(p,original)
+  for key in ('model','assets3d','yaw','camera_y','render'):self.assertEqual(result[key],p[key])
+  for key in ('controls','physics'):self.assertEqual(result[key],{})
+  self.assertEqual(result['layers'],[]);self.assertNotIn('base_playback',result)
+  result['layers']=[E.entry('wave')];result['controls']={'head':{'tilt':20}}
+  edited=PA.build(result,result['base']['cards'],1.5,'hold',True)
+  self.assertEqual(edited['layers'],result['layers']);self.assertEqual(edited['controls'],result['controls'])
+  for invalid in ([],[{}]*7,[{'pose':{'armR':[0,float('nan'),0,0]}}]*2):
+   with self.assertRaises((ValueError,TypeError)):PA.normalize_cards(invalid)
+  for field,value in (('hold',-1),('travel',0),('ease','unknown')):
+   cards=PA.default_cards();cards[0][field]=value
+   with self.assertRaises(ValueError):PA.normalize_cards(cards)
+  with self.assertRaises(ValueError):PA.build(dict(p,fps=24),PA.default_cards(),10)
+  with tempfile.TemporaryDirectory() as folder:
+   invalid=Path(folder)/'bad.json';broken=copy.deepcopy(result);broken['base']['cards']=[];E.save(broken,invalid)
+   with self.assertRaises(ValueError):E.load(invalid)
+
+ def test_pose_card_pipeline_roundtrip_grounding_blending_preview_and_export(self):
+  import pose_animation as PA
+  from preview_worker import compile_preview
+  from PIL import Image
+  p=PA.build(E.new_project(),PA.default_cards(),.5,'hold',True);p['fps']=8
+  p['model']={'structure':'plush'};p['yaw']=25
+  seq=E.poses(p);self.assertEqual(len(seq),4)
+  self.assertTrue(all(pose.get('_feet_ground') for pose in seq))
+  for pose in seq:
+   reference=E._ground_level(json.dumps(M.normalize(p['model']),sort_keys=True))
+   self.assertAlmostEqual(S.ground_y(pose,('thighL','shinL','thighR','shinR')),reference,places=5)
+  overlay=E.entry('nod');p['layers']=[overlay];seq,raw=compile_preview(p)
+  self.assertNotEqual(seq[1]['head_pitch'],E.poses(dict(p,layers=[]))[1]['head_pitch'])
+  with tempfile.TemporaryDirectory() as folder:
+   recipe=Path(folder)/'roundtrip.json';E.save(p,recipe);self.assertEqual(E.load(recipe),p)
+   output=E.export(p,out=folder,name='Cards',formats={'png','recipe'},create_folder=False)
+   for i in range(4):
+    with Image.open(output/f'Cards_{i:02}.png') as im:np.testing.assert_array_equal(np.array(im),raw[0,i])
+  p['base']['ground']=False;p['base']['cards'][1]['pose']['dy']=-6
+  self.assertTrue(all(pose.get('_ground') is False for pose in E.poses(p)))
+
+ def test_directional_atlas_metadata_and_pixels_match_all_views(self):
+  from PIL import Image
+  p=E.new_project('hover');p.update(seconds=.5,fps=8,yaw=17,camera_y=3,playback='hold')
+  seq=E.poses(p)
+  with tempfile.TemporaryDirectory() as folder:
+   dest=E.export(p,out=folder,name='Four',formats={'png','strip','recipe'},create_folder=False,directions=4)
+   data=json.loads((dest/'Four_atlas.json').read_text());self.assertEqual(data['frame_count'],4)
+   self.assertEqual(data['playback'],'hold');self.assertEqual(data['pivot'],[32,59]);self.assertEqual(data['character_yaw'],17)
+   self.assertEqual([view['yaw'] for view in data['directions']],[0,90,180,270])
+   with Image.open(dest/'Four_atlas.png') as atlas:
+    self.assertEqual(atlas.size,(256,256))
+    for view in data['directions']:
+     for frame in view['frames']:
+      x,y,w,h=frame['rect'];expected=E.rgba(seq[frame['index']],p['render'],(view['yaw'],0))
+      np.testing.assert_array_equal(np.array(atlas.crop((x,y,x+w,y+h))),expected)
+      with Image.open(dest/frame['png']) as png:np.testing.assert_array_equal(np.array(png),expected)
+      self.assertEqual(frame['duration_ms'],125)
+   self.assertEqual(E.load(dest/'Four.json')['export_directions'],4)
+
+ def test_directional_atlas_paging_is_bounded_and_upscaling_exact(self):
+  import directional_export as D
+  from PIL import Image
+  from unittest.mock import patch
+  plan=D.page_layout(120,8,8);self.assertEqual(len(plan),15)
+  self.assertTrue(all(max(page['size'])<=4096 for page in plan))
+  image=np.zeros((64,64,4),np.uint8);image[8:12,20:24]=(123,45,67,255)
+  p=E.new_project();p.update(seconds=9/8,fps=8)
+  with tempfile.TemporaryDirectory() as folder,patch.object(E,'rgba',return_value=image):
+   dest=E.export(p,out=folder,name='Paged',formats={'strip'},create_folder=False,scale=8,directions=4)
+   data=json.loads((dest/'Paged_atlas.json').read_text());self.assertEqual(len(data['pages']),2)
+   self.assertEqual([page['first_frame'] for page in data['pages']],[0,8])
+   frame=data['directions'][3]['frames'][8];self.assertEqual(frame['rect'],[0,1536,512,512])
+   with Image.open(dest/frame['image']) as atlas:
+    np.testing.assert_array_equal(np.array(atlas.crop((0,1536,512,2048))),np.repeat(np.repeat(image,8,axis=0),8,axis=1))
+
+ def test_directional_export_collision_render_failure_and_publish_race_preserve_files(self):
+  from unittest.mock import patch
+  p=E.new_project();p.update(seconds=.25,fps=8)
+  with tempfile.TemporaryDirectory() as folder:
+   dest=Path(folder);existing=dest/'Existing_atlas.json';existing.write_text('keep')
+   with patch.object(E,'poses',side_effect=AssertionError('rendered before collision check')):
+    with self.assertRaises(FileExistsError):E.export(p,out=folder,name='Existing',formats={'strip'},create_folder=False,directions=4)
+   self.assertEqual(existing.read_text(),'keep')
+   with patch.object(E,'rgba',side_effect=RuntimeError('render failed')):
+    with self.assertRaises(RuntimeError):E.export(p,out=folder,name='Failed',formats={'png','strip'},create_folder=False,directions=4)
+   self.assertEqual(sorted(f.name for f in dest.iterdir()),['Existing_atlas.json'])
+   foreign=dest/'Race_d000_00.png'
+   def racing_render(*args):
+    if not foreign.exists():foreign.write_bytes(b'other writer')
+    return np.zeros((64,64,4),np.uint8)
+   with patch.object(E,'rgba',side_effect=racing_render):
+    with self.assertRaises(FileExistsError):E.export(p,out=folder,name='Race',formats={'png','strip'},create_folder=False,directions=4)
+   self.assertEqual(foreign.read_bytes(),b'other writer');self.assertFalse((dest/'Race_atlas.png').exists());self.assertFalse((dest/'Race_atlas.json').exists())
+   self.assertFalse(any(f.name.startswith('.fellow-export-') for f in dest.iterdir()))
+
+ def test_directional_recipe_only_skips_render_and_gifs_keep_playback(self):
+  from unittest.mock import patch
+  from PIL import Image
+  p=E.new_project('hover');p.update(seconds=.25,fps=8,playback='once')
+  with tempfile.TemporaryDirectory() as folder:
+   with patch.object(E,'poses',side_effect=AssertionError('rendered recipe-only export')):
+    dest=E.export(p,out=folder,name='RecipeOnly',formats={'recipe'},create_folder=True,directions=8)
+   self.assertTrue((dest/'recipe.json').is_file());data=json.loads((dest/'RecipeOnly_atlas.json').read_text())
+   self.assertEqual(len(data['directions']),8);self.assertIsNone(data['directions'][0]['frames'][0]['image'])
+   p['export_directions']=8
+   E.export(p,out=folder,name='Single',formats={'recipe'},create_folder=False,directions=1)
+   self.assertEqual(E.load(Path(folder)/'Single.json')['export_directions'],1);self.assertEqual(p['export_directions'],8)
+   dest=E.export(p,out=folder,name='Preview',formats={'gif'},create_folder=False,directions=4)
+   for angle in (0,90,180,270):
+    with Image.open(dest/f'Preview_d{angle:03}.gif') as gif:self.assertNotIn('loop',gif.info)
+   for count in (True,0,3,4.,'8'):
+    with self.assertRaises(ValueError):E.export(p,out=folder,name='Invalid',directions=count)
+
+ def test_tails_validate_closed_meshes_and_keep_legacy_ears(self):
+  import tails as T,attachments as A
+  from collections import Counter
+  legacy=M.normalize();A.add_pair(legacy,'cat');ears=copy.deepcopy(legacy['attachments'])
+  for preset in T.PRESETS:
+   model=copy.deepcopy(legacy);key=T.add(model,preset);model=M.normalize(model)
+   self.assertEqual(model['attachments'][:2],ears);item=A.record(model,key)
+   edges=Counter()
+   for face,local in A.mesh(item)[0]:
+    points=A.taper_depth(local,item);self.assertTrue(np.isfinite(points).all())
+    vertices=[tuple(np.round(q,9)) for q in points]
+    for i,j in ((0,1),(1,2),(2,0)):edges[tuple(sorted((vertices[i],vertices[j])))]+=1
+   self.assertTrue(edges);self.assertEqual(set(edges.values()),{2})
+  for bad in ({'id':'tail0'},{'id':'tail1','parent':'head'},{'id':'tail1','length':float('nan')},{'id':'tail1','wag':True}):
+   with self.assertRaises(ValueError):A.normalize([bad])
+  with self.assertRaises(ValueError):A.normalize([T.normalize({'id':'tail1'}),T.normalize({'id':'tail1'})])
+
+ def test_tail_follows_pelvis_not_head_and_wags_deterministically(self):
+  import tails as T,attachments as A
+  for model in (M.normalize(),self.plush_model()):
+   if model.get('structure')=='plush':model['body']['head_link']=False
+   key=T.add(model);item=A.record(model,key);item['wag']=18.;q={'_model':model,'_motion_phase':.25}
+   origin,rotation=T.frame(item,model,q)
+   origin2,rotation2=T.frame(item,model,dict(q,head_yaw=80,head_pitch=40))
+   np.testing.assert_allclose(origin,origin2,atol=1e-10);np.testing.assert_allclose(rotation,rotation2,atol=1e-10)
+   start=T.frame(item,model,dict(q,_motion_phase=0));end=T.frame(item,model,dict(q,_motion_phase=1))
+   np.testing.assert_allclose(start[1],end[1],atol=1e-10);self.assertGreater(np.linalg.norm(rotation-start[1]),.2)
+   turned=T.frame(item,model,dict(q,pelvis_yaw=45));self.assertGreater(np.linalg.norm(turned[1]-rotation),.2)
+   item['wag']=0;np.testing.assert_allclose(T.frame(item,model,q)[1],T.frame(item,model,dict(q,_motion_phase=.8))[1])
+  model=M.normalize();T.add(model);p=E.new_project('walk');p['model']=model
+  a=E.poses(p);b=E.poses(p);self.assertEqual(a,b)
+
+ def test_tail_uv_resources_protection_and_grounding_roundtrip(self):
+  import tails as T,attachments as A,uv_assets as U
+  import paint_workspace as PW
+  from PIL import Image
+  for model in (M.normalize(),self.plush_model()):
+   key=T.add(model,'fluffy_tail');p=E.new_project('walk');p['model']=model;bundle=S.assets(p)
+   image=U.texture_image(bundle,key);x,y,w,h=bundle['textures'][key]['layout']['rects']['front']
+   image.paste((210,110,55,255),(x,y,x+w,y+h));bundle['textures'][key].update(png=U.encode(image),protected_groups=[{'pixels':[[x+w//2,y+h//2]],'angle':50}]);p['assets3d']=bundle
+   # Placement and animation do not invalidate painting files; shape does.
+   changed=copy.deepcopy(bundle);item=A.record(changed['model'],key);item.update(wag=-30,cycles=3,x=2)
+   self.assertEqual(U.surface_record(bundle,key),U.surface_record(changed,key));item['curl']+=10
+   self.assertNotEqual(U.surface_record(bundle,key),U.surface_record(changed,key))
+   with tempfile.TemporaryDirectory() as folder:
+    folder=Path(folder);U.export_pack(bundle,folder/'paint');restored=copy.deepcopy(bundle);U.import_pack(restored,folder/'paint')
+    self.assertEqual(U.texture_image(restored,key).tobytes(),image.tobytes())
+    M.save(model,folder/'tail.json',bundle);loaded=M.load_resource(folder/'tail.json');self.assertEqual(loaded['model'],model)
+    context=S.protection_context(E.poses(p)[0],bundle);self.assertIn(key,context)
+    E.export(p,out=folder/'out',name='Tail',formats={'png'},create_folder=False,scale=1)
+    with Image.open(folder/'out'/'Tail_00.png') as im:np.testing.assert_array_equal(np.array(im),E.rgba(E.poses(p)[0],p['render']))
+   without=copy.deepcopy(model);without.pop('attachments');q={'_model':model}
+   self.assertAlmostEqual(S.ground_y(q),S.ground_y({'_model':without}),places=8)
+
+ def test_attachment_surface_cache_reuses_uvs_during_tail_animation(self):
+  import tails as T,attachments as A,uv_assets as U
+  from unittest.mock import patch
+  model=M.normalize();key=T.add(model);item=A.record(model,key);net=S.assets({'model':model})['textures'][key]['layout']
+  S._attachment_local.cache_clear();first=S.attachment_triangles(item,model,S.geometry({'_model':model})[-1],{'_model':model},net)
+  with patch.object(S,'uv_tri',side_effect=AssertionError('UV rebuilt for animation')):
+   moved=S.attachment_triangles(item,model,S.geometry({'_model':model})[-1],{'_model':model,'tail':[0,30,0,20,-20,0,0,10,0]},net)
+  self.assertFalse(np.allclose(first[-1][2],moved[-1][2]))
+
+ def test_swimming_styles_are_distinct_periodic_and_unplanted(self):
+  from aerial_actions import Swim,Hover
+  for C in (Swim,Hover):
+   for style in ('breast','crawl','tread') if C is Swim else ('hover',):
+    params=dict(C.defaults(),_style=style)
+    self.assertEqual(C.at(0,params,0),C.at(1,params,0))
+    for t in np.linspace(0,1,41):
+     pose=C.at(t,params,0);self.assertIs(pose['_ground'],False)
+     for limb in E.LIMBS:self.assertTrue(np.isfinite(pose[limb]).all())
+  params=dict(Swim.defaults(),_style='breast');frog=Swim.at(.4,params,0)
+  for key in ('arm','leg'):
+   np.testing.assert_allclose(np.array(frog[key+'L'])*[-1,-1,1,1],frog[key+'R'])
+  params['_style']='crawl';crawl=Swim.at(.15,params,0)
+  self.assertGreater(abs(crawl['armL'][2]-crawl['armR'][2]),50)
+  params['_style']='tread';self.assertEqual(Swim.at(.15,params,0)['body_pitch'],0)
+  self.assertGreater(frog['body_pitch'],70)
+
+ def test_hover_height_and_free_physics_survive_grounded_base_and_kick(self):
+  p=E.new_project('hover');before=E.authored(p);p['base']['params']['height']+=4;after=E.authored(p)
+  for a,b in zip(before,after):self.assertAlmostEqual(b['dy'],a['dy']-4)
+  p=E.new_project('stand');p['layers']=[E.entry('hover')]
+  # Breathing on an idle base must not pin feet in a floating layer.
+  p['physics']={'legL':{'strength':.35,'bounce':.2}}
+  authored=E.authored(p);physical=E.physical(authored,p)
+  self.assertTrue(all(q.get('_ground') is False and not q.get('_breath_ik') for q in authored))
+  self.assertTrue(all(q.get('_ground') is False for q in physical))
+  self.assertGreater(max(np.linalg.norm(np.array(a['legL'])-b['legL']) for a,b in zip(authored,physical)),1e-4)
+  p=E.new_project('hover');base=E.authored(p);p['layers']=[E.entry('kick')]
+  for a,b in zip(base,E.authored(p)):self.assertIs(b['_ground'],False);self.assertAlmostEqual(a['dy'],b['dy'])
+  p=E.new_project('hover');base=E.authored(p);p['controls']={'torso':{'height':-3}}
+  for a,b in zip(base,E.authored(p)):
+   self.assertAlmostEqual(b['dy'],a['dy']-3)
+   for leg in ('legL','legR'):np.testing.assert_allclose(a[leg],b[leg],atol=1e-10)
+  p['controls']={};p['layers']=[E.entry('thrust')]
+  for a,b in zip(base,E.authored(p)):
+   self.assertIs(b['_ground'],False)
+   for leg in ('legL','legR'):np.testing.assert_allclose(a[leg],b[leg],atol=1e-10)
+
+ def test_aerial_model_compatibility_preview_and_export_match(self):
+  import preview_worker as W
+  from PIL import Image
+  for model in (M.normalize(),self.plush_model()):
+   p=E.new_project('swim');p.update(model=model,seconds=.5,fps=12);p['base']['style']='crawl'
+   seq,images=W.compile_preview(p);self.assertEqual(len(seq),6)
+   self.assertTrue(all(q['_model']==model and q.get('_ground') is False for q in seq))
+   with tempfile.TemporaryDirectory() as folder:
+    E.export(p,out=folder,name='Swim',formats={'png'},create_folder=False,scale=1)
+    for i in range(6):
+     with Image.open(Path(folder)/f'Swim_{i:02}.png') as im:
+      np.testing.assert_array_equal(np.array(im),images[(0,i)])
+    path=Path(folder)/'swim.json';E.save(p,path);self.assertEqual(E.load(path),p)
+
+ def test_action_sequence_keeps_appearance_and_edits_without_mutating_source(self):
+  import action_sequence as A
+  current=E.new_project('stand');current.update(model=self.plush_model(),camera_y=8)
+  current['assets3d']=S.assets(current);current['controls']={'torso':{'turn':12}}
+  original=copy.deepcopy(current);result=A.build(current,['punchR','punchL','pushR'])
+  self.assertEqual(current,original);self.assertEqual(result['playback'],'once')
+  self.assertEqual(round(result['seconds']*result['fps']),36)
+  for key in ('model','assets3d','controls','camera_y','render'):self.assertEqual(result[key],current[key])
+  self.assertEqual([e['kind'] for e in result['layers']],['thrust','thrust','kick'])
+  self.assertEqual([e['side'] for e in result['layers']],['right','left','right'])
+  self.assertEqual(result['layers'][-1]['style'],'push')
+  for i,entry in enumerate(result['layers']):
+   self.assertEqual(entry['start'],i/3);self.assertEqual(entry['end'],(i+1)/3)
+  poses=E.authored(result);self.assertEqual(len(poses),36)
+  reference=copy.deepcopy(result);reference['layers']=[];base=E.authored(reference)
+  self.assertGreater(max(np.linalg.norm(np.array(p['armR'])-q['armR']) for p,q in zip(poses[:12],base[:12])),10)
+  self.assertGreater(max(np.linalg.norm(np.array(p['armL'])-q['armL']) for p,q in zip(poses[12:24],base[12:24])),10)
+  self.assertGreater(max(np.linalg.norm(np.array(p['legR'])-q['legR']) for p,q in zip(poses[24:],base[24:])),10)
+  with tempfile.TemporaryDirectory() as folder:
+   path=Path(folder)/'combo.json';E.save(result,path);self.assertEqual(E.load(path),result)
+  for args in (([],12),(['unknown'],12),(['bow']*7,12),(['bow'],5),(['bow'],True)):
+   with self.assertRaises(ValueError):A.build(current,*args)
+
+ def test_action_sequence_preserves_walking_cadence_and_native_export(self):
+  import action_sequence as A
+  current=E.new_project('walk');result=A.build(current,['wave','bow','wave'],12)
+  seq=E.authored(result);reference=copy.deepcopy(result);reference['layers']=[]
+  walking=E.authored(reference);period=round(current['seconds']*current['fps']/current['base'].get('cycles',1))
+  for i in range(len(walking)-period):np.testing.assert_allclose(walking[i]['legL'],walking[i+period]['legL'],atol=1e-8)
+  self.assertGreater(np.max(np.ptp([p['legL'] for p in seq],axis=0)),1)
+  with tempfile.TemporaryDirectory() as folder:
+   output=E.export(result,out=folder,name='Combo',formats={'png'},create_folder=False,scale=1)
+   from PIL import Image
+   paths=list(Path(output).glob('*.png'));self.assertEqual(len(paths),36)
+   for path in paths:
+    with Image.open(path) as image:self.assertEqual(image.size,(64,64))
+
  def plush_model(self):
   return M.normalize({'structure':'plush',**{limb:{'upper':3,'lower':3,'gap':0} for limb in E.LIMBS}})
 

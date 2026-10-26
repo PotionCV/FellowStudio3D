@@ -1,0 +1,56 @@
+{
+  "version": 2,
+  "name": "HoverWave",
+  "seconds": 1.5,
+  "fps": 8,
+  "base": {
+    "kind": "hover",
+    "params": {
+      "height": 5.0,
+      "bob": 1.5,
+      "open": 45.0,
+      "beat": 12.0,
+      "fold": 35.0,
+      "tilt": 8.0
+    },
+    "cycles": 1,
+    "mix": 1.0,
+    "retain": 0.0,
+    "enabled": true,
+    "scope": "all",
+    "phase": 0.0,
+    "blend": "replace",
+    "mode": "loop"
+  },
+  "layers": [
+    {
+      "kind": "wave",
+      "params": {
+        "raise": 140.0,
+        "times": 2.0,
+        "amp": 22.0
+      },
+      "cycles": 1,
+      "mix": 1.0,
+      "retain": 0.15,
+      "enabled": true,
+      "scope": "armL",
+      "phase": 0.0,
+      "blend": "posture",
+      "side": "left"
+    }
+  ],
+  "controls": {},
+  "physics": {},
+  "render": {
+    "parts": true,
+    "textures": true,
+    "gaps": true,
+    "outline": true,
+    "perfect": true
+  },
+  "yaw": 0.0,
+  "pitch": 0.0,
+  "playback": "loop",
+  "export_directions": 8
+}

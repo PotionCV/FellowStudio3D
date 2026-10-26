@@ -57,4 +57,9 @@ def build():
  for name,direction in (('StrafeWalk',90),('Backpedal',180)):
   p=E.new_project('walk');p['base']['params'].update(direction=direction,stance=1.15,support=.6);save(p,name)
 
-if __name__=='__main__':build()
+if __name__=='__main__':
+ build()
+ from build_aerial_examples import build as build_aerial
+ build_aerial()
+ from build_pose_animation_examples import build as build_pose_cards
+ build_pose_cards()

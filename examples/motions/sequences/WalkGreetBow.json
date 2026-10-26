@@ -1,0 +1,136 @@
+{
+  "version": 2,
+  "name": "WalkGreetBow",
+  "seconds": 4.0,
+  "fps": 12,
+  "base": {
+    "kind": "walk",
+    "params": {
+      "stride": 1.6,
+      "knee": 1.4,
+      "swing": 2.0,
+      "bob": 2.0,
+      "elbow": 1.0
+    },
+    "cycles": 4.0,
+    "mix": 1.0,
+    "retain": 1.0,
+    "enabled": true,
+    "scope": "all",
+    "phase": 0.0
+  },
+  "layers": [
+    {
+      "kind": "wave",
+      "params": {
+        "raise": 140.0,
+        "times": 2.0,
+        "amp": 22.0
+      },
+      "cycles": 1,
+      "mix": 1.0,
+      "retain": 0.0,
+      "enabled": true,
+      "scope": "all",
+      "phase": 0.0,
+      "blend": "add",
+      "side": "right",
+      "start": 0.0,
+      "end": 0.3333333333333333,
+      "mode": "once",
+      "fade": 0.12
+    },
+    {
+      "kind": "bow",
+      "params": {
+        "deep": 28.0,
+        "hold": 0.15
+      },
+      "cycles": 1,
+      "mix": 1.0,
+      "retain": 0.0,
+      "enabled": true,
+      "scope": "all",
+      "phase": 0.0,
+      "blend": "add",
+      "start": 0.3333333333333333,
+      "end": 0.6666666666666666,
+      "mode": "once",
+      "fade": 0.12
+    },
+    {
+      "kind": "wave",
+      "params": {
+        "raise": 140.0,
+        "times": 2.0,
+        "amp": 22.0
+      },
+      "cycles": 1,
+      "mix": 1.0,
+      "retain": 0.0,
+      "enabled": true,
+      "scope": "all",
+      "phase": 0.0,
+      "blend": "add",
+      "side": "right",
+      "start": 0.6666666666666666,
+      "end": 1.0,
+      "mode": "once",
+      "fade": 0.12
+    }
+  ],
+  "controls": {
+    "torso": {
+      "height": 0.8,
+      "lean": -7.0,
+      "tilt": 0.0
+    },
+    "legs": {
+      "range": 1.45,
+      "bend": 0.0,
+      "forward": 0.0,
+      "raise": 0.0
+    },
+    "legL": {},
+    "legR": {},
+    "body": {},
+    "armL": {},
+    "armR": {},
+    "head": {
+      "nod": -12.0
+    }
+  },
+  "physics": {
+    "legL": {
+      "lower": 1.0,
+      "bounce": 1.0
+    },
+    "legR": {
+      "lower": 1.0,
+      "bounce": 1.0
+    },
+    "armL": {
+      "lower": 0.75,
+      "bounce": 1.0
+    },
+    "armR": {
+      "lower": 0.75,
+      "bounce": 1.0
+    },
+    "head": {
+      "strength": 1.0,
+      "bounce": 1.0
+    }
+  },
+  "render": {
+    "parts": true,
+    "textures": true,
+    "gaps": true,
+    "outline": true,
+    "perfect": true
+  },
+  "yaw": 0.0,
+  "pitch": 0.0,
+  "base_playback": "loop",
+  "playback": "once"
+}

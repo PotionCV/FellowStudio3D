@@ -1,0 +1,213 @@
+{
+  "version": 2,
+  "name": "ShyGreeting",
+  "seconds": 3.0,
+  "fps": 16,
+  "base": {
+    "kind": "poseclip",
+    "params": {},
+    "cycles": 1,
+    "mix": 1.0,
+    "retain": 1.0,
+    "enabled": true,
+    "scope": "all",
+    "phase": 0.0,
+    "blend": "add",
+    "cards": [
+      {
+        "pose": {
+          "armL": [
+            -30.0,
+            10.0,
+            35.0,
+            105.0
+          ],
+          "armR": [
+            30.0,
+            -10.0,
+            35.0,
+            105.0
+          ],
+          "legL": [
+            -6.0,
+            4.0,
+            0.0,
+            0.0
+          ],
+          "legR": [
+            6.0,
+            -4.0,
+            0.0,
+            0.0
+          ],
+          "lean": 5.0,
+          "rot": 0.0,
+          "dx": 0.0,
+          "dy": 0.0,
+          "dz": 0.0,
+          "body_pitch": 0.0,
+          "body_axis": 0.0,
+          "body_pivot": 0.0,
+          "chest_yaw": 0.0,
+          "pelvis_yaw": 0.0,
+          "head": 18.0,
+          "head_pitch": 15.0,
+          "head_yaw": -30.0,
+          "head_depth": 0.0
+        },
+        "hold": 0.6,
+        "travel": 0.6,
+        "ease": "smooth"
+      },
+      {
+        "pose": {
+          "armL": [
+            -30.0,
+            10.0,
+            35.0,
+            105.0
+          ],
+          "armR": [
+            30.0,
+            -10.0,
+            35.0,
+            105.0
+          ],
+          "legL": [
+            -6.0,
+            4.0,
+            0.0,
+            0.0
+          ],
+          "legR": [
+            6.0,
+            -4.0,
+            0.0,
+            0.0
+          ],
+          "lean": 5.0,
+          "rot": 0.0,
+          "dx": 0.0,
+          "dy": 0.0,
+          "dz": 0.0,
+          "body_pitch": 0.0,
+          "body_axis": 0.0,
+          "body_pivot": 0.0,
+          "chest_yaw": 0.0,
+          "pelvis_yaw": 0.0,
+          "head": 5.0,
+          "head_pitch": -5.0,
+          "head_yaw": 20.0,
+          "head_depth": 0.0
+        },
+        "hold": 0.4,
+        "travel": 0.35,
+        "ease": "snappy"
+      },
+      {
+        "pose": {
+          "armL": [
+            -30.0,
+            10.0,
+            35.0,
+            105.0
+          ],
+          "armR": [
+            85.0,
+            -8.0,
+            25.0,
+            70.0
+          ],
+          "legL": [
+            -6.0,
+            4.0,
+            0.0,
+            0.0
+          ],
+          "legR": [
+            6.0,
+            -4.0,
+            0.0,
+            0.0
+          ],
+          "lean": 5.0,
+          "rot": 0.0,
+          "dx": 0.0,
+          "dy": 0.0,
+          "dz": 0.0,
+          "body_pitch": 0.0,
+          "body_axis": 0.0,
+          "body_pivot": 0.0,
+          "chest_yaw": 0.0,
+          "pelvis_yaw": 0.0,
+          "head": -10.0,
+          "head_pitch": -5.0,
+          "head_yaw": 20.0,
+          "head_depth": 0.0
+        },
+        "hold": 0.8,
+        "travel": 1.2,
+        "ease": "smooth"
+      },
+      {
+        "pose": {
+          "armL": [
+            -30.0,
+            10.0,
+            35.0,
+            105.0
+          ],
+          "armR": [
+            30.0,
+            -10.0,
+            35.0,
+            105.0
+          ],
+          "legL": [
+            -6.0,
+            4.0,
+            0.0,
+            0.0
+          ],
+          "legR": [
+            6.0,
+            -4.0,
+            0.0,
+            0.0
+          ],
+          "lean": 5.0,
+          "rot": 0.0,
+          "dx": 0.0,
+          "dy": 0.0,
+          "dz": 0.0,
+          "body_pitch": 0.0,
+          "body_axis": 0.0,
+          "body_pivot": 0.0,
+          "chest_yaw": 0.0,
+          "pelvis_yaw": 0.0,
+          "head": 18.0,
+          "head_pitch": 15.0,
+          "head_yaw": -30.0,
+          "head_depth": 0.0
+        },
+        "hold": 0.2,
+        "travel": 0.5,
+        "ease": "smooth"
+      }
+    ],
+    "ground": true
+  },
+  "layers": [],
+  "controls": {},
+  "physics": {},
+  "render": {
+    "parts": true,
+    "textures": true,
+    "gaps": true,
+    "outline": true,
+    "perfect": true
+  },
+  "yaw": 20,
+  "pitch": 0.0,
+  "playback": "once"
+}

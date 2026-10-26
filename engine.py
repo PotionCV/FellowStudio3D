@@ -14,6 +14,7 @@ RENDER_DEFAULTS=dict(parts=True,textures=True,gaps=True,outline=True,perfect=Tru
 LIMBS=('armL','armR','legL','legR')
 COLORS={'armL':(232,180,105),'armR':(116,152,190),'legL':(138,180,128),'legR':(212,138,168),'head':(170,146,206),'torso':(216,118,90)}
 LABELS={'body':'全身','arms':'双臂','legs':'双腿','armL':'左臂','armR':'右臂','legL':'左腿','legR':'右腿','torso':'腰 / 躯干','head':'头颈'}
+LABELS['tail']='尾巴'
 POSES={'站立':'stand','下蹲':'crouch','举手':'cheer','伸手':'point','搬物':'carry','推东西':'push','敬礼':'salute','踢腿':'kick','挥拳':'punch','攀爬':'climb'}
 ACTIONS={k:L.KINDS[k].label for k in ('stand',)+L.MENU}
 ACTIONS['pose']=L.KINDS['pose'].label
@@ -21,7 +22,10 @@ PROJECT_NAMES=dict(stand='Idle',walk='Walk',run='Run',wave='Wave',raise_='Raise 
 PROJECT_NAMES['raise']=PROJECT_NAMES.pop('raise_')
 PROJECT_NAMES.update(jump='Jump',thrust='Thrust',swing='Swing attack',kick='Kick',hit='Hit reaction',fall='Fall',getup='Get up',roll='Roll',climb='Climb',turn='Turn')
 PROJECT_NAMES.update(twist='Waist twist',lift='Pick up')
-POSE_CHANNELS=(*LIMBS,'lean','rot','dx','dy','dz','body_pitch','body_axis','body_pivot','chest_yaw','pelvis_yaw','head','head_pitch','head_yaw','head_depth')
+PROJECT_NAMES.update(swim='Swim',hover='Hover')
+PROJECT_NAMES['poseclip']='Pose animation'
+PROJECT_NAMES['tail']='Tail motion'
+POSE_CHANNELS=(*LIMBS,'tail','lean','rot','dx','dy','dz','body_pitch','body_axis','body_pivot','chest_yaw','pelvis_yaw','head','head_pitch','head_yaw','head_depth')
 
 class PreviewCancelled(Exception):pass
 
@@ -38,6 +42,7 @@ def mirror_pose(pose):
     for key,value in pose.items():
         if key in LIMBS:
             result[key[:-1]+('L' if key.endswith('R') else 'R')]=[-value[0],-value[1],value[2],value[3]]
+        elif key=='tail':result[key]=[v if i%3==0 else -v for i,v in enumerate(value)]
         else:result[key]=-value if key in ('dx','rot','body_axis','head','head_yaw','chest_yaw','pelvis_yaw','yaw') else value
     return result
 
@@ -65,6 +70,10 @@ def entry(kind):
     if getattr(C,'unilateral',False):value['side']='right'
     if kind=='raise':value['plane']='front'
     if kind=='lift':value.update(side='both',operation='pickup')
+    if kind=='swim':value['style']='breast'
+    if kind=='poseclip':
+        from pose_animation import default_cards
+        value.update(cards=default_cards(),ground=True)
     return value
 
 def new_project(base='stand',name=None):
@@ -85,11 +94,16 @@ def targets(scope):
 def samples(e,n,project=None):
     C=L.KINDS[e['kind']]; param=C.defaults();param.update(e.get('params',{}))
     if e['kind']=='kick':param['_style']=e.get('style','swing')
+    if e['kind']=='swim':param['_style']=e.get('style','breast')
+    if e['kind'] in ('swim','hover'):param['_float_pivot']=_roll_pivot(json.dumps(MD.normalize((project or {}).get('model')),sort_keys=True))
     if e['kind']=='raise':param['_plane']=e.get('plane','side')
     if e['kind']=='lift':
         param['_operation']=e.get('operation','pickup')
         param['_reach_factor']=C.reach_factor(param,(project or {}).get('model'),e.get('side','both'))
     if e['kind']=='pose':param['_pose']={k:copy.deepcopy(v) for k,v in e.get('pose',{}).items() if k in POSE_CHANNELS}
+    if e['kind']=='poseclip':
+        from pose_animation import normalize_cards
+        param.update(_cards=normalize_cards(e.get('cards',[])),_loop=e.get('mode',MT.mode(project or {}))=='loop',_ground=e.get('ground',True))
     if e['kind']=='roll':param['_roll_pivot']=_roll_pivot(json.dumps(MD.normalize((project or {}).get('model')),sort_keys=True))
     result=[]
     for i in range(n):
@@ -131,7 +145,7 @@ def samples(e,n,project=None):
     return result
 
 def columns(seq,k):
-    return np.array([p.get(k,[0.]*4 if k in LIMBS else 0.) for p in seq],dtype=float)
+    return np.array([p.get(k,[0.]*4 if k in LIMBS else [0.]*9 if k=='tail' else 0.) for p in seq],dtype=float)
 
 def flight_frames(seq,project):
     """Reserve flight height even when a pose layer precedes the jump layer."""
@@ -145,11 +159,12 @@ def flight_frames(seq,project):
 
 def authored(project,cancel=None):
     check_preview(cancel)
+    if isinstance(project.get('model'),dict) and 'face' in project['model']:project=dict(project,model={k:v for k,v in project['model'].items() if k!='face'})
     n=max(1,min(120,round(project.get('seconds',2)*project.get('fps',12))))
     if 'pose' in project: seq=[norm(project['pose']) for _ in range(n)]
     else:
         seq=[norm(F.POSES['stand']) for _ in range(n)]
-        base={**project['base'],'mode':MT.mode(project)}
+        base={**project['base'],'mode':project.get('base_playback',MT.mode(project))}
         for p,b in zip(seq,samples(base,n,project)):p.update(b)
         seq=[norm(p) for p in seq]
     timed=any(any(k in e for k in ('start','end','span','fade')) for e in project.get('layers',[]) if e.get('enabled',True))
@@ -198,6 +213,8 @@ def authored(project,cancel=None):
             if k=='dy':val[protected_height]=old[protected_height]
             for i,p in enumerate(seq):p[k]=val[i].tolist()
     if not controlled:apply_controls(seq,project,range_reference)
+    if any(item.get('kind')=='tail' and item.get('wag') for item in (project.get('model') or {}).get('attachments',[])):
+        for i,p in enumerate(seq):p['_motion_phase']=i/max(1,n if MT.mode(project)=='loop' else n-1)
     for p in seq:
         check_preview(cancel)
         p['yaw']=p.get('yaw',0)+project.get('yaw',0);p['pitch']=project.get('pitch',0)
@@ -212,6 +229,7 @@ def authored(project,cancel=None):
         reference['base'].setdefault('params',{})['breath']=0.
         for pose,rest in zip(seq,authored(reference,cancel)):
             check_preview(cancel)
+            if pose.get('_ground') is False:continue
             pose['_foot_targets']={leg:[(yaw,R.chain(dict(rest,yaw=yaw,pitch=0,_camera_y=0),leg)[3]) for yaw in (45,135)] for leg in ('legL','legR')}
             pose['_breath_ik']=True
             pose['_breath_dy']=pose.get('dy',0)-rest.get('dy',0)
@@ -228,7 +246,7 @@ def apply_thrust(seq,entry,project,cancel=None):
         weight=float(entry.get('mix',1))*MT.layer_weight(entry,i,len(seq),project)
         if weight<=0:continue
         t=MT.sample_time(entry,i,len(seq),project);drives=[]
-        pinned={leg:[(yaw,R.chain(dict(pose,yaw=yaw,pitch=0),leg)[3]) for yaw in (45,135)] for leg in ('legL','legR')} if (allowed is None or 'pelvis_yaw' in allowed) and project.get('controls',{}).get('torso',{}).get('pin_feet',True) else {}
+        pinned={leg:[(yaw,R.chain(dict(pose,yaw=yaw,pitch=0),leg)[3]) for yaw in (45,135)] for leg in ('legL','legR')} if pose.get('_ground') is not False and (allowed is None or 'pelvis_yaw' in allowed) and project.get('controls',{}).get('torso',{}).get('pin_feet',True) else {}
         for current in (('left','right') if side=='both' else (side,)):
             phase=t
             if side=='both' and entry.get('alternating'):
@@ -249,7 +267,13 @@ def apply_thrust(seq,entry,project,cancel=None):
 def apply_controls(seq,project,range_reference=None):
     for scope,c in sorted(project.get('controls',{}).items(),key=lambda item: (0 if item[0]=='body' else 1 if item[0] in ('arms','legs') else 2,item[0])):
         for k in targets(scope):
-            if k in LIMBS:
+            if k=='tail':
+                names=('root','middle','tip');axes=('pitch','yaw','roll')
+                offset=np.array([c.get(joint+'_'+axis,0.) for joint in names for axis in axes])
+                values=columns(seq,'tail')*c.get('range',1)+offset
+                if c:
+                    for pose,value in zip(seq,values):pose['tail']=value.tolist()
+            elif k in LIMBS:
                 a=columns(seq,k); mean=range_reference[k] if range_reference is not None else a.mean(axis=0); a=mean+(a-mean)*c.get('range',1)
                 sign=-1 if k.endswith('L') else 1
                 adjustment=np.array([sign*c.get('raise',0),sign*c.get('bend',0),c.get('forward',0),c.get('fold',0)])+np.array(c.get('offset',[0,0,0,0]))
@@ -260,7 +284,7 @@ def apply_controls(seq,project,range_reference=None):
                 for p in seq:
                     if k=='head':p['head_pitch']+=c.get('nod',0);p['head']+=c.get('tilt',0);p['head_yaw']+=c.get('turn',0);p['head_depth']+=c.get('depth',0);p['head_follow_chest']=bool(c.get('follow_chest',True))
                     else:
-                        pinned={leg:[(yaw,R.chain(dict(p,yaw=yaw,pitch=0),leg)[3]) for yaw in (45,135)] for leg in ('legL','legR')} if c.get('pin_feet',True) else {}
+                        pinned={leg:[(yaw,R.chain(dict(p,yaw=yaw,pitch=0),leg)[3]) for yaw in (45,135)] for leg in ('legL','legR')} if c.get('pin_feet',True) and p.get('_ground') is not False else {}
                         p['lean']+=c.get('lean',0);p['dy']+=c.get('height',0);p['dx']+=c.get('shift',0);p['rot']+=c.get('tilt',0);p['chest_yaw']+=c.get('turn',0);p['pelvis_yaw']+=c.get('hips_turn',0)
                         for leg,views in pinned.items():p[leg]=R.solve_multi(p,leg,views)
 
@@ -279,7 +303,7 @@ def ground_pose(pose):
 def _roll_pivot(model_key):
     import rounded_scene as S
     pose={'_model':json.loads(model_key),**norm(F.POSES['stand'])}
-    j,triangles,_=S.pose_meshes(pose);vertices=np.concatenate([v for part,face,v,uv in triangles])
+    j,triangles,_=S.pose_meshes(pose);vertices=np.concatenate([v for part,face,v,uv in triangles if not part.startswith('prop')])
     hip=np.mean([S.geometry(pose)[2][key][0] for key in ('legL','legR')],axis=0)
     return float((vertices[:,1].min()+vertices[:,1].max())/2-hip[1])
 
@@ -311,7 +335,8 @@ def _spring_track(target,roots,length,seconds,strength,bounce,periodic=True):
 def physical(seq,project,cancel=None):
     check_preview(cancel)
     configs=project.get('physics',{})
-    if not any(max(c.get('strength',0),c.get('upper',0),c.get('lower',0))>0 for c in configs.values()):return seq
+    def amount(c):return max(c.get(k,0) for k in ('strength','upper','lower','root','middle','tip'))
+    if not any(amount(c)>0 for c in configs.values()):return seq
     n=len(seq); seconds=project.get('seconds',2); sub=max(1,math.ceil(120*seconds/n));periodic=MT.mode(project)=='loop';count=n*sub if periodic else (n-1)*sub+1
     # Geometry is evaluated in two fixed anatomical planes, never in the preview camera.
     dense=[]
@@ -324,7 +349,7 @@ def physical(seq,project,cancel=None):
         dense.append(p)
     for key,c in configs.items():
         check_preview(cancel)
-        strength=max(c.get('strength',0),c.get('upper',0),c.get('lower',0)); bounce=c.get('bounce',.4)
+        strength=amount(c); bounce=c.get('bounce',.4)
         if strength<=0:continue
         if key in LIMBS:
             upper_strength=c.get('upper',c.get('strength',0));lower_strength=c.get('lower',c.get('strength',0))
@@ -354,6 +379,9 @@ def physical(seq,project,cancel=None):
                     else:
                         p[key][axis]+=actual_upper[j]-upper[j]
                         p[key][axis+1]+=(b[j]-lower[j])*lower_strength-(actual_upper[j]-upper[j])
+        elif key=='tail':
+            import tails
+            tails.physical(dense,c,seconds,periodic,_spring_track,lambda:check_preview(cancel))
         elif key=='head':
             roots=[]
             for p in dense:
@@ -381,15 +409,20 @@ def physical(seq,project,cancel=None):
 def _compiled(key):
     p=json.loads(key);return physical(authored(p),p)
 
-def poses(project):
-    motion={k:v for k,v in project.items() if k not in ('name','render','export_view','auto_name_key','assets3d','camera_y')}
-    seq=copy.deepcopy(_compiled(json.dumps(motion,sort_keys=True)))
+def motion_project(project):
+    motion={k:v for k,v in project.items() if k not in ('name','render','export_view','export_directions','auto_name_key','assets3d','camera_y')}
+    if isinstance(motion.get('model'),dict) and 'face' in motion['model']:motion['model']={k:v for k,v in motion['model'].items() if k!='face'}
+    return motion
+
+def visible(seq,project,bundle=None):
     import rounded_scene
-    bundle=rounded_scene.assets(project)
-    for pose in seq:
-        pose['_assets3d']=bundle
-        if project.get('camera_y'):pose['_camera_y']=project['camera_y']
-    return seq
+    bundle=bundle if bundle is not None else rounded_scene.assets(project)
+    return [dict(pose,_assets3d=bundle,**({'_camera_y':project['camera_y']} if project.get('camera_y') else {})) for pose in seq]
+
+def poses(project):
+    motion=motion_project(project)
+    seq=copy.deepcopy(_compiled(json.dumps(motion,sort_keys=True)))
+    return visible(seq,project)
 
 OUTLINE_COLOR=(128,128,128,255)
 PART_OUTLINE_COLOR=(72,72,72,255)
@@ -439,18 +472,31 @@ def load(path):
     p=json.loads(Path(path).read_text(encoding='utf-8'))
     if p.get('version')!=2 or 'base' not in p:raise ValueError('请选择新版动作工坊的配方；旧版文件保留在原工具中。')
     if p['base']['kind'] not in L.KINDS:raise ValueError('未知基础动作')
+    for item in [p['base'],*p.get('layers',[])]:
+        if item.get('kind')=='poseclip':
+            from pose_animation import normalize_cards
+            normalize_cards(item.get('cards',[]))
     return normalize_project_name(p)
 
-def export(project,out=None,name=None,formats=None,create_folder=True,scale=1):
+def export_name(project,name=None):
+    name=(name if name is not None else project.get('name','Animation')).strip()
+    if not name or name in ('.','..') or re.search(r'[<>:"/\\|?*\x00-\x1f]',name) or name.endswith(('.', ' ')):
+        raise ValueError('名称不能为空，或包含路径与文件名禁用字符')
+    if name.split('.')[0].upper() in {'CON','PRN','AUX','NUL',*[f'COM{i}' for i in range(1,10)],*[f'LPT{i}' for i in range(1,10)]}:raise ValueError('请换一个导出名称')
+    return name
+
+def export(project,out=None,name=None,formats=None,create_folder=True,scale=1,directions=1):
+    if isinstance(directions,bool) or not isinstance(directions,int) or directions not in (1,4,8):raise ValueError('方向数必须为1、4或8。')
+    if directions!=1:
+        import directional_export
+        return directional_export.export(project,out,name,formats,create_folder,scale,directions)
+    if 'export_directions' in project:project=dict(project,export_directions=1)
     if isinstance(scale,bool) or not isinstance(scale,int) or not 1<=scale<=8:raise ValueError('输出比例必须是 1 到 8 的整数')
     formats=set(('png','strip','gif','recipe') if formats is None else formats)
     if not formats or formats-{'png','strip','gif','recipe'}:raise ValueError('请选择至少一种有效的导出类型')
     parent=Path(out or ROOT/'out')
     requested=name
-    name=(name if name is not None else project.get('name','Animation')).strip()
-    if not name or name in ('.','..') or re.search(r'[<>:"/\\|?*\x00-\x1f]',name) or name.endswith(('.', ' ')):
-        raise ValueError('名称不能为空，或包含路径与文件名禁用字符')
-    if name.split('.')[0].upper() in {'CON','PRN','AUX','NUL',*[f'COM{i}' for i in range(1,10)],*[f'LPT{i}' for i in range(1,10)]}:raise ValueError('请换一个导出名称')
+    name=export_name(project,name)
     parent.mkdir(parents=True,exist_ok=True)
     dest=(parent/name if requested is not None else Path(tempfile.mkdtemp(prefix=name+'_',dir=parent))) if create_folder else parent
     if create_folder and requested is not None:dest.mkdir(exist_ok=False)

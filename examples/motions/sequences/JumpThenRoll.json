@@ -1,0 +1,76 @@
+{
+  "version": 2,
+  "name": "JumpThenRoll",
+  "seconds": 2.6666666666666665,
+  "fps": 12,
+  "base": {
+    "kind": "stand",
+    "params": {
+      "breath": 0.9,
+      "sway": 0.0
+    },
+    "cycles": 1,
+    "mix": 1.0,
+    "retain": 1.0,
+    "enabled": true,
+    "scope": "all",
+    "phase": 0.0,
+    "blend": "add"
+  },
+  "layers": [
+    {
+      "kind": "jump",
+      "params": {
+        "height": 7,
+        "crouch": 0.55,
+        "tuck": 0.5,
+        "prepare": 0.2,
+        "landing": 0.25,
+        "forward": 8
+      },
+      "cycles": 1,
+      "mix": 1.0,
+      "retain": 0.0,
+      "enabled": true,
+      "scope": "all",
+      "phase": 0.0,
+      "blend": "add",
+      "mode": "once",
+      "start": 0.0,
+      "end": 0.5,
+      "fade": 0.12
+    },
+    {
+      "kind": "roll",
+      "params": {
+        "direction": 0,
+        "curl": 0.8,
+        "distance": 4
+      },
+      "cycles": 1,
+      "mix": 1.0,
+      "retain": 0.0,
+      "enabled": true,
+      "scope": "all",
+      "phase": 0.0,
+      "blend": "add",
+      "mode": "once",
+      "contact": "auto",
+      "start": 0.5,
+      "end": 1.0,
+      "fade": 0.12
+    }
+  ],
+  "controls": {},
+  "physics": {},
+  "render": {
+    "parts": true,
+    "textures": true,
+    "gaps": true,
+    "outline": true,
+    "perfect": true
+  },
+  "yaw": 0.0,
+  "pitch": 0.0,
+  "playback": "once"
+}

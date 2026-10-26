@@ -23,10 +23,10 @@ def _progressive_preview(project,revision,frame):
  if not current(revision):return None
  # Pose controls first; don't make the user wait for the entire spring warm-up.
  cancel=lambda:not current(revision)
- motion={k:v for k,v in project.items() if k not in ('name','render','export_view','auto_name_key','assets3d','camera_y')}
+ motion=E.motion_project(project)
  authored=E.authored(motion,cancel);bundle=S.assets(project)
  def visible(seq):
-  return [dict(pose,_assets3d=bundle,**({'_camera_y':project['camera_y']} if project.get('camera_y') else {})) for pose in seq]
+  return E.visible(seq,project,bundle)
  draft=visible(authored)
  frame%=len(draft);settings=project.get('render')
  images=frame_images(draft,settings,frame)

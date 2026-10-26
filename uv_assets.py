@@ -13,7 +13,7 @@ def parts(project):
  base=('body',)+PARTS[2:] if project.get('model',{}).get('structure')=='plush' else PARTS
  return base+tuple(item['id'] for item in project.get('model',{}).get('attachments',[]))
 
-def color(part):return COLORS.get(part,COLORS['head'])
+def color(part):return (182,192,199) if part.startswith('prop') else COLORS.get(part,COLORS['head'])
 
 def part_name(part,project):
  if part=='body':return '主体'
@@ -106,9 +106,24 @@ def texture_match(project,part,path):
     return 'unknown' if surface_record(manifest,part)==surface_record(project,part) else 'mapping'
    record={'part':part,'surface':surface_record(manifest,part)}
  if record is None:return 'unknown'
+ return _record_match(project,part,record)
+
+def _record_match(project,part,record):
  other=record.get('part','')
  if other!=part and not (part.endswith(('L','R')) and other[:-1]==part[:-1]):return 'part'
  return 'matched' if record.get('surface')==surface_record(project,part) else 'mapping'
+
+def import_image(project,part,source,name='Clipboard'):
+ """Replace one atlas at native resolution, preserving alpha and protection."""
+ expected=tuple(project['textures'][part]['layout']['size'])
+ if source.size!=expected:raise ValueError(f'Expected {expected[0]} x {expected[1]} px; got {source.width} x {source.height}. Export the template for this model first.')
+ raw=source.info.get('FellowStudio3D');record=json.loads(raw) if raw else None
+ if record and record.get('guide'):raise ValueError('Choose the painting PNG, not the guide image.')
+ match=_record_match(project,part,record) if record else 'unknown'
+ if match=='part':raise ValueError('This texture belongs to another body part.')
+ if match=='mapping':raise ValueError('This texture uses another model surface or UV layout. Adapt the painting files first.')
+ resource=project['textures'][part];resource.update(png=encode(source.convert('RGBA')),name=name,provenance=match)
+ resource.pop('painting_pending',None);resource.pop('painting_override',None)
 
 def import_texture(project,part,path,check=True):
  match='unknown'
@@ -125,6 +140,8 @@ def import_texture(project,part,path,check=True):
   image=source.convert('RGBA')
  # Alpha is intentionally preserved; holes reveal the next surface in depth.
  resource=project['textures'][part];resource['png']=encode(image);resource['name']=Path(path).name;resource['provenance']=match
+ resource.pop('painting_pending',None)
+ resource.pop('painting_override',None)
 
 def repack(project):
  """Fit existing painted faces to new physical dimensions, preserving face identity."""
