@@ -45,6 +45,17 @@ class PlatformTests(unittest.TestCase):
         self.assertEqual(fitted_scale(.8,1920,1080),.8)
         self.assertEqual(fitted_scale(1.5,1920,1080),1.5)
 
+    def test_measured_preview_shrinks_until_usable_without_oscillation(self):
+        from ui_layout import preview_fitted_scale
+        scale=1.5
+        for _ in range(20):
+            scale=preview_fitted_scale(scale,400,100,1280,720)
+        self.assertEqual(scale,.75)
+        self.assertEqual(preview_fitted_scale(1.2,500,360,1280,720),1.2)
+        self.assertLess(preview_fitted_scale(1.2,200,500,1280,720),1.2)
+        self.assertLess(preview_fitted_scale(1.2,500,100,1280,720),1.2)
+        self.assertEqual(preview_fitted_scale(.75,1,1,820,560),.75)
+
     def test_pixel_font_matches_mac_typographic_and_localized_names(self):
         for name in P.PIXEL_FAMILIES:
             self.assertEqual(P.pixel_font_family(('Helvetica',name),'Helvetica'),name)

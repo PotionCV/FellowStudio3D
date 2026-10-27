@@ -70,6 +70,7 @@ class App(tk.Tk):
         if sys.platform=='darwin':
             self.bind('<Command-z>',lambda e:self.undo());self.bind('<Command-Shift-z>',lambda e:self.undo(True));self.bind('<Command-s>',lambda e:self.save_as())
         self.protocol('WM_DELETE_WINDOW',self.close);self.after(200,self.render)
+        self.after(350,self.fit_preview_space)
         if self.load_error:self.status.set('未覆盖原配方：'+self.load_error)
 
     def make_project(self,kind='stand'):
@@ -351,8 +352,24 @@ class App(tk.Tk):
         self.resizing=True
         if self.resize_job:self.after_cancel(self.resize_job)
         self.resize_job=self.after(130,self.finish_resize)
+    def fit_preview_space(self):
+        if not self.winfo_ismapped():return
+        from ui_layout import preview_fitted_scale
+        scale=preview_fitted_scale(self.ui_scale,self.canvas.winfo_width(),self.canvas.winfo_height(),self.winfo_width(),self.winfo_height())
+        if scale>=self.ui_scale:return
+        self.ui_scale=scale
+        self.ui_font.configure(size=-round(24*scale));self.caption_font.configure(size=-round(18*scale))
+        self.refresh_control_styles()
+        self.fit_panels(self.panes.winfo_width())
+        # Reflow may take more than one idle pass. Continue even if a starved
+        # canvas stays at one pixel and therefore emits no Configure event.
+        if self.resize_job:self.after_cancel(self.resize_job)
+        self.resize_job=self.after(180,self.finish_resize)
+
     def finish_resize(self):
-        self.resize_job=None;self.resizing=False;self.render()
+        self.resize_job=None;self.resizing=False
+        self.fit_preview_space()
+        self.render()
     def update_layer_actions(self):
         index=self.selection[1] if self.selection[0]=='layer' else -1;count=len(self.project['layers'])
         for text,enabled in (('上移',0<index<count),('下移',0<=index<count-1),('移除',0<=index<count)):
