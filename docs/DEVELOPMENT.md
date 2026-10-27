@@ -1,9 +1,12 @@
 # Development and release guide
 
+UI additions must follow the [workspace/ownership framework](UI-DESIGN.zh-CN.md): peer model categories, object-first controls, whole-action toolbar wrapping, explicit draft versus live settings, and session-only export options.
+
 ## Layout
 
 - `app.py`, `studio_ui.py`: desktop workflow and background preview coordination.
 - `engine.py`, `layers.py`, `rig.py`: motion composition, physics and IK.
+- `retro_animation.py`: deterministic local cel reuse in `engine.visible`, after physics and before shared preview/export rendering. Defaults off; never store stylized samples in motion recipes.
 - `game_actions.py`, `motion_timing.py`: staged actions and shared playback timing.
 - `aerial_actions.py`: periodic swim/hover generators and explicit airborne contact.
 - `directional_export.py`: bounded-size directional atlases, frame descriptors and staged output.

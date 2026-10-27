@@ -1,7 +1,7 @@
 """Native canvas and pixel-light settings shared by preview, controls and export."""
 import math
 
-DEFAULTS=dict(canvas_width=64,canvas_height=64,lighting=False,self_shadow=False,shadow_strength=.65,
+DEFAULTS=dict(canvas_width=64,canvas_height=64,retro_animation=False,lighting=False,self_shadow=False,shadow_strength=.65,
               light_style='painted',light_angle=315.,light_height=55.,light_strength=.65,
               light_color='#fff0ce',shadow_color='#655478')
 
@@ -15,7 +15,7 @@ def normalized(settings=None):
     if result['light_style'] not in ('painted','facet'):result['light_style']='painted'
     # Earlier local lighting projects implicitly enabled self shadows.
     if settings and 'self_shadow' not in settings and settings.get('lighting') is True:result['self_shadow']=True
-    for key in ('lighting','self_shadow'):
+    for key in ('lighting','self_shadow','retro_animation'):
         if not isinstance(result[key],bool):result[key]=DEFAULTS[key]
     for key in ('canvas_width','canvas_height'):result[key]=int(number(result[key],64,32,256))
     for key,lo,hi in (('light_angle',0,360),('light_height',5,85),('light_strength',0,1),('shadow_strength',0,1)):

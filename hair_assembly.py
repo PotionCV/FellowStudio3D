@@ -48,6 +48,16 @@ def set_value(editor,key,field,value):
         other[field]=(hair.counterpart(value) or value) if field=='role' else -value if field in FLIPPED else value
     commit(editor,settings,field=='role')
 
+def set_link(editor,key,enabled):
+    editor.hair_link=enabled
+    if enabled:
+        settings=assemble(editor);source=hair.resolve(settings['pieces'],key)
+        other=hair.paired(settings['pieces'],source) if source else None
+        if other:
+            for field,*_ in hair.LOCK_SPECS:other[field]=-source[field] if field in FLIPPED else source[field]
+            commit(editor,settings,True);return
+    editor.show_params()
+
 def duplicate(editor,key,mirrored=False):
     if len(editor.draft.get('attachments',[]))>=32:raise ValueError('Maximum 32 attachments')
     settings=assemble(editor);source=hair.resolve(settings['pieces'],key)
@@ -95,8 +105,11 @@ def mount(editor,kind=None,selector=True):
     def choose(label):editor.hair_piece=choices[label];editor.show_params()
     if selector:PixelOption(box,value,*choices,command=choose).pack(fill='x',padx=12,pady=8)
     bar=FlowBar(box,compact=True);bar.pack(fill='x',padx=12)
-    for label,fn in (('复制发片',lambda:duplicate(editor,key)),('镜像复制发片',lambda:duplicate(editor,key,True)),('删除发片',lambda:delete(editor,key))):
-        PixelButton(bar,text=label,command=lambda f=fn:safe(editor,f),compact=True).pack(side='left')
+    actions={tr('复制发片'):lambda:duplicate(editor,key),tr('镜像复制发片'):lambda:duplicate(editor,key,True),tr('删除发片'):lambda:delete(editor,key)}
+    operation=tk.StringVar(master=editor,value=tr('部件操作…'))
+    def operate(label):
+        operation.set(tr('部件操作…'));safe(editor,actions[label])
+    PixelOption(bar,operation,*actions,command=operate).pack(side='left',fill='x',expand=True)
     if item['section']=='cap':
         labels={tr(v):k for k,v in hair.CAP_SHAPES.items()};current=hair.CAP_SHAPES.get(item['shape'],'角锥形');labels[tr(current)]=item['shape'];value=tk.StringVar(master=editor,value=tr(current))
         def shape(label):set_value(editor,key,'shape',labels[label])
@@ -106,8 +119,11 @@ def mount(editor,kind=None,selector=True):
         other=hair.paired(all_items,item)
         if other:
             linked=tk.BooleanVar(master=editor,value=getattr(editor,'hair_link',True))
-            PixelCheck(box,text='同步左右发束',variable=linked,command=lambda:setattr(editor,'hair_link',linked.get())).pack(fill='x',padx=12,pady=5)
-            PixelButton(box,text='将此束对称到另一侧',command=lambda:mirror(editor,key)).pack(fill='x',padx=12)
+            PixelCheck(box,text='左右联动',variable=linked,command=lambda:set_link(editor,key,linked.get())).pack(fill='x',padx=12,pady=5)
+            Label(box,text=tr('关联部件')+'：'+hair.name(other),wrap=True,anchor='w').pack(fill='x',padx=12,pady=3)
+            PixelButton(box,text='对称到另一侧',command=lambda:mirror(editor,key)).pack(fill='x',padx=12)
+        elif hair.counterpart(hair.role(item)):
+            PixelButton(box,text='补齐另一侧',command=lambda:safe(editor,lambda:mirror(editor,key))).pack(fill='x',padx=12,pady=5)
         details=getattr(editor,'hair_lock_details',False);specs=hair.LOCK_SPECS[:5]+(hair.LOCK_SPECS[5:] if details else ())
     if item['section']!='cap' and details:
         labels={tr(label):role for role,label in hair.ROLES.items() if role!='cap'};value=tk.StringVar(master=editor,value=tr(hair.ROLES[hair.role(item)]))

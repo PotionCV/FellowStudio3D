@@ -1,5 +1,5 @@
 """FellowStudio — direct a body, not a timeline."""
-import copy, ctypes, json, math, os, time, tkinter as tk
+import copy, ctypes, json, math, os, sys, time, tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, font
 from pathlib import Path
 from PIL import Image, ImageTk
@@ -19,10 +19,10 @@ class App(tk.Tk):
     def __init__(self,state=STATE,preferences=None):
         super().__init__();self.state_path=Path(state);self.title('FellowStudio · 动作工坊');self.minsize(1100,720);self.configure(bg=BG)
         self.option_add('*Font',('Microsoft YaHei UI',10));self.option_add('*Background',PANEL);self.option_add('*Foreground',INK)
-        try:
-            for f in E.ROOT.glob('Boutique*.ttf'):ctypes.windll.gdi32.AddFontResourceExW(str(f),0x10,0)
-            if '精品点阵体9×9 1.9 R' in font.families():self.option_add('*Font',('精品点阵体9×9 1.9 R',-20))
-        except (AttributeError,OSError):pass
+        from platform_support import register_fonts
+        register_fonts(E.ROOT)
+        pixel_family='精品点阵体9×9 1.9 R'
+        if pixel_family not in font.families():pixel_family=font.nametofont('TkDefaultFont').actual('family')
         self.project=E.new_project('stand');self.load_error=''
         if self.state_path.exists():
             try:self.project=E.load(self.state_path)
@@ -52,8 +52,8 @@ class App(tk.Tk):
             for key in O.DEFAULTS:
                 if key in saved:self.project['render'][key]=saved[key]
                 elif self.state_path.exists():self.project['render'].pop(key,None)
-        self.ui_font=font.Font(family='精品点阵体9×9 1.9 R',size=-round(24*self.ui_scale));self.option_add('*Font',self.ui_font)
-        self.caption_font=font.Font(family='精品点阵体9×9 1.9 R',size=-round(18*self.ui_scale))
+        self.ui_font=font.Font(family=pixel_family,size=-round(24*self.ui_scale));self.option_add('*Font',self.ui_font)
+        self.caption_font=font.Font(family=pixel_family,size=-round(18*self.ui_scale))
         self.executor=None;self.future_job=None;self.latest_request=None;self.revision=0;self.raw_images={};self.resize_job=None;self.resizing=False;self.focus_view=0;self.active_project=copy.deepcopy(self.project)
         self.model_editor=None
         self.fit_window()
@@ -61,6 +61,8 @@ class App(tk.Tk):
         self.selection=('body','arms');self.seq=[];self.photos={};self.cells=[];self.refs=[];self.drag=None;self.drag_physics=None;self.compare=False
         self._build();self.restore_panel_widths();self.refresh_lists();self.show_params();self.refresh_control_styles();self.rebuild()
         self.bind('<Control-z>',lambda e:self.undo());self.bind('<Control-y>',lambda e:self.undo(True));self.bind('<Control-s>',lambda e:self.save_as())
+        if sys.platform=='darwin':
+            self.bind('<Command-z>',lambda e:self.undo());self.bind('<Command-Shift-z>',lambda e:self.undo(True));self.bind('<Command-s>',lambda e:self.save_as())
         self.protocol('WM_DELETE_WINDOW',self.close);self.after(200,self.render)
         if self.load_error:self.status.set('未覆盖原配方：'+self.load_error)
 
@@ -88,13 +90,10 @@ class App(tk.Tk):
         self.textures=tk.BooleanVar(value=self.project.get('render',{}).get('textures',True))
         self.outline=tk.BooleanVar(value=self.project.get('render',{}).get('outline',True))
         self.outline_color=tk.StringVar(value=self.project.get('render',{}).get('outline_color','auto'))
-        self.button(options,'边线颜色',self.choose_outline_color).pack(side='right',padx=4)
-        self.button(options,'光照设置…',lambda:self.edit_render_options('lighting')).pack(side='right',padx=4)
-        for t,v in [('外边线',self.outline),('交叠留缝',self.gaps),('部位分色',self.parts),('显示贴图',self.textures)]:PixelCheck(options,text=t,variable=v,command=self.display).pack(side='right',padx=4)
+        self.button(options,'创作资源库…',self.load_motion_resource).pack(side='left',padx=4)
         self.light_enabled=tk.BooleanVar(value=O.normalized(self.project.get('render'))['lighting']);self.self_shadow=tk.BooleanVar(value=O.normalized(self.project.get('render'))['self_shadow'])
+        self.retro_animation=tk.BooleanVar(value=O.normalized(self.project.get('render'))['retro_animation'])
         self.render_flag_checks={}
-        for text,key,var in (('自阴影','self_shadow',self.self_shadow),('光照','lighting',self.light_enabled)):
-            check=PixelCheck(options,text=text,variable=var,command=lambda k=key,v=var:self.toggle_render_flag(k,v));check.pack(side='right',padx=4);self.render_flag_checks[key]=check
         body=tk.PanedWindow(self,orient='horizontal',bg='#8d7257',bd=0,sashwidth=14,sashpad=2,showhandle=True,handlesize=22,handlepad=16,opaqueresize=False);self.panes=body;body.pack(fill='both',expand=True,padx=8)
         body.bind('<ButtonRelease-1>',lambda e:self.after_idle(self.remember_panel_widths))
         body.bind('<Configure>',lambda e:self.fit_panels(e.width))
@@ -103,20 +102,24 @@ class App(tk.Tk):
         self.label(left,'基础动作',fg=DIM).pack(fill='x',padx=10,pady=(12,5))
         self.base_name=tk.StringVar();self.base_menu=PixelOption(left,self.base_name,*[v for k,v in E.ACTIONS.items() if k!='pose'],command=self.change_base);self.base_menu.configure(bd=0,highlightthickness=0,bg=FIELD);self.base_menu.pack(fill='x',padx=10)
         self.button(left,'调整基础动作',lambda:self.select('base',0)).pack(fill='x',padx=10,pady=5)
-        creation=tk.StringVar(value='制作动画…')
+        creation=tk.StringVar(value='动画工具…')
         creation_actions={'从姿势开始…':self.choose_pose,'姿势动画…':self.edit_pose_animation,'动作串联…':self.arrange_actions,'保存动画…':self.save_motion_resource}
-        def create_motion(label):creation.set('制作动画…');creation_actions[label]()
+        def create_motion(label):creation.set('动画工具…');creation_actions[label]()
         PixelOption(left,creation,*creation_actions,command=create_motion).pack(fill='x',padx=10,pady=4)
         self.label(left,'叠加动作',fg=DIM).pack(fill='x',padx=10,pady=(18,5))
         stack_frame=tk.Frame(left,bg=INK,padx=4,pady=4);stack_frame.pack(fill='x',padx=10)
-        self.stack=tk.Listbox(stack_frame,height=6,bd=0,bg=FIELD,selectbackground=ACC,selectforeground=INK,exportselection=False,activestyle='none');self.stack.pack(fill='x');self.stack.bind('<<ListboxSelect>>',self.pick_layer)
+        self.stack=tk.Listbox(stack_frame,height=4,bd=0,bg=FIELD,selectbackground=ACC,selectforeground=INK,exportselection=False,activestyle='none');self.stack.pack(fill='x');self.stack.bind('<<ListboxSelect>>',self.pick_layer)
         r=tk.Frame(left);r.pack(fill='x',padx=10,pady=5)
         add_value=tk.StringVar(value='＋ 添加')
         def add_selected(label):
             key=next(k for k,v in E.ACTIONS.items() if v==label);self.add(key);add_value.set('＋ 添加')
         PixelOption(r,add_value,*[E.ACTIONS[k] for k in ('pose','raise','wave','bow','nod','shake','stretch','squat','bounce','thrust','swing','kick','hit','jump','fall','getup','roll','climb','turn','swim','hover','tail','hair')],command=add_selected).pack(side='left',fill='x',expand=True)
-        self.button(left,'移除',self.remove).pack(fill='x',padx=10,pady=(0,5))
-        self.button(left,'创作资源库…',self.load_motion_resource).pack(fill='x',padx=10,pady=4)
+        actions=FlowBar(left,compact=True);actions.pack(fill='x',padx=10,pady=4);self.layer_actions={}
+        for text,fn in (('上移',lambda:self.move_layer(-1)),('下移',lambda:self.move_layer(1)),('移除',self.remove)):
+            button=PixelButton(actions,text=text,command=fn,compact=True);button.pack(side='left');self.layer_actions[text]=button
+        effects=tk.Frame(left,bg=PANEL);effects.pack(fill='x',padx=10,pady=(12,0));self.animation_effects=effects
+        self.label(effects,'动画表现',fg=DIM).pack(fill='x',pady=(0,4))
+        check=PixelCheck(effects,text='复古动画',variable=self.retro_animation,command=lambda:self.toggle_render_flag('retro_animation',self.retro_animation));check.pack(fill='x');self.render_flag_checks['retro_animation']=check
         self.label(left,'整体控制',fg=DIM).pack(fill='x',padx=10,pady=(18,5))
         grid=tk.Frame(left);grid.pack(fill='x',padx=8);self.part_buttons={}
         for i,(k,t) in enumerate(E.LABELS.items()):
@@ -126,33 +129,41 @@ class App(tk.Tk):
         grid.columnconfigure((0,1),weight=1,uniform='parts')
         self.label(left,'控制作用于整段动作\n基础件始终保留',fg=DIM,justify='left',wraplength=200).pack(side='bottom',fill='x',padx=10,pady=12)
         center=tk.Frame(body,bg=BG);body.add(center,minsize=360,stretch='always',padx=8)
-        viewbar=FlowBar(center,compact=True,bg=BG);viewbar.pack(fill='x',pady=(0,6))
+        viewbar=FlowBar(center,compact=True,bg=BG);self.viewbar=viewbar;viewbar.pack(fill='x',pady=(0,6))
         self.handles=tk.BooleanVar(value=True);PixelCheck(viewbar,text='IK 手柄',variable=self.handles,command=self.render,bg=BG).pack(side='left')
-        self.label(viewbar,'朝向',bg=BG,fg=DIM).pack(side='left',padx=(10,0))
-        self.yaw=tk.StringVar(value=str(int(self.project.get('yaw',0))));PixelOption(viewbar,self.yaw,*[str(v) for v in sorted(set(range(0,360,30))|set(range(0,360,45)))],command=self.turn).pack(side='left')
-        self.button(viewbar,'画幅尺寸…',self.edit_render_options).pack(side='left',padx=6)
-        self.label(viewbar,'画幅 Y（px）',bg=BG,fg=DIM).pack(side='left',padx=(10,4))
+        self.ab=self.button(viewbar,'按住看基础',lambda:None);self.ab.pack(side='left')
+        self.display_options_button=self.button(viewbar,'显示选项…',self.toggle_display_options);self.display_options_button.pack(side='left')
+        self.button(viewbar,'画幅尺寸…',self.edit_render_options).pack(side='left')
+        self.display_options=FlowBar(center,compact=True,bg=PANEL);self.display_options_shown=False
+        for t,v in [('显示贴图',self.textures),('部位分色',self.parts),('外边线',self.outline),('交叠留缝',self.gaps)]:PixelCheck(self.display_options,text=t,variable=v,command=self.display).pack(side='left')
+        for text,key,var in (('光照','lighting',self.light_enabled),('自阴影','self_shadow',self.self_shadow)):
+            check=PixelCheck(self.display_options,text=text,variable=var,command=lambda k=key,v=var:self.toggle_render_flag(k,v));check.pack(side='left');self.render_flag_checks[key]=check
+        self.button(self.display_options,'边线颜色',self.choose_outline_color).pack(side='left')
+        self.button(self.display_options,'光照设置…',lambda:self.edit_render_options('lighting')).pack(side='left')
+        camera=FlowBar(center,compact=True,bg=BG);camera.pack(fill='x',pady=(0,6))
+        direction=tk.Frame(camera,bg=BG);direction.pack(side='left')
+        self.label(direction,'角色朝向',bg=BG,fg=DIM).pack(side='left',padx=(0,4))
+        self.yaw=tk.StringVar(value=str(int(self.project.get('yaw',0))));PixelOption(direction,self.yaw,*[str(v) for v in sorted(set(range(0,360,30))|set(range(0,360,45)))],command=self.turn).pack(side='left')
+        framing=tk.Frame(camera,bg=BG);framing.pack(side='left')
+        self.label(framing,'取景上下（px）',bg=BG,fg=DIM).pack(side='left',padx=(10,4))
         self.camera_y=tk.StringVar(value=str(int(self.project.get('camera_y',0))))
-        self.camera_entry=PixelEntry(viewbar,textvariable=self.camera_y,width=4,bg=FIELD);self.camera_entry.pack(side='left')
+        self.camera_entry=PixelEntry(framing,textvariable=self.camera_y,width=4,bg=FIELD);self.camera_entry.pack(side='left')
         self.camera_entry.field.bind('<Return>',self.set_camera_y);self.camera_entry.field.bind('<FocusOut>',self.set_camera_y)
-        exportbar=FlowBar(center,compact=True,bg=BG);exportbar.pack(fill='x',pady=(0,8))
-        self.ab=self.button(exportbar,'按住看基础',lambda:None);self.ab.pack(side='right')
-        self.label(exportbar,'导出视角',bg=BG,fg=DIM).pack(side='right',padx=4)
-        self.export_view=tk.StringVar(value='焦点视图');PixelOption(exportbar,self.export_view,'焦点视图',*VN).pack(side='right',padx=6)
+        self.export_view=tk.StringVar(value='焦点视图')
         self.ab.bind('<ButtonPress-1>',lambda e:self.ab_view(True));self.ab.bind('<ButtonRelease-1>',lambda e:self.ab_view(False));self.ab.bind('<Leave>',lambda e:self.ab_view(False))
         self.canvas=tk.Canvas(center,bg=CELL,highlightthickness=0);self.canvas.pack(fill='both',expand=True)
         self.canvas.bind('<Configure>',self.resize_preview);self.canvas.bind('<ButtonPress-1>',self.start_drag);self.canvas.bind('<B1-Motion>',self.move_drag);self.canvas.bind('<ButtonRelease-1>',self.end_drag)
         bar=FlowBar(center,compact=True,bg=BG);bar.pack(fill='x',pady=8)
         self.playbtn=self.button(bar,'▶ 播放',self.play,True);self.playbtn.pack(side='left')
         self.button(bar,'◀',lambda:self.step(-1)).pack(side='left',padx=5);self.button(bar,'▶',lambda:self.step(1)).pack(side='left')
-        self.time_label=tk.StringVar();self.label(bar,'总帧数',bg=BG).pack(side='left',padx=(12,4))
+        self.time_label=tk.StringVar();count_group=tk.Frame(bar,bg=BG);count_group.pack(side='left');self.label(count_group,'总帧数',bg=BG).pack(side='left',padx=(12,4))
         self.seconds=tk.StringVar(value=str(self.project.get('seconds',2)))
         self.frame_count=tk.StringVar(value=str(max(1,min(120,round(self.project.get('seconds',2)*self.project.get('fps',12))))))
-        self.frame_entry=PixelEntry(bar,textvariable=self.frame_count,width=4,bg=FIELD);self.frame_entry.pack(side='left')
+        self.frame_entry=PixelEntry(count_group,textvariable=self.frame_count,width=4,bg=FIELD);self.frame_entry.pack(side='left')
         self.frame_entry.field.bind('<Return>',self.set_frame_count);self.frame_entry.field.bind('<FocusOut>',self.set_frame_count)
-        self.label(bar,'FPS',bg=BG).pack(side='left',padx=(8,4))
+        fps_group=tk.Frame(bar,bg=BG);fps_group.pack(side='left');self.label(fps_group,'FPS',bg=BG).pack(side='left',padx=(8,4))
         self.fps_value=tk.StringVar(value=str(self.project.get('fps',12)))
-        PixelOption(bar,self.fps_value,*map(str,(6,8,10,12,15,20,24,30,60)),command=self.set_fps).pack(side='left')
+        PixelOption(fps_group,self.fps_value,*map(str,(6,8,10,12,15,20,24,30,60)),command=self.set_fps).pack(side='left')
         UI.Label(bar,textvariable=self.time_label,bg=BG,fg=DIM).pack(side='right')
         self.scrub=PixelScale(center,from_=0,to=1000,showvalue=False,orient='horizontal',bd=0,highlightthickness=0,bg=BG,troughcolor=FIELD,command=self.seek);self.scrub.pack(fill='x')
         right_shell=tk.Frame(body,bg=PANEL);self.right=right_shell;body.add(right_shell,minsize=240,width=round(400*self.ui_scale),stretch='never')
@@ -224,6 +235,11 @@ class App(tk.Tk):
         src,dst=(self.future,self.history) if redo else (self.history,self.future)
         if not src:return
         dst.append(copy.deepcopy(self.project));self.project=src.pop();self.sync();self.changed()
+    def toggle_display_options(self):
+        self.display_options_shown=not self.display_options_shown
+        if self.display_options_shown:self.display_options.pack(fill='x',pady=(0,6),after=self.viewbar)
+        else:self.display_options.pack_forget()
+        self.display_options_button.configure(text='收起显示选项' if self.display_options_shown else '显示选项…')
     def current_display(self):
         if hasattr(self,'parts'):
             result={**self.project.get('render',{}),**dict(parts=self.parts.get(),textures=self.textures.get(),gaps=self.gaps.get(),outline=self.outline.get(),perfect=True)}
@@ -233,10 +249,11 @@ class App(tk.Tk):
         return copy.deepcopy(self.project.get('render',{}))
 
     def sync(self,selection=None):
-        self.project['render']=self.current_display()
+        # Restored/opened project values are authoritative; old checkboxes must not overwrite them.
+        self.project.setdefault('render',{})
         self.name.set(self.project['name']);self.seconds.set(str(self.project['seconds']));self.yaw.set(str(int(self.project.get('yaw',0))))
         self.parts.set(self.project['render'].get('parts',True));self.gaps.set(self.project['render'].get('gaps',True));self.outline.set(self.project['render'].get('outline',True));self.selection=selection or ('body','arms');self.refresh_lists();self.show_params()
-        self.textures.set(self.project['render'].get('textures',True))
+        self.textures.set(self.project['render'].get('textures',True));self.outline_color.set(self.project['render'].get('outline_color','auto'))
         self.frame_count.set(str(max(1,min(120,round(self.project['seconds']*self.project.get('fps',12))))));self.fps_value.set(str(self.project.get('fps',12)))
         self.camera_y.set(str(int(self.project.get('camera_y',0))))
         self.sync_render_flags()
@@ -308,11 +325,23 @@ class App(tk.Tk):
         self.resize_job=self.after(130,self.finish_resize)
     def finish_resize(self):
         self.resize_job=None;self.resizing=False;self.render()
+    def update_layer_actions(self):
+        index=self.selection[1] if self.selection[0]=='layer' else -1;count=len(self.project['layers'])
+        for text,enabled in (('上移',0<index<count),('下移',0<=index<count-1),('移除',0<=index<count)):
+            if hasattr(self,'layer_actions'):self.layer_actions[text].configure(state='normal' if enabled else 'disabled')
+    def move_layer(self,delta):
+        if self.selection[0]!='layer':return
+        i=self.selection[1];j=i+delta
+        if not 0<=j<len(self.project['layers']):return
+        self.snapshot();items=self.project['layers'];items[i],items[j]=items[j],items[i];self.selection=('layer',j)
+        self.refresh_lists();self.show_params();self.changed()
     def refresh_lists(self):
         self.base_name.set('自选姿势' if 'pose' in self.project else E.ACTIONS[self.project['base']['kind']]);self.stack.delete(0,'end')
         for e in self.project['layers']:self.stack.insert('end',tr(('● ' if e.get('enabled',True) else '○ ')+E.ACTIONS[e['kind']]))
+        if self.selection[0]=='layer' and self.selection[1]<len(self.project['layers']):self.stack.selection_set(self.selection[1]);self.stack.see(self.selection[1])
+        self.update_layer_actions()
     def select(self,kind,key):
-        self.selection=(kind,key)
+        self.selection=(kind,key);self.update_layer_actions()
         for part,button in self.part_buttons.items():button.accent=(kind=='body' and part==key);button.draw()
         self.show_params();self.right_scroll.canvas.yview_moveto(0);self.render()
     def pick_layer(self,event=None):
@@ -517,7 +546,7 @@ class App(tk.Tk):
         return OutlineColorDialog(self)
     def sync_render_flags(self):
         settings=O.normalized(self.project.get('render'))
-        self.light_enabled.set(settings['lighting']);self.self_shadow.set(settings['self_shadow'])
+        self.light_enabled.set(settings['lighting']);self.self_shadow.set(settings['self_shadow']);self.retro_animation.set(settings['retro_animation'])
     def toggle_render_flag(self,key,var):
         self.snapshot();settings=self.project.setdefault('render',{});settings.setdefault('self_shadow',self.self_shadow.get());settings[key]=var.get();self.save_preferences();self.changed()
     def edit_render_options(self,section='canvas'):
@@ -713,8 +742,9 @@ class App(tk.Tk):
             try:E.save(self.project,path);self.status.set('已保存：'+path)
             except Exception as ex:messagebox.showerror(tr('保存失败'),tr(str(ex)))
     def export(self):
+        if getattr(self,'export_dialog',None) is not None and self.export_dialog.winfo_exists():self.export_dialog.lift();return self.export_dialog
         self.stop();self.render()
-        dialog=tk.Toplevel(self);dialog.title(tr('导出序列帧'));dialog.transient(self);dialog.configure(bg=PANEL)
+        dialog=tk.Toplevel(self);self.export_dialog=dialog;dialog.title(tr('导出序列帧'));dialog.transient(self);dialog.configure(bg=PANEL)
         width=min(self.winfo_screenwidth()-80,round(720*self.ui_scale));height=min(self.winfo_screenheight()-100,round(760*self.ui_scale))
         x=max(20,min(self.winfo_screenwidth()-width-20,self.winfo_rootx()+(self.winfo_width()-width)//2));y=max(20,min(self.winfo_screenheight()-height-40,self.winfo_rooty()+(self.winfo_height()-height)//2))
         dialog.geometry(f'{width}x{height}+{x}+{y}');dialog.minsize(540,440);dialog.grab_set()
@@ -727,6 +757,15 @@ class App(tk.Tk):
         selected=self.focus_view if self.export_view.get()=='焦点视图' else VN.index(self.export_view.get())
         batch_views={'四方向（水平）':4,'八方向（水平）':8}
         view=tk.StringVar(value=next((label for label,count in batch_views.items() if count==self.project.get('export_directions')),VN[selected]));types={key:tk.BooleanVar(value=key in ('png','strip')) for key in ('png','strip','gif','recipe')}
+        session=getattr(self,'export_session',{})
+        if session:
+            create_folder.set(session.get('create_folder',False));output_scale.set(session.get('scale','1x'));view.set(session.get('view',view.get()))
+            if session.get('project_name')==self.project.get('name'):name.set(session.get('name',name.get()))
+            for key,var in types.items():var.set(key in session.get('formats',('png','strip')))
+        def remember(*_):
+            self.export_session=dict(project_name=self.project.get('name'),name=name.get(),create_folder=create_folder.get(),scale=output_scale.get(),view=view.get(),formats=[key for key,var in types.items() if var.get()])
+        for var in (name,create_folder,output_scale,view,*types.values()):var.trace_add('write',remember)
+        shell.export_fields=dict(directory=directory,name=name,create_folder=create_folder,scale=output_scale,view=view,formats=types)
         format_controls={};export_hint=tk.StringVar()
         def update_view(_=None):
             batch=view.get() in batch_views
@@ -747,8 +786,8 @@ class App(tk.Tk):
         self.label(dialog,'导出视角').pack(fill='x',padx=20,pady=(18,4));PixelOption(dialog,view,*VN,*batch_views,command=update_view).pack(fill='x',padx=20)
         self.label(dialog,'输出比例').pack(fill='x',padx=20,pady=(18,4))
         PixelOption(dialog,output_scale,'1x','4x','8x').pack(fill='x',padx=20)
-        UI.Label(dialog,textvariable=export_hint,wrap=True,justify='left').pack(fill='x',padx=20,pady=5)
-        for key,label in (('png','PNG 序列 · 透明背景'),('strip','PNG 横向条带 · 透明背景'),('gif','GIF 动画预览'),('recipe','JSON 动作配方')):
+        UI.Label(dialog,textvariable=export_hint,wrap=True,justify='left',anchor='w').pack(fill='x',padx=20,pady=5)
+        for key,label in (('png','PNG 序列 · 透明背景'),('strip','PNG 横向条带 · 透明背景'),('gif','GIF 动画预览'),('recipe','JSON 项目副本')):
             control=PixelCheck(dialog,text=label,variable=types[key]);control.pack(fill='x',padx=20,pady=5);format_controls[key]=control
         update_view()
         error=tk.StringVar();UI.Label(dialog,textvariable=error,fg='#a34d35',wraplength=590,justify='left').pack(fill='x',padx=20,pady=8)
@@ -766,9 +805,14 @@ class App(tk.Tk):
             if not hasattr(self,'export_pool'):self.export_pool=ProcessPoolExecutor(max_workers=1)
             task=self.export_pool.submit(E.export,project,**options)
             def poll():
+                nonlocal task
                 if not task.done():self.after(40,poll);return
                 try:dest=task.result()
                 except Exception as ex:
+                    if isinstance(ex,FileExistsError) and not options.get('overwrite') and shell.winfo_exists():
+                        if messagebox.askyesno(tr('覆盖已有导出？'),tr('同名导出已存在。是否覆盖本次所选格式？其他文件会保留。'),parent=shell,default='no'):
+                            options['overwrite']=True;task=self.export_pool.submit(E.export,project,**options);self.after(40,poll);return
+                        text=tr('已保留原文件，可修改名称后重试。');self.status.set(text);shell.exporting=False;start.configure(state='normal');cancel.configure(state='normal');error.set(text);return
                     text=('同名文件夹已存在，请更换名称或目录' if folder else '同名文件已存在，请更换名称或目录') if isinstance(ex,FileExistsError) else str(ex)
                     self.status.set(text)
                     if shell.winfo_exists():shell.exporting=False;start.configure(state='normal');cancel.configure(state='normal');error.set(text)
@@ -780,6 +824,7 @@ class App(tk.Tk):
         cancel=self.button(row,'取消',shell.destroy);cancel.pack(side='right');start=self.button(row,'开始导出',submit,True);start.pack(side='right',padx=10)
         shell.protocol('WM_DELETE_WINDOW',lambda:None if getattr(shell,'exporting',False) else shell.destroy())
         self.refresh_control_styles()
+        return shell
     def close(self):
         self.stop();self.autosave()
         if self.executor:self.executor.shutdown(wait=False,cancel_futures=True)

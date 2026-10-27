@@ -2,6 +2,9 @@
 LANGUAGES={'en':'English','zh':'简体中文','ja':'日本語'}
 language='en'
 ROWS=r"""
+连续布偶|Seamless mascot|連続マスコット
+圆头圆肚|Rounded head and belly|丸い頭とお腹
+折线尾|Zigzag tail|ジグザグのしっぽ
 部件|Part|パーツ
 后发|Back hair|後ろ髪
 头部外形|Head shape|頭部の外形
@@ -771,3 +774,35 @@ for row in '''姿势层|Pose layer|ポーズレイヤー
 
 # Painting file validation messages.
 CATALOG.update({'Use a PNG image': {'en': 'Use a PNG image', 'zh': '请选择 PNG 图片', 'ja': 'PNG画像を選択してください'}, 'PNG size does not match. Prepare painting files for this model.': {'en': 'PNG size does not match. Prepare painting files for this model.', 'zh': 'PNG 尺寸不匹配，请为当前模型生成绘画素材。', 'ja': 'PNGサイズが一致しません。現在のモデル用に描画素材を作成してください。'}, 'Choose the painting PNG, not the guide image.': {'en': 'Choose the painting PNG, not the guide image.', 'zh': '请选择绘画 PNG，不要选择参考线图片。', 'ja': 'ガイド画像ではなく描画用PNGを選択してください。'}, 'This texture belongs to another body part.': {'en': 'This texture belongs to another body part.', 'zh': '这张贴图属于其他身体部位。', 'ja': 'この画像は別の部位用です。'}, 'This texture uses another model surface or UV layout. Adapt the painting files first.': {'en': 'This texture uses another model surface or UV layout. Adapt the painting files first.', 'zh': '这张贴图的模型表面或 UV 布局不匹配，请先生成适配副本。', 'ja': 'モデル表面またはUV配置が異なります。先に調整コピーを作成してください。'}, 'Choose a FellowStudio3D painting folder': {'en': 'Choose a FellowStudio3D painting folder', 'zh': '请选择本工具生成的绘画文件夹', 'ja': '本ツールの描画フォルダーを選択してください'}, 'This painting folder uses another model. Prepare a new folder for the current appearance.': {'en': 'This painting folder uses another model. Prepare a new folder for the current appearance.', 'zh': '绘画文件夹对应其他模型，请为当前外形生成新的素材文件夹。', 'ja': '別のモデル用フォルダーです。現在の形状用に新しい描画フォルダーを作成してください。'}, 'This UV pack belongs to different model surfaces. Restore the matching appearance or adapt the painting files first.': {'en': 'This UV pack belongs to different model surfaces. Restore the matching appearance or adapt the painting files first.', 'zh': '这套贴图对应其他表面形状，请恢复匹配外形或先适配绘画文件。', 'ja': '表面形状が異なります。対応する形状に戻すか描画素材を調整してください。'}})
+
+CATALOG['复古动画']={'zh':'复古动画','en':'Retro animation','ja':'レトロアニメ'}
+
+# Unified workflow and model categories.
+for row in """外形|Shape|形状
+物品|Props|持ち物
+所属手|Hand|持つ手
+左手|Left hand|左手
+右手|Right hand|右手
+动画工具…|Animation tools…|アニメツール…
+动画表现|Animation style|アニメ表現
+角色朝向|Character facing|キャラクターの向き
+取景上下（px）|Frame offset (px)|画面の上下 (px)
+显示选项…|Display options…|表示設定…
+收起显示选项|Hide display options|表示設定を閉じる
+关联部件|Paired part|対になるパーツ
+对称到另一侧|Mirror to other side|反対側に対称コピー
+补齐另一侧|Add matching side|反対側を追加
+耳朵形状|Ear shape|耳の形状
+圆耳|Round|丸い耳
+尖耳|Pointed|尖った耳
+当前部件|Selected part|選択中のパーツ
+选择尾巴形状后添加，再调整尺寸和位置。|Choose a tail shape, add it, then adjust size and placement.|尾の形を選んで追加し、サイズと位置を調整します。
+覆盖已有导出？|Replace existing export?|既存の出力を上書きしますか？
+同名导出已存在。是否覆盖本次所选格式？其他文件会保留。|An export with this name exists. Replace the selected formats? Other files will be kept.|同名の出力があります。選択した形式を上書きしますか？ほかのファイルは保持します。
+导出目标必须是文件夹|The export target must be a folder.|出力先にはフォルダーを指定してください。
+同名目标不是普通文件，无法覆盖|The existing target is not a regular file and cannot be replaced.|同名の対象が通常ファイルではないため、上書きできません。""".splitlines():
+ zh,en,ja=row.split('|');CATALOG[zh]={'zh':zh,'en':en,'ja':ja}
+
+for zh,en,ja in [('JSON 项目副本','JSON project copy','JSON プロジェクトのコピー'),('部件操作…','Part actions…','パーツ操作…'),('动画与松软在主窗口的尾巴控制中调整。','Adjust motion and softness in the main Tail controls.','動きと柔らかさはメイン画面の尾コントロールで調整します。')]:CATALOG[zh]={'zh':zh,'en':en,'ja':ja}
+
+CATALOG['已保留原文件，可修改名称后重试。']={'zh':'已保留原文件，可修改名称后重试。','en':'Existing files were kept. Change the name to try again.','ja':'元のファイルを保持しました。名前を変えて再試行できます。'}

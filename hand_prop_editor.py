@@ -22,7 +22,7 @@ def remove(editor):
 
 def transfer(editor):
  item=A.record(editor.draft,editor.prop_id);item['parent']='armL' if item['parent']=='armR' else 'armR'
- editor.select(item['parent']);editor.request_preview()
+ editor.part=item['parent'];editor.prop_mode=True;editor.show_params();editor.request_preview()
 
 def reset_grip(editor):
  item=A.record(editor.draft,editor.prop_id);defaults=H.normalize(dict(id=item['id'],preset=item['preset'],parent=item['parent']))
@@ -34,7 +34,7 @@ def mount(editor):
  UI.Label(box,text='手持道具',anchor='w').pack(fill='x',pady=6)
  bar=FlowBar(box,compact=True);bar.pack(fill='x')
  choices={tr(label):key for key,label in H.LABELS.items()};choice=tk.StringVar(master=editor,value=tr('长方体'))
- PixelOption(bar,choice,*choices).pack(side='left')
+ PixelOption(bar,choice,*choices).pack(side='left',fill='x',expand=True)
  button=PixelButton(bar,text='添加道具',command=lambda:add(editor,choices[choice.get()]))
  button.pack(side='left');button.configure(state='disabled' if len(editor.draft.get('attachments',[]))>=32 else 'normal')
  items=[item for item in editor.draft.get('attachments',[]) if item.get('kind')=='prop' and item['parent']==editor.part]

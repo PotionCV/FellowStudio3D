@@ -60,6 +60,9 @@ class ProtectionEditor(tk.Toplevel):
         self.bind('<Escape>',lambda e:self.destroy());self.bind('<Control-z>',lambda e:(self.undo(),'break')[1]);self.bind('<Delete>',lambda e:self.clear_selection())
         self.bind('<KeyPress-b>',lambda e:self.set_tool('brush'));self.bind('<KeyPress-m>',lambda e:self.set_tool('box'))
         self.bind('<Control-c>',lambda e:(self.copy_texture(),'break')[1]);self.bind('<Control-v>',lambda e:(self.paste_texture(),'break')[1])
+        import sys
+        if sys.platform=='darwin':
+            self.bind('<Command-c>',lambda e:(self.copy_texture(),'break')[1]);self.bind('<Command-v>',lambda e:(self.paste_texture(),'break')[1]);self.bind('<Command-z>',lambda e:(self.undo(),'break')[1])
         self.bind('<Control-C>',lambda e:(self.copy_texture(),'break')[1]);self.bind('<Control-V>',lambda e:(self.paste_texture(),'break')[1])
         self.set_tool('box');self.set_operation('replace')
         self.refresh_image()

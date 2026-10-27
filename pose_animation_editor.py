@@ -25,7 +25,7 @@ class PoseAnimationEditor(ModelEditor):
    self.cards[0]['pose']=PA.capture_pose(self.capture_seq[owner.frame%len(self.capture_seq)]);self.cards=PA.normalize_cards(self.cards)
   self.title(tr('姿势动画'));self.part='armR';self.show_params()
  def _build(self):
-  footer=tk.Frame(self,bg=PANEL);footer.pack(side='bottom',fill='x',padx=12,pady=8)
+  footer=FlowBar(self,compact=True,bg=PANEL);footer.pack(side='bottom',fill='x',padx=12,pady=8)
   self.status=tk.StringVar(master=self,value=tr('姿势卡修改仅在应用后写入项目'))
   UI.Label(footer,textvariable=self.status,wrap=True,font=self.owner.caption_font).pack(side='left',fill='x',expand=True)
   PixelButton(footer,text='取消',command=self.cancel).pack(side='right')
@@ -127,6 +127,13 @@ class PoseAnimationEditor(ModelEditor):
    specs=[(i,label,-170,170,1) for i,label in enumerate(('抬起 / 放下','侧向弯曲','前伸 / 后摆','前后屈伸'))]
   elif part=='head':specs=[('head_pitch','低头 / 抬头',-65,65,1),('head_yaw','左右转头',-90,90,1),('head','左右歪头',-45,45,1)]
   else:specs=[('lean','后仰 / 弯腰（度）',-65,65,1),('chest_yaw','胸腔转向',-90,90,1),('pelvis_yaw','骨盆转向',-90,90,1),('dy','身体高低（px）',-12,12,.25),('dx','身体左右（px）',-12,12,.25)]
+  paired=part in E.LIMBS
+  if part=='hair':
+   source=next((p for p in items if hair.channel(p)==self.hair_channel),None);paired=bool(source and hair.paired(items,source))
+  if paired:
+   linked=tk.BooleanVar(master=self,value=getattr(self,'pose_pair_link',False))
+   PixelCheck(self.params,text='左右联动',variable=linked,command=lambda:self.link_pose_pair(linked.get())).pack(fill='x',padx=10,pady=4)
+   PixelButton(self.params,text='对称到另一侧',command=self.mirror_selected_pose).pack(fill='x',padx=10,pady=4)
   self.pose_scales={};self.pose_values={}
   for key,label,lo,hi,step in specs:
    row=tk.Frame(self.params);row.pack(fill='x',padx=10,pady=(6,0));number=pose[self.hair_channel if part=='hair' else part][key] if isinstance(key,int) else pose.get(key,0)
@@ -141,7 +148,16 @@ class PoseAnimationEditor(ModelEditor):
   if isinstance(key,int):pose[self.hair_channel if self.part=='hair' else self.part][key]=value
   else:pose[key]=value
   self.pose_values[key].set(f'{value:g}')
+  if getattr(self,'pose_pair_link',False):self.mirror_selected_pose(refresh=False)
   self.update_preview()
+ def link_pose_pair(self,enabled):
+  self.pose_pair_link=enabled
+  if enabled:self.mirror_selected_pose()
+ def mirror_selected_pose(self,refresh=True):
+  if self.part not in E.LIMBS and self.part!='hair':return
+  pose=self.cards[self.card_index]['pose'];channel=self.hair_channel if self.part=='hair' else self.part
+  pose.update(E.mirror_pose({channel:pose[channel]},self.original_project.get('model')))
+  if refresh:self.update_preview()
  def set_timing(self,key,value):self.cards[self.card_index][key]=value;self.refresh_cards();self.update_preview()
  def add_pose(self,pose):
   if len(self.cards)>=6:return
@@ -208,6 +224,7 @@ class PoseAnimationEditor(ModelEditor):
   view,key,joint,p,(x,y,size)=self.drag_pose;cw=O.size(self.source.get('render'))[0];target=O.target(((event.x-x)*cw/size,(event.y-y)*cw/size),self.source.get('render'))
   p[key]=self.cards[self.card_index]['pose'][key]
   self.cards[self.card_index]['pose'][key]=list(E.R.ik(p,key,target,joint=joint,free=(0,2) if joint=='mid' else (0,1,2,3)))
+  if getattr(self,'pose_pair_link',False):self.mirror_selected_pose(refresh=False)
   self.update_preview()
  def end_pose(self,event):
   if self.drag_pose:self.drag_pose=None;self.show_params()

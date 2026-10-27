@@ -380,6 +380,9 @@ def render(pose,settings=None,cam=(0,0)):
  worlds=np.stack([tri[2] for tri in triangles]);normal=np.cross(worlds[:,1]-worlds[:,0],worlds[:,2]-worlds[:,0]);visible=[triangles[i] for i in np.flatnonzero(normal@view>1e-8)]
  sockets=[chain[k] for name,chain in j.items() if name.startswith(('arm','leg')) for k in ('root','mid')]
  s=O.normalized({'parts':True,'textures':True,'outline':True,'gaps':True,'perfect':True,**(settings or {})})
+ if s['retro_animation']:
+  import retro_animation
+  s['_pixel_anchors']=retro_animation.pixel_anchors(pose,bundle)
  painted={part:resource for part,resource in bundle['textures'].items() if s['textures'] and resource.get('png')}
  textures={part:np.array(U.texture_image(bundle,part)) if part in painted else np.array([[(*U.color(part),255) if s['parts'] else (255,255,255,255)]],dtype=np.uint8) for part in U.parts(bundle)}
  names=U.parts(bundle);connections=[];g=F.model_geometry(pose)

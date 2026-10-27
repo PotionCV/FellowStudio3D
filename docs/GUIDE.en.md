@@ -14,7 +14,7 @@ For a quick first result:
 
 1. Open **Creation library… → Character** and choose **Kumamon** (private local package) or **Painted character**.
 2. Switch to **Motion**, choose walking, swimming or your own animation, and play the four views.
-3. **Apply combination**, then edit further; authoring tools share **Create animation…**.
+3. **Apply combination**, then edit further; authoring tools share **Animation tools…**.
 4. Click a preview to focus that view, then export it as a PNG strip at **1x**.
 
 `DefaultModel.json` restores the built-in appearance. A new installation starts with the default mannequin, not the painted example or another user's session.
@@ -25,15 +25,19 @@ For a quick first result:
 
 Select a motion to audition it on the chosen character; select a character to keep the chosen motion. The summary names both choices and shows duration/FPS. Play, scrub and double-click a view to enlarge it. Preview runs in the background and cancels obsolete requests. **Apply combination** becomes available after the complete preview succeeds and creates one undo step. **Cancel** leaves the project untouched; **Reset selections** restores the character and motion from when you entered.
 
-**Load file…** auditions your own models or motion recipes with the same Apply step. The default catalog indexes only registered public examples and does not scan personal saves. **Character model → Character library…** selects appearance inside the existing model draft; **Apply model** in the outer editor still commits the draft, and Cancel still discards it. The original **Load model** file picker remains available.
+**Load file…** auditions your own models or motion recipes with the same Apply step. The default catalog indexes only registered public examples and does not scan personal saves. **Character model → Character library…** selects appearance inside the existing model draft; **Apply model** in the outer editor still commits the draft, and Cancel still discards it. Use **Character library… → Load file…** for model files.
 
 The character catalog now has three distinct starting models: default, painted and seamless mascot. Repetitive tail/equipment/face variants were removed. Complete Kumamon and cat paintings appear under My characters in the private local package; public packages exclude these personal models.
 
-**Save and transfer animation**: Create animation… → Save animation… stores base motion, layers, pose cards, tail channels, controllers and physics, without appearance. Files default to local `user_data/motions` and appear under My animations. Apply one on another character to retain the target model, painting and display. The top Save button still saves a complete project.
+**Save and transfer animation**: Animation tools… → Save animation… stores base motion, layers, pose cards, tail channels, controllers and physics, without appearance. Files default to local `user_data/motions` and appear under My animations. Apply one on another character to retain the target model, painting and display. The top Save button still saves a complete project.
 
 **Tail joints and animation**: the model editor sets shape. After Apply, choose Tail in body controls and select root, middle or tip to edit pitch/yaw/roll, or drag joint handles in the four views. Add a Tail motion layer for sway and tip follow-through with mix, timing, fades and blend modes. Pose cards also store all three joints. This uses three-joint FK and continuous skinning. Physics below the controls offers root/middle/tip softness and bounce. Softness defaults to zero; try 0.2/0.45/0.65. These settings are saved with animations and simulated consistently in preview and export. Collision is not simulated.
 
 **Held objects** start from Box, Cylinder, Sphere or Cone. Define their purpose through shape and painting instead of selecting weapons. Change shape, dimensions and grip while retaining independent UVs and pixel groups. Legacy weapon models remain readable but are no longer defaults or catalog characters.
+
+The workspace separates project/file actions, creation tools, animation on the left, preview in the center and parameters for the selected object on the right. **Display options…** belongs to the preview; **Retro animation** belongs to **Animation style**. Layers can move up/down with boundary actions disabled and selection retained.
+
+The model editor has peer **Shape / Hair / Ears / Tail / Props** tabs for both body structures. Body/part selection belongs only to Shape; Props selects the owning hand. Link sides and Mirror to other side are separate shape operations; a missing paired ear or lock can be added. Pose cards offer optional local side linking as well. Shape symmetry does not replace texture sharing.
 
 ## 2. Poses and animation without keyframes
 
@@ -105,7 +109,7 @@ The default **Painted** lighting uses broad color blocks and restrained highligh
 
 **Canvas size…**, beside view direction and framing Y, sets native width and height independently from 32 to 256 pixels, with common presets. More canvas preserves model/UV pixel scale, horizontal centering and bottom margin. All previews and exports use the same canvas. A small preview may shrink with nearest-neighbor sampling; exported frames retain native pixels and integer output scaling.
 
-Lighting and Self shadows switches sit beside Show textures and the other display options. Open **Lighting settings…** to adjust world-space light direction, elevation, strength, light color and shadow color. Lighting uses discrete bands, without gradients or blurred shadows. Original PNGs and protected groups remain unchanged. Edits preview live, support project Undo and save with the full project. Animation transfer preserves the target canvas and lighting. Older projects default to unlit 64×64. Large exports use paged atlases; very large GIFs ask for fewer frames or a smaller output scale.
+Expand **Display options…** above the preview for Lighting, Self shadows, Show textures and the other display options. Open **Lighting settings…** to adjust world-space light direction, elevation, strength, light color and shadow color. Lighting uses discrete bands, without gradients or blurred shadows. Original PNGs and protected groups remain unchanged. Edits preview live, support project Undo and save with the full project. Animation transfer preserves the target canvas and lighting. Older projects default to unlit 64×64. Large exports use paged atlases; very large GIFs ask for fewer frames or a smaller output scale.
 
 Click one of the four previews to focus it. Front and Side are orthographic; the three-quarter view is level, while the elevated view adds downward pitch. Model and UV editors offer **Single view**, or double-click a view to enlarge it. Hold **Before** to compare with the appearance at the time the editor opened.
 
@@ -122,6 +126,10 @@ Edits are staged. **Apply model** commits them; **Cancel** discards them. **Save
 **Head → Ears** adds Human ears, Cat ears or Long ears as a mirrored pair. Select an ear, then open **Edit ear shape** for signed side/height/depth positions, root width, length, depth, tip width and three rotation controls. Positions are relative to the sculpted head; ear dimensions use source pixels. Disable **Link left / right** for an asymmetric ear, or remove one ear or the pair. Ears follow head animation rigidly. After **Apply model**, the UV editor shows an extra card for each ear; the right shares the left texture by default. Turn sharing off to paint independently. Ear meshes, textures and protection groups travel with the model/project. If an existing painting folder predates the ears, create an adapted painting copy to add their PNG templates.
 
 **Body structure → Seamless mascot** replaces Head and Torso with one **Main body** panel. Five controls set total height, upper width, belly width, base width and depth. The surface is continuous from crown to belly, with no neck seam; arms, legs and ears remain separate. **Move head and body together** is enabled by default. Disable it to allow soft upper-body nods/turns, then adjust flexibility. Existing chest, pelvis, limb, IK and motion controls remain available. The UV window uses one Main body card instead of separate head/torso cards. Save the model to carry its body settings, textures and protection groups together. Switching structure changes the body UV layout; prepare a new painting folder for that structure. `examples/models/PlushModel.json` is an unpainted starting model. Your existing separate-head models retain their original geometry and UVs.
+
+**Retro animation** is in the left **Animation style** section, separate from display settings. It reuses small local pose changes to stabilize idle silhouettes and patterns while keeping deliberate limb motion. Body and legs stay together to preserve sampled contact and breathing constraints. It defaults off, supports Undo and full-project saving, and produces the same preview and export without changing frame count or duration. It does not generate hand-drawn smear frames; large turns still show 3D changes. Combine it with pixel protection for small motifs.
+
+The revised effect uses about eight drawing changes per second, independently holds small upper-body motions, and aligns connected parts to one pixel-grid phase. File FPS and duration stay unchanged; expect a deliberate stepped rhythm.
 
 ## 6. Paint and replace textures
 
@@ -164,13 +172,13 @@ Open **Export frames** and choose the directory, file name, view, scale and form
 - **PNG sequence**: individual transparent frames.
 - **PNG strip**: frames in a horizontal transparent strip.
 - **GIF**: an animation preview; use PNG for final pixel assets.
-- **JSON recipe**: an editable project/animation resource.
+- **JSON project copy**: the complete character, paint and motion project. Use **Animation tools… → Save motion…** for a transferable motion resource.
 
 **1x** gives 64 × 64 frames; **4x** gives 256 × 256; **8x** gives 512 × 512. Scaling uses nearest-neighbor integer enlargement. A one-pixel outline becomes four display pixels at 4x.
 
-**Create same-name subfolder** is off by default: files go directly into the selected directory. The last directory is remembered. Existing output files are not overwritten; change the name or directory if there is a conflict. Export runs in the background; wait for the completion status.
+**Create same-name subfolder** is off by default: files go directly into the selected directory. The last directory is remembered. Scale, view, formats, subfolder choice and the current project’s output name are remembered during this app session. Conflicting outputs ask before replacement; selected formats are staged and backed up, with rollback on failure. Unrelated files remain unchanged. Export runs in the background; wait for the completion status.
 
-For a game direction set, choose **Four directions (level)** or **Eight directions (level)** in the same Export view menu. The strip option becomes a transparent directional atlas: each direction is a row and frames run left to right. PNG sequences and GIF previews can also be generated for each angle. A separate **NAME_atlas.json** records image/rectangle, frame duration, playback and a shared pivot; JSON recipe still saves an editable project. Wide atlases split into pages automatically (maximum width 4096 pixels), retaining all direction rows on each page. Output is staged, existing files are preserved and the descriptor is published last. See [Directional atlas format](DIRECTIONAL-ATLASES.md) or try the TailWalk, HoverWave and FrontCrawl packs under `examples/atlases`.
+For a game direction set, choose **Four directions (level)** or **Eight directions (level)** in the same Export view menu. The strip option becomes a transparent directional atlas: each direction is a row and frames run left to right. PNG sequences and GIF previews can also be generated for each angle. A separate **NAME_atlas.json** records image/rectangle, frame duration, playback and a shared pivot; JSON recipe still saves an editable project. Wide atlases split into pages automatically (maximum width 4096 pixels), retaining all direction rows on each page. Output is staged; confirmed replacements back up selected old outputs and restore them if publication fails. See [Directional atlas format](DIRECTIONAL-ATLASES.md) or try the TailWalk, HoverWave and FrontCrawl packs under `examples/atlases`.
 
 ## 9. Save, share and recover work
 
@@ -192,7 +200,7 @@ Ear attachments currently follow the head rigidly. Arbitrary external mesh impor
 
 ## Hair styling and animation
 
-Head (Main body for plush) has separate Shape, Hair and Ears tabs. Hair follows one structure: Add component → Added components → Selected component settings. Add a hair body, left/right fringe, left/right middle lock, back hair, ponytail or free lock independently; duplicate, mirror or delete actual components. Reclassify older free locks in details without changing their shape or bones.
+Both body structures use peer Shape, Hair, Ears, Tail and Props tabs. Hair follows one structure: Add component → Added components → Selected component settings. Add a hair body, left/right fringe, left/right middle lock, back hair, ponytail or free lock independently; duplicate, mirror or delete actual components. Reclassify older free locks in details without changing their shape or bones.
 
 Hair bodies have five outlines and independent proportions, hairline, coverage and crown controls. Locks retain 14 shape controls, independent UVs and three bones. Pair shapes can be linked; adding a missing opposite side mirrors the existing part. Face and body painting remain intact.
 

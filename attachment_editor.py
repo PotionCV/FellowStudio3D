@@ -24,6 +24,10 @@ def mount(editor):
  linked=tk.BooleanVar(master=editor,value=item['linked'])
  if any(p['id']==other for p in items):
   PixelCheck(box,text='左右联动',variable=linked,command=lambda:set_link(editor,linked.get())).pack(fill='x',pady=4)
+ PixelButton(box,text='对称到另一侧' if any(p['id']==other for p in items) else '补齐另一侧',command=lambda:mirror(editor)).pack(fill='x',pady=4)
+ shapes={tr('圆耳'):'round',tr('尖耳'):'pointed'};shape=tk.StringVar(master=editor,value=next(k for k,v in shapes.items() if v==item['shape']))
+ UI.Label(box,text='耳朵形状',anchor='w').pack(fill='x',pady=(6,2))
+ PixelOption(box,shape,*shapes,command=lambda label:set_value(editor,'shape',shapes[label])).pack(fill='x',pady=4)
  details=getattr(editor,'attachment_details',False)
  def toggle():editor.attachment_details=not details;editor.show_params()
  PixelButton(box,text='收起耳朵参数' if details else '编辑耳朵参数',command=toggle).pack(fill='x',pady=4)
@@ -45,6 +49,18 @@ def sync_assets(editor):
  import rounded_scene as S
  editor.draft_assets=S.assets(editor.preview_project());editor.replace_assets=True
 
+def mirror(editor):
+ import copy
+ source=A.record(editor.draft,editor.attachment_id);key=source['id'][:-1]+('R' if source['id'].endswith('L') else 'L')
+ other=next((p for p in editor.draft['attachments'] if p['id']==key),None)
+ if other is None:
+  if len(editor.draft['attachments'])>=32:return
+  other=copy.deepcopy(source);other['id']=key;editor.draft['attachments'].append(other)
+  sync_assets(editor)
+ else:
+  for field in ('preset','shape',*(s[0] for s in A.SPECS)):other[field]=source[field]
+ editor.show_params();editor.request_preview()
+
 def add(editor,preset):
  if len(editor.draft.get('attachments',[]))>30:return
  editor.attachment_id=A.add_pair(editor.draft,preset);editor.attachment_details=True
@@ -64,7 +80,7 @@ def set_link(editor,enabled):
  for p in editor.draft['attachments']:
   if p['id'] in (item['id'],other):
    if enabled:
-    for key in ('shape',*(s[0] for s in A.SPECS)):p[key]=item[key]
+    for key in ('preset','shape',*(s[0] for s in A.SPECS)):p[key]=item[key]
    p['linked']=enabled
  editor.show_params();editor.request_preview()
 

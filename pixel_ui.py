@@ -30,6 +30,9 @@ class PixelBase(tk.Canvas):
         # Dialog callbacks often close over their own controls and Tk variables.
         # Break those cycles on the UI thread, before worker-side GC can run.
         if event.widget is self and hasattr(self,'command'):self.command=None
+        if event.widget is self:
+            if getattr(self,'hint_job',None):self.after_cancel(self.hint_job);self.hint_job=None
+            if getattr(self,'hint',None):self.hint.destroy();self.hint=None
     def owner(self):
         node=self
         while node is not None:
@@ -147,7 +150,17 @@ class PixelButton(PixelBase):
         self.bind('<Configure>',lambda e:self.draw());self.bind('<Enter>',lambda e:self.enter(True));self.bind('<Leave>',lambda e:self.enter(False))
         self.bind('<ButtonPress-1>',self.down);self.bind('<ButtonRelease-1>',self.up)
         self.bind('<space>',lambda e:self.invoke());self.bind('<Return>',lambda e:self.invoke());self.draw()
-    def enter(self,on):self.hover=on;self.draw()
+    def enter(self,on):
+        self.hover=on;self.draw()
+        if getattr(self,'hint_job',None):self.after_cancel(self.hint_job);self.hint_job=None
+        if getattr(self,'hint',None):self.hint.destroy();self.hint=None
+        if on and getattr(self,'clipped',False):self.hint_job=self.after(550,self.show_hint)
+    def show_hint(self):
+        self.hint_job=None
+        if not self.hover or not self.winfo_exists():return
+        tip=tk.Toplevel(self);self.hint=tip;tip.overrideredirect(True)
+        label=tk.Label(tip,text=tr(self.text),font=self.ui_font(),bg=LIGHT,fg=INK,bd=1,relief='solid',padx=7,pady=4);label.pack()
+        tip.update_idletasks();tip.geometry(f'+{max(0,min(self.winfo_rootx(),self.winfo_screenwidth()-tip.winfo_reqwidth()))}+{max(0,min(self.winfo_rooty()+self.winfo_height(),self.winfo_screenheight()-tip.winfo_reqheight()))}')
     def down(self,e):self.pressed=True;self.focus_set();self.draw()
     def up(self,e):
         pressed=self.pressed;self.pressed=False;self.draw()
@@ -163,12 +176,10 @@ class PixelButton(PixelBase):
     config=configure
     def draw(self):
         import tkinter.font as ft
-        f=ft.Font(font=self.ui_font());text=tr(self.text);w=self.px(64) if self.compact else f.measure(text)+self.px(36)
-        width=max(self.px(40),self.winfo_width() if self.winfo_width()>1 else w);available=max(self.px(20),width-self.px(28))
-        text=wrap_text(text,f,available)
-        self.delete('all');item=self.create_text(width//2,0,anchor='n',text=text,font=self.ui_font())
-        bbox=self.bbox(item);textheight=bbox[3]-bbox[1] if bbox else f.metrics('linespace')
-        h=max(self.px(48),textheight+self.px(22));self.configure(width=w,height=h);self.delete('all')
+        f=ft.Font(font=self.ui_font());text=tr(self.text);w=max(self.px(64),f.measure(text)+self.px(24 if self.compact else 36))
+        width=max(self.px(40),self.winfo_width() if self.winfo_width()>1 else w);available=max(self.px(20),width-self.px(20 if self.compact else 28))
+        self.clipped=f.measure(text)>available;text=ellipsize(text,f,available)
+        h=max(self.px(48),f.metrics('linespace')+self.px(22));self.configure(width=w,height=h);self.delete('all')
         self.plate(0,0,width,h,ACC if self.accent else LIGHT if self.hover else FIELD,self.pressed)
         self.create_text(width//2,h//2+(self.px(2) if self.pressed else 0),text=text,font=self.ui_font(),fill='#8a7967' if self.state=='disabled' else INK,justify='center')
 
@@ -187,7 +198,7 @@ class PixelEntry(tk.Frame):
 class FlowBar(tk.Frame):
     """Wrap toolbar items onto complete rows instead of clipping actions."""
     def __init__(self,parent,compact=False,pin_right=False,**kw):
-        super().__init__(parent,**kw);self.compact=compact;self.pin_right=pin_right;self.layout_job=None;self.sides={}
+        super().__init__(parent,**kw);self.compact=compact;self.pin_right=pin_right;self.layout_job=None;self.sides={};self.specs={}
         self.bind('<Configure>',self.schedule)
         self.bind('<Destroy>',self.cleanup)
     @property
@@ -198,7 +209,7 @@ class FlowBar(tk.Frame):
     def cleanup(self,event):
         if event.widget is self:
             if self.layout_job:self.after_cancel(self.layout_job);self.layout_job=None
-            self.sides.clear()
+            self.sides.clear();self.specs.clear()
     def schedule(self,event=None):
         if self.layout_job is None:self.layout_job=self.after_idle(self.reflow)
     def reflow(self):
@@ -207,22 +218,40 @@ class FlowBar(tk.Frame):
         children=self.winfo_children()
         for child in children:
             if child.winfo_manager()=='pack':
-                self.sides[child]=child.pack_info().get('side','left');child.pack_forget()
+                info=child.pack_info();self.sides[child]=info.get('side','left');self.specs[child]=info;child.pack_forget()
                 child.bind('<Configure>',self.schedule,add='+')
         left=[w for w in children if self.sides.get(w)=='left'];right=list(reversed([w for w in children if self.sides.get(w)=='right']))
-        items=left if self.pin_right else left+right
-        reserve=sum(min(width,w.winfo_reqwidth())+6 for w in right) if self.pin_right else 0
-        x=0;y=0;row=max((w.winfo_reqheight() for w in right),default=0) if self.pin_right else 0
-        rx=max(0,width-reserve+6)
-        if self.pin_right:
+        gap=max(4,round(6*self.ui_scale))
+        pinned=self.pin_right and sum(w.winfo_reqwidth()+gap for w in right)<=width
+        items=left if pinned else left+right
+        reserve=sum(w.winfo_reqwidth()+gap for w in right) if pinned else 0
+        y=0;row=[];used=0
+        pinned_height=max((w.winfo_reqheight() for w in right),default=0) if pinned else 0
+        if pinned:
+            x=width-reserve+gap
             for child in right:
-                w=min(width,child.winfo_reqwidth());child.place(x=rx,y=0,width=w,height=child.winfo_reqheight());rx+=w+6
+                w=child.winfo_reqwidth();child.place(x=x,y=0,width=w,height=child.winfo_reqheight());x+=w+gap
+        def flexible(child):return bool(self.specs.get(child,{}).get('expand'))
+        def minimum(child):
+            natural=child.winfo_reqwidth()
+            return min(natural,round(110*self.ui_scale)) if flexible(child) else natural
+        def place_row(row,y,available):
+            if not row:return 0
+            sizes=[min(available,minimum(w)) for w in row];extra=max(0,available-sum(sizes)-gap*(len(row)-1))
+            flex=[i for i,w in enumerate(row) if flexible(w)]
+            for offset,i in enumerate(flex):
+                share=extra//(len(flex)-offset);sizes[i]+=share;extra-=share
+            x=0;height=max(w.winfo_reqheight() for w in row)
+            for child,w in zip(row,sizes):
+                child.place(x=x,y=y,width=max(1,w),height=child.winfo_reqheight());x+=w+gap
+            return height
         for child in items:
-            w=min(width,child.winfo_reqwidth());h=child.winfo_reqheight()
-            available=width-reserve if y==0 else width
-            if (x or reserve and y==0) and x+w>available:y+=row+4;x=0;row=0
-            child.place(x=x,y=y,width=w,height=h);x+=w+6;row=max(row,h)
-        height=y+row
+            available=max(0,width-reserve) if y==0 else width
+            w=min(width,minimum(child))
+            if (row or reserve and y==0) and used+w+(gap if row else 0)>available:
+                y+=max(place_row(row,y,available),pinned_height if y==0 else 0)+gap;row=[];used=0;available=width
+            row.append(child);used+=w+(gap if len(row)>1 else 0)
+        height=y+max(place_row(row,y,width-reserve if y==0 else width),pinned_height if y==0 else 0)
         if int(self.cget('height'))!=height:self.configure(height=height)
 
 class ScrollPanel(tk.Frame):
@@ -238,4 +267,6 @@ class ScrollPanel(tk.Frame):
     def fit(self,e):
         self.canvas.itemconfigure(self.item,width=max(1,e.width))
         self.canvas.configure(scrollregion=self.canvas.bbox('all'))
-    def wheel(self,e):self.canvas.yview_scroll(-int(e.delta/120),'units');return 'break'
+    def wheel(self,e):
+        from platform_support import wheel_units
+        self.canvas.yview_scroll(wheel_units(e.delta),'units');return 'break'

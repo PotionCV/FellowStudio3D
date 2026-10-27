@@ -1,5 +1,5 @@
 """Windows image clipboard with PNG alpha and a DIBV5 fallback; no dependencies."""
-import ctypes,io,os,struct,time
+import ctypes,io,os,struct,time,sys,subprocess,tempfile
 from contextlib import contextmanager
 from PIL import Image,ImageGrab,PngImagePlugin
 
@@ -42,6 +42,15 @@ def _open(user,hwnd=None):
     finally:user.CloseClipboard()
 
 def copy_image(image,hwnd,metadata=None):
+    if sys.platform=='darwin':
+        # Read synchronously before deleting the temporary PNG. The path is an
+        # argument, never interpolated into AppleScript or a shell command.
+        with tempfile.TemporaryDirectory(prefix='fellow-clipboard-') as folder:
+            from pathlib import Path
+            path=Path(folder)/'texture.png';path.write_bytes(png_bytes(image,metadata))
+            script='on run argv\nset the clipboard to (read (POSIX file (item 1 of argv)) as «class PNGf»)\nend run'
+            subprocess.run(['osascript','-e',script,str(path)],check=True,capture_output=True,timeout=15)
+        return
     user,kernel=_api();png=user.RegisterClipboardFormatW('PNG')
     if not png:raise ctypes.WinError(ctypes.get_last_error())
     blocks=[]
@@ -63,6 +72,10 @@ def copy_image(image,hwnd,metadata=None):
             if handle:kernel.GlobalFree(handle)
 
 def read_image():
+    if sys.platform=='darwin':
+        image=ImageGrab.grabclipboard()
+        if isinstance(image,Image.Image):return image
+        raise ValueError('剪贴板中没有图片，请先复制一张 UV 贴图。')
     user,kernel=_api();data=None
     with _open(user):
         handle=user.GetClipboardData(user.RegisterClipboardFormatW('PNG'))

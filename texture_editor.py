@@ -165,7 +165,9 @@ class TextureEditor(M.ModelEditor):
   except Exception as ex:self.error(str(ex))
  def open_painting_folder(self):
   if not self.workspace:return
-  try:os.startfile(str(self.workspace.folder))
+  try:
+   from platform_support import open_folder
+   open_folder(self.workspace.folder)
   except (AttributeError,OSError) as ex:self.error(str(ex))
  def adapt_painting(self):
   if not self.workspace:return

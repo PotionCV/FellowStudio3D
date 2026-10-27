@@ -6,9 +6,10 @@ import numpy as np
 PRESETS={
  'long_tail':dict(shape='tube',length=17.,width=3.,thickness=3.,curl=75.,lean=-75.,wag=18.,cycles=1.,x=0.,y=2.,z=0.,outward=0.),
  'fluffy_tail':dict(shape='brush',length=16.,width=7.,thickness=6.,curl=40.,lean=-70.,wag=12.,cycles=1.,x=0.,y=2.,z=0.,outward=0.),
+ 'zigzag_tail':dict(shape='zigzag',length=24.,width=18.,thickness=1.5,curl=0.,lean=-12.,wag=0.,cycles=1.,x=8.,y=0.,z=-1.,outward=0.),
  'bob_tail':dict(shape='bob',length=5.,width=5.,thickness=5.,curl=0.,lean=-90.,wag=0.,cycles=1.,x=0.,y=2.,z=0.,outward=0.)}
-LABELS={'long_tail':'长尾','fluffy_tail':'蓬松尾','bob_tail':'短圆尾'}
-SPECS=(('length','尾巴长度（px）',3,26,.5),('width','尾巴粗细（px）',.5,12,.25),
+LABELS={'long_tail':'长尾','fluffy_tail':'蓬松尾','bob_tail':'短圆尾','zigzag_tail':'折线尾'}
+SPECS=(('length','尾巴长度（px）',3,26,.5),('width','尾巴粗细（px）',.5,24,.25),
  ('curl','尾巴弯曲（度）',-150,150,1),('tip','尾尖粗细',0,1,.05),('wag','摆尾幅度（度）',-60,60,1),
  ('thickness','尾巴厚度（px）',.5,12,.25),('lean','尾巴抬起（度）',-160,60,1),
  ('x','尾根左右（px）',-10,10,.25),('y','尾根上下（px）',-8,12,.25),('z','尾根前后（px）',-8,8,.25),
@@ -19,7 +20,7 @@ def normalize(source):
  if not isinstance(key,str) or not re.fullmatch(r'tail[1-9][0-9]{0,5}',key):raise ValueError('Invalid tail ID')
  if preset not in PRESETS or source.get('parent','pelvis')!='pelvis':raise ValueError('Invalid tail preset or parent')
  item=dict(PRESETS[preset],tip=0.,id=key,parent='pelvis',kind='tail',preset=preset)
- if source.get('shape',item['shape']) not in ('tube','brush','bob'):raise ValueError('Invalid tail shape')
+ if source.get('shape',item['shape']) not in ('tube','brush','bob','zigzag'):raise ValueError('Invalid tail shape')
  item['shape']=source.get('shape',item['shape'])
  for field,_,lo,hi,_ in SPECS:
   value=source.get(field,item[field])
@@ -154,7 +155,9 @@ def group_frame(item,pose,anchor,world_frame):
 @lru_cache(maxsize=128)
 def _mesh(key):
  from rounded_scene import surface_rings
- shape,length,width,depth,tip=key;rings=[];samples=np.linspace(0,1,13)
+ shape,length,width,depth,tip=key
+ if shape=='zigzag':return zigzag_mesh(length,width,depth)
+ rings=[];samples=np.linspace(0,1,13)
  cap=1-min(.3,max(.025,min(width,depth)*tip/(2*length)))
  if tip>0 and shape!='bob':samples=np.unique(np.r_[samples,np.linspace(cap,1,5)])
  for t in samples:
@@ -168,3 +171,20 @@ def _mesh(key):
   if t==0 or t==1:radius=0.
   rings.append((float(t*length),float(radius*width/2),float(radius*depth/2)))
  return surface_rings(rings,12),(np.array((-width/2,0.,-depth/2)),np.array((width/2,length,depth/2)))
+
+
+@lru_cache(maxsize=64)
+def zigzag_mesh(length,width,depth):
+ """A closed extruded polygon; shared points retain continuous FK weights."""
+ from hand_props import triangulate
+ points=np.array([(-.50,0),(-.28,.04),(-.38,.16),(-.10,.22),(-.25,.38),(0,.50),(-.13,.62),(.45,1.),(.50,.67),(.12,.45),(.26,.30),(-.02,.15),(.08,.06),(-.38,0.)],float)
+ if np.sum(points[:,0]*np.roll(points[:,1],-1)-np.roll(points[:,0],-1)*points[:,1])<0:points=points[::-1]
+ points*=np.array((width,length));result=[]
+ for ids in triangulate(points):
+  front=np.array([(points[k,0],points[k,1],depth/2) for k in ids]);back=front[::-1].copy();back[:,2]=-depth/2
+  result.extend((('front',front),('back',back)))
+ for a,b in zip(points,np.roll(points,-1,axis=0)):
+  normal=np.array((b[1]-a[1],a[0]-b[0]));axis=int(np.argmax(abs(normal)));face=(('right','left'),('top','bottom'))[axis][0 if normal[axis]>0 else 1]
+  quad=np.array([(a[0],a[1],-depth/2),(b[0],b[1],-depth/2),(b[0],b[1],depth/2),(a[0],a[1],depth/2)])
+  result.extend((face,quad[list(ids)]) for ids in ((0,1,2),(0,2,3)))
+ return result,(np.array((-width/2,0.,-depth/2)),np.array((width/2,length,depth/2)))

@@ -18,6 +18,9 @@ def normalize(source):
   result[key]=float(np.clip(v,lo,hi))
  if not isinstance(source.get('head_link',True),bool):raise ValueError('Invalid head/body link')
  result['head_link']=source.get('head_link',True)
+ profile_name=source.get('profile','bag')
+ if profile_name not in ('bag','rounded'):raise ValueError('Invalid plush profile')
+ if profile_name!='bag':result['profile']=profile_name
  return result
 
 def profile(body,t):
@@ -25,7 +28,12 @@ def profile(body,t):
  xs=(0,.04,.13,.38,.62,.82,.94,.985,1)
  widths=(0,body['bottom_width']*.36,body['bottom_width']*.5,body['belly_width']*.5,
          (body['belly_width']+body['upper_width'])*.25,body['upper_width']*.5,body['upper_width']*.44,body['upper_width']*.25,0)
- return np.interp(t,xs,widths),body['depth']/2*np.interp(t,xs,(0,.65,.92,1,1,.98,.86,.48,0))
+ depths=(0,.65,.92,1,1,.98,.86,.48,0)
+ if body.get('profile')=='rounded':
+  xs=(0,.04,.13,.34,.53,.65,.80,.92,.98,1.)
+  widths=(0,body['bottom_width']*.36,body['bottom_width']*.5,body['belly_width']*.5,body['belly_width']*.47,body['upper_width']*.43,body['upper_width']*.5,body['upper_width']*.43,body['upper_width']*.24,0)
+  depths=(0,.50,.77,1.,.88,.79,1.,.89,.50,0)
+ return np.interp(t,xs,widths),body['depth']/2*np.interp(t,xs,depths)
 
 def rig(model,g):
  """Place sockets on the continuous body and keep short legs on the base floor."""
@@ -44,15 +52,16 @@ def dimensions(model):
 
 def bottom(g):return np.array((0.,55.5-g['body_bottom'],0.))
 
-def mesh(model):return _mesh(tuple(model['body'][k] for k in ('height','upper_width','belly_width','bottom_width','depth')))
+def mesh(model):return _mesh(tuple(model['body'][k] for k in ('height','upper_width','belly_width','bottom_width','depth'))+(model['body'].get('profile','bag'),))
 
 @lru_cache(maxsize=128)
 def _mesh(key):
  from rounded_scene import surface_rings
- height,upper,belly,base,depth=key;body=dict(height=height,upper_width=upper,belly_width=belly,bottom_width=base,depth=depth)
+ height,upper,belly,base,depth,profile_name=key;body=dict(height=height,upper_width=upper,belly_width=belly,bottom_width=base,depth=depth,profile=profile_name)
  rings=[]
  # Extra intermediate rings distribute bending rather than creating a hinge.
- for t in sorted(set(np.linspace(0,1,21).tolist()+[.04,.13,.38,.62,.82,.94,.985])):
+ extra=[.04,.13,.38,.62,.82,.94,.985]+([.34,.53,.65,.80,.92,.98] if profile_name=='rounded' else [])
+ for t in sorted(set(np.linspace(0,1,21).tolist()+extra)):
   w,d=profile(body,t);rings.append((t*height,w,d))
  triangles=[]
  for _,points in surface_rings(rings,16):

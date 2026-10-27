@@ -26,8 +26,8 @@ class App(UI.App):
    try:TkinterDnD._require(self);self.dnd_available=True
    except RuntimeError:self.status.set('PNG drag/drop unavailable; use Swap instead.')
   self.title('FellowStudio3D')
-  icon=E.ROOT/'FellowStudio3D.ico'
-  if icon.is_file():self.iconbitmap(default=str(icon))
+  from platform_support import set_icon
+  set_icon(self,E.ROOT)
   self.bind('<F1>',self.open_guide)
  def _build(self):
   super()._build()

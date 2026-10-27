@@ -1,5 +1,5 @@
 """Keep mutable local work separate from distributable application files."""
-import os,shutil,tempfile
+import os,shutil,sys,tempfile
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent
@@ -10,7 +10,8 @@ def workspace_paths():
         requested.mkdir(parents=True,exist_ok=True)
         with tempfile.TemporaryFile(dir=requested):pass
     except OSError:
-        requested=Path(os.environ.get('LOCALAPPDATA',Path.home()))/'FellowStudio3D'
+        base=Path.home()/'Library'/'Application Support' if sys.platform=='darwin' else Path(os.environ.get('LOCALAPPDATA',Path.home()))
+        requested=base/'FellowStudio3D'
         requested.mkdir(parents=True,exist_ok=True)
     # Copy, never move or overwrite, existing local work from older versions.
     for filename in ('studio3d_motion.json','ui_settings.json'):

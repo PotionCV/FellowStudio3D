@@ -15,8 +15,8 @@ class OutlineColorDialog(tk.Toplevel):
         self.value=tk.StringVar(master=self,value=owner.outline_color.get())
         self.error=tk.StringVar(master=self)
         footer=tk.Frame(self,bg=PANEL);footer.pack(side='bottom',fill='x',padx=14,pady=12)
-        PixelButton(footer,text='应用',command=self.apply,accent=True).pack(side='right',padx=4)
         PixelButton(footer,text='取消',command=self.destroy).pack(side='right',padx=4)
+        PixelButton(footer,text='应用',command=self.apply,accent=True).pack(side='right',padx=4)
         from pixel_ui import ScrollPanel
         panel=ScrollPanel(self);panel.pack(fill='both',expand=True,padx=12,pady=10);body=panel.content
         Label(body,text='边线颜色',anchor='w').pack(fill='x',padx=8,pady=5)

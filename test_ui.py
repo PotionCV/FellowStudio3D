@@ -3,6 +3,64 @@ from pathlib import Path
 import app,engine as E,uv_assets as U
 from pixel_ui import PixelButton
 class UITests(unittest.TestCase):
+ def test_framework_categories_display_restoration_and_layer_order(self):
+  import copy
+  a=self.a;a.toggle_display_options();a.update();self.assertTrue(a.display_options.winfo_ismapped())
+  old=copy.deepcopy(a.project['render']);a.outline.set(False);a.textures.set(False);a.display();a.undo()
+  self.assertEqual(a.project['render'],old);self.assertEqual(a.outline.get(),old.get('outline',True));self.assertEqual(a.textures.get(),old.get('textures',True))
+  a.project['render'].update(outline=False,textures=False,outline_color='#112233');a.sync()
+  self.assertFalse(a.outline.get());self.assertFalse(a.textures.get());self.assertEqual(a.outline_color.get(),'#112233')
+  a.add('wave');a.add('nod');a.select('layer',1);a.move_layer(-1)
+  self.assertEqual([e['kind'] for e in a.project['layers']],['nod','wave']);self.assertEqual(a.stack.curselection(),(0,));self.assertEqual(a.layer_actions['上移'].state,'disabled')
+  a.undo();self.assertEqual([e['kind'] for e in a.project['layers']],['wave','nod'])
+  a.edit_model();e=a.model_editor;self.assertEqual(set(e.category_tabs),{'shape','hair','ears','tail','props'})
+  for key in ('hair','ears','tail','props'):
+   e.select_category(key);a.update();self.assertFalse(e.shape_shell.winfo_manager());self.assertFalse(e.link_check.winfo_manager());self.assertTrue(e.category_tabs[key].accent)
+  e.select_category('shape');a.update();self.assertTrue(e.shape_shell.winfo_manager());e.select('armL');self.assertTrue(e.link_check.winfo_manager());e.cancel()
+
+ def test_symmetric_shapes_hair_ears_and_pose_links_are_explicit(self):
+  import copy,model_data as M,hair_assembly as HA,hair,attachment_editor as AE,attachments as A
+  a=self.a;a.project['model']=M.normalize();before=copy.deepcopy(a.project);a.edit_model();e=a.model_editor
+  e.select('armL');e.link.set(False);e.set_value('curve',2);e.set_value('upper',8);e.mirror_limb()
+  self.assertEqual(e.draft['armR']['curve'],-2);self.assertEqual(e.draft['armR']['upper'],8)
+  e.select_category('hair');left=HA.add(e,'sideL');right=HA.add(e,'sideR');HA.set_link(e,left,False);HA.set_value(e,left,'width',7)
+  HA.set_link(e,left,True);self.assertEqual(hair.resolve(HA.items(e),right)['width'],7)
+  e.select_category('ears');AE.add(e,'cat');source=e.attachment_id;opposite=source[:-1]+('R' if source.endswith('L') else 'L')
+  e.draft['attachments']=[p for p in e.draft['attachments'] if p['id']!=opposite];AE.mirror(e)
+  self.assertEqual(A.record(e.draft,source)['width'],A.record(e.draft,opposite)['width']);e.cancel();self.assertEqual(a.project,before)
+  editor=a.edit_pose_animation();editor.select('armR');old=copy.deepcopy(editor.cards[0]['pose']['armL']);editor.set_pose(0,35)
+  self.assertEqual(editor.cards[0]['pose']['armL'],old);editor.link_pose_pair(True);self.assertEqual(editor.cards[0]['pose']['armL'][0],-35)
+  editor.set_pose(1,50);self.assertEqual(editor.cards[0]['pose']['armL'][1],-50);editor.cancel();self.assertEqual(a.project,before)
+
+ def test_responsive_dropdown_keeps_actions_whole_and_has_no_overlap(self):
+  import tkinter as tk
+  from pixel_ui import FlowBar,PixelOption
+  a=self.a;dialog=tk.Toplevel(a);dialog.ui_scale=a.ui_scale;dialog.ui_font=a.caption_font;dialog.caption_font=a.caption_font;dialog.geometry('360x240')
+  bar=FlowBar(dialog,compact=True);bar.pack(fill='x');value=tk.StringVar(master=dialog,value='A very long resource name')
+  option=PixelOption(bar,value,'A very long resource name','Short');option.pack(side='left',fill='x',expand=True)
+  button=PixelButton(bar,text='添加',compact=True);button.pack(side='left');a.update()
+  self.assertEqual(option.winfo_y(),button.winfo_y());self.assertGreater(option.winfo_width(),80)
+  for width in (260,500,360):
+   dialog.geometry(f'{width}x240');a.update();rects=[]
+   for child in bar.winfo_children():
+    rect=(child.winfo_x(),child.winfo_y(),child.winfo_x()+child.winfo_width(),child.winfo_y()+child.winfo_height())
+    self.assertLessEqual(rect[2],bar.winfo_width()+1);self.assertLessEqual(rect[3],bar.winfo_height()+1)
+    for other in rects:self.assertFalse(min(rect[2],other[2])>max(rect[0],other[0]) and min(rect[3],other[3])>max(rect[1],other[1]))
+    rects.append(rect)
+    if isinstance(child,PixelButton):
+     for item in child.find_all():
+      if child.type(item)=='text':self.assertNotIn('\n',child.itemcget(item,'text'))
+  dialog.destroy()
+
+ def test_retro_switch_is_saved_undoable_and_matches_display_group(self):
+  a=self.a
+  self.assertIs(a.render_flag_checks['retro_animation'].master,a.animation_effects)
+  self.assertIsNot(a.animation_effects,a.render_flag_checks['lighting'].master)
+  self.assertFalse(a.retro_animation.get());a.retro_animation.set(True);a.toggle_render_flag('retro_animation',a.retro_animation)
+  self.assertTrue(a.current_display()['retro_animation']);a.display();self.assertTrue(a.project['render']['retro_animation'])
+  a.autosave();self.assertTrue(E.load(a.state_path)['render']['retro_animation'])
+  a.undo();a.undo();self.assertFalse(a.retro_animation.get())
+
  def test_hair_editor_bones_pose_cards_and_undo(self):
   import copy,hair,hair_editor,model_data as M,hair_controls,types
   a=self.a;a.project['model']=M.normalize();a.changed();before=copy.deepcopy(a.project)
@@ -262,13 +320,13 @@ class UITests(unittest.TestCase):
  def test_hand_prop_editor_stages_transfer_and_uv_resources_with_undo(self):
   import copy,hand_prop_editor as HP
   a=self.a;before=copy.deepcopy(a.project);a.edit_model();e=a.model_editor;e.select('armR');a.update()
-  next(w for w in e.params.winfo_children()[0].winfo_children() if isinstance(w,PixelButton) and w.text=='手持道具').invoke()
+  e.select_category('props')
   self.assertTrue(e.prop_mode);HP.add(e,'sword');a.update()
   self.assertEqual(a.project,before);HP.set_value(e,'pitch',-75);HP.transfer(e);a.update()
   self.assertEqual(e.part,'armL');self.assertEqual(e.draft['attachments'][0]['parent'],'armL')
   e.apply();a.update();self.assertEqual(a.project['model']['attachments'][0]['pitch'],-75)
   a.edit_textures();uv=a.texture_editor;a.update();self.assertIn('prop1',uv.project['textures']);self.assertEqual(len(uv.card_photos),11);uv.cancel()
-  a.edit_model();e=a.model_editor;e.prop_mode=True;e.select('armL');HP.remove(e);e.cancel();self.assertEqual(len(a.project['model']['attachments']),1)
+  a.edit_model();e=a.model_editor;e.select('armL');e.select_category('props');HP.remove(e);e.cancel();self.assertEqual(len(a.project['model']['attachments']),1)
   a.undo();self.assertEqual(a.project,before)
 
  def test_pose_card_source_capture_and_four_view_ik_edit_only_selected_card(self):
@@ -329,7 +387,7 @@ class UITests(unittest.TestCase):
   e.select('torso');e.apply();a.update();self.assertEqual(a.project['model']['attachments'][0]['wag'],-30)
   a.edit_textures();uv=a.texture_editor;a.update();self.assertIn('tail1',uv.project['textures']);self.assertEqual(len(uv.card_photos),13)
   panel=uv.inspect_uv('tail1');a.update();self.assertEqual(panel.part,'tail1');panel.destroy();uv.cancel()
-  a.edit_model();e=a.model_editor;e.select('torso');TE.remove(e);self.assertEqual(len(e.draft['attachments']),2);e.cancel()
+  a.edit_model();e=a.model_editor;e.select_category('tail');TE.remove(e);self.assertEqual(len(e.draft['attachments']),2);e.cancel()
   self.assertEqual(len(a.project['model']['attachments']),3);a.undo();self.assertEqual(a.project,before)
   import plush_editor as PE
   a.edit_model();e=a.model_editor;PE.change(e,'plush');TE.add(e,'bob_tail');e.apply();a.update()
@@ -603,8 +661,8 @@ class UITests(unittest.TestCase):
   original=a.option_get('font','Font');a.edit_textures();e=a.texture_editor;a.update();p=e.inspect_uv('head');a.update();p.destroy();e.populate();a.update()
   self.assertEqual(a.option_get('font','Font'),original)
   labels=[w for w in children(e) if isinstance(w,Label)];self.assertTrue(labels)
-  self.assertTrue(all(str(w.cget('font'))==str(e.ui_font) for w in labels));e.cancel();a.edit_model();a.update();e=a.model_editor
-  self.assertTrue(all(str(w.cget('font'))==str(e.ui_font) for w in children(e) if isinstance(w,Label)));e.cancel()
+  self.assertTrue(all(str(w.cget('font')) in (str(e.ui_font),str(e.caption_font)) for w in labels));e.cancel();a.edit_model();a.update();e=a.model_editor
+  self.assertTrue(all(str(w.cget('font')) in (str(e.ui_font),str(e.caption_font)) for w in children(e) if isinstance(w,Label)));e.cancel()
   import json
   prefs=json.loads(a.preferences_path.read_text());self.assertEqual(prefs['render']['outline_color'],'#24586c')
  def test_head_turn_depth_and_stride_twist_controls_are_available(self):

@@ -436,7 +436,8 @@ def motion_project(project):
     return motion
 
 def visible(seq,project,bundle=None):
-    import rounded_scene
+    import rounded_scene,retro_animation
+    seq=retro_animation.stylize(seq,project)
     bundle=bundle if bundle is not None else rounded_scene.assets(project)
     return [dict(pose,_assets3d=bundle,**({'_camera_y':project['camera_y']} if project.get('camera_y') else {})) for pose in seq]
 
@@ -506,7 +507,10 @@ def export_name(project,name=None):
     if name.split('.')[0].upper() in {'CON','PRN','AUX','NUL',*[f'COM{i}' for i in range(1,10)],*[f'LPT{i}' for i in range(1,10)]}:raise ValueError('请换一个导出名称')
     return name
 
-def export(project,out=None,name=None,formats=None,create_folder=True,scale=1,directions=1):
+def export(project,out=None,name=None,formats=None,create_folder=True,scale=1,directions=1,overwrite=False):
+    if overwrite:
+        from export_delivery import replace_export
+        return replace_export(project,out,name,formats,create_folder,scale,directions,export)
     if isinstance(directions,bool) or not isinstance(directions,int) or directions not in (1,4,8):raise ValueError('方向数必须为1、4或8。')
     if directions!=1:
         import directional_export

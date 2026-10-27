@@ -120,8 +120,8 @@ def show(owner):
   except (ValueError,KeyError) as ex:messagebox.showerror(tr('动作串联'),tr(str(ex)),parent=dialog);return
   owner.snapshot();owner.stop();owner.project=project;owner.frame=0
   owner.sync(('layer',0));owner.changed();dialog.destroy()
- apply_button=PixelButton(footer,text='生成串联动作',command=apply,accent=True);apply_button.pack(side='right',padx=10,pady=8)
  PixelButton(footer,text='取消',command=dialog.destroy).pack(side='right',padx=4,pady=8)
+ apply_button=PixelButton(footer,text='生成串联动作',command=apply,accent=True);apply_button.pack(side='right',padx=10,pady=8)
  refresh();dialog.grab_set()
  # Expose semantic actions for real-widget regression checks.
  dialog.steps=selected;dialog.apply_sequence=apply;dialog.move_step=move;dialog.step_list=listing

@@ -38,6 +38,12 @@ def panel(editor):
  box=editor.params;body=editor.draft['body']
  UI.Label(box,text='主体',anchor='w').pack(fill='x',padx=12,pady=8)
  UI.Label(box,text='头身使用连续外形和一张贴图。四肢与耳朵保持独立。',wrap=True,anchor='w',justify='left').pack(fill='x',padx=12,pady=6)
+ profiles={tr('连续布偶'):'bag',tr('圆头圆肚'):'rounded'};choice=tk.StringVar(master=editor,value=tr('圆头圆肚' if body.get('profile')=='rounded' else '连续布偶'))
+ def choose_profile(label):
+  if profiles[label]=='bag':body.pop('profile',None)
+  else:body['profile']=profiles[label]
+  editor.request_preview()
+ PixelOption(box,choice,*profiles,command=choose_profile).pack(fill='x',padx=12,pady=6)
  specs=list(plush.SPECS)
  for key,label,lo,hi,step in specs:
   row=tk.Frame(box);row.pack(fill='x',padx=12,pady=(8,0));row.columnconfigure(0,weight=1)
@@ -54,7 +60,5 @@ def panel(editor):
   control=PixelScale(box,from_=0,to=1,resolution=.05);control.set(body['flex']);control.pack(fill='x',padx=12)
   def flex(v):body['flex']=float(v);editor.request_preview()
   control.configure(command=flex)
- import tail_editor
- tail_editor.mount(editor)
  def reset():editor.draft['body']=dict(plush.DEFAULT);editor.show_params();editor.request_preview()
  PixelButton(box,text='重置这个部位',command=reset).pack(fill='x',padx=12,pady=10)

@@ -7,18 +7,18 @@ from importlib.metadata import distribution
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
-MODULES=('hair_assembly','hair','hair_editor','hair_controls','resource_library','resource_browser','tail_motion','hand_props','hand_prop_editor','pose_animation','pose_animation_editor','directional_export','tails','tail_editor','aerial_actions','action_sequence','plush','plush_editor','attachments','attachment_editor','app','core3d','data_paths','engine','fellow','gaitdata','i18n','layers',
+MODULES=('platform_support','export_delivery','retro_animation','hair_assembly','hair','hair_editor','hair_controls','resource_library','resource_browser','tail_motion','hand_props','hand_prop_editor','pose_animation','pose_animation_editor','directional_export','tails','tail_editor','aerial_actions','action_sequence','plush','plush_editor','attachments','attachment_editor','app','core3d','data_paths','engine','fellow','gaitdata','i18n','layers',
  'localized_ui','model_data','model_editor','outline_color','pixel_protection',
  'pixel_ui','preview_worker','protection_editor','rig','rounded_scene','studio_ui','paint_workspace',
  'texture_editor','image_clipboard','render_options','render_options_editor','pixel_lighting','uv_assets','uv_i18n','uv_panel_legacy','game_actions','motion_timing','motion_resources','sculpt')
 PUBLIC=('README.md','LICENSE','VERSION','THIRD_PARTY_NOTICES.md','requirements.txt','requirements-lock.txt',
- 'FellowStudio3D.bat','FellowStudio3D.ico','launch.py','Boutique9.ttf','Boutique9_Bold.ttf','Boutique9_OFL.txt',
+ 'FellowStudio3D.sh','FellowStudio3D.bat','FellowStudio3D.ico','launch.py','Boutique9.ttf','Boutique9_Bold.ttf','Boutique9_OFL.txt',
  '.gitignore','.gitattributes')
 
 def copy_application(dest,source=False):
     dest.mkdir(parents=True,exist_ok=True)
     files=[*(f'{name}.py' for name in MODULES),*PUBLIC]
-    if source:files += ['tests.py','test_ui.py','test_export_preferences.py','test_release.py','test_extensions.py']
+    if source:files += ['test_platform_support.py','tests.py','test_ui.py','test_export_preferences.py','test_release.py','test_extensions.py']
     for name in files:shutil.copy2(ROOT/name,dest/name)
     for name in ('source','defaults','docs','examples/poses','examples/UV','examples/atlases'):
         shutil.copytree(ROOT/name,dest/name)

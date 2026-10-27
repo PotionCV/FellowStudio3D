@@ -18,5 +18,14 @@ if __name__=='__main__':
             message='Could not start FellowStudio3D. Error details:\n'+str(log)
         except Exception:
             message='Could not start FellowStudio3D.\n'+detail[-1500:]
-        ctypes.windll.user32.MessageBoxW(None,message,'FellowStudio3D',16)
+        print(message+'\n'+detail,file=sys.stderr)
+        try:
+            if sys.platform=='win32':ctypes.windll.user32.MessageBoxW(None,message,'FellowStudio3D',16)
+            else:
+                import tkinter as tk
+                from tkinter import messagebox
+                root=tk.Tk();root.withdraw()
+                try:messagebox.showerror('FellowStudio3D',message,parent=root)
+                finally:root.destroy()
+        except Exception:pass  # Keep the original error when Tk itself is unavailable.
         sys.exit(1)

@@ -3,5 +3,6 @@
 *.md text eol=lf
 *.json text eol=lf
 *.bat text eol=crlf
+*.sh text eol=lf
 *.png binary
 *.ttf binary

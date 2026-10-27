@@ -5,6 +5,139 @@ import numpy as np
 import engine as E,model_data as M,rounded_scene as S
 
 class ExtensionTests(unittest.TestCase):
+ def test_export_keeps_backup_when_the_os_blocks_rollback(self):
+  from unittest.mock import patch
+  import export_delivery as D
+  p=E.new_project();p.update(seconds=.25,fps=8)
+  with tempfile.TemporaryDirectory() as td:
+   dest=E.export(p,td,'Recovery',formats=['png'],create_folder=False);before={f.name:f.read_bytes() for f in dest.iterdir()}
+   copy_original=D.shutil.copyfileobj;replace_original=Path.replace
+   def fail_publish(source,output,*args,**kw):
+    if Path(output.name).parent==dest:raise OSError('write blocked')
+    return copy_original(source,output,*args,**kw)
+   def fail_restore(source,target):
+    if source.parent.name=='backup':raise OSError('restore blocked')
+    return replace_original(source,target)
+   with patch.object(D.shutil,'copyfileobj',side_effect=fail_publish),patch.object(Path,'replace',fail_restore):
+    with self.assertRaisesRegex(OSError,'backup'):E.export(p,td,'Recovery',formats=['png'],create_folder=False,overwrite=True)
+   recovery=next(dest.glob('.fellow-replace-*/backup'))
+   self.assertEqual({f.name:f.read_bytes() for f in recovery.iterdir()},before)
+
+ def test_explicit_export_overwrite_removes_stale_selected_frames_only(self):
+  p=E.new_project('stand');p.update(seconds=.5,fps=8)
+  for folder in (False,True):
+   for directions in (1,4):
+    with tempfile.TemporaryDirectory() as td:
+     dest=E.export(p,td,'Repeat',formats=['png','strip','gif'],create_folder=folder,directions=directions)
+     (dest/'notes.txt').write_text('keep');old_gif=next(dest.glob('*.gif'));original=old_gif.read_bytes()
+     with self.assertRaises(FileExistsError):E.export(p,td,'Repeat',formats=['png'],create_folder=folder,directions=directions)
+     shorter={**p,'seconds':.25}
+     E.export(shorter,td,'Repeat',formats=['png','strip'],create_folder=folder,directions=directions,overwrite=True)
+     frames=[f for f in dest.glob('*.png') if 'strip' not in f.name and 'atlas' not in f.name]
+     self.assertEqual(len(frames),2*directions);self.assertEqual((dest/'notes.txt').read_text(),'keep');self.assertEqual(old_gif.read_bytes(),original)
+     if directions==4:
+      metadata=dest/'Repeat_atlas.json';saved=metadata.read_bytes()
+      E.export(shorter,td,'Repeat',formats=['recipe'],create_folder=folder,directions=1,overwrite=True)
+      self.assertEqual(metadata.read_bytes(),saved) # JSON-only cannot delete image metadata
+
+ def test_export_overwrite_rolls_back_render_and_partial_publication_failure(self):
+  from unittest.mock import patch
+  import export_delivery as D
+  p=E.new_project('stand');p.update(seconds=.25,fps=8)
+  for directions in (1,4):
+   with tempfile.TemporaryDirectory() as td:
+    dest=E.export(p,td,'Rollback',formats=['png','strip'],create_folder=False,directions=directions)
+    before={f.name:f.read_bytes() for f in dest.iterdir()}
+    with patch.object(E,'rgba',side_effect=RuntimeError('render failure')):
+     with self.assertRaises(RuntimeError):E.export(p,td,'Rollback',formats=['png','strip'],create_folder=False,directions=directions,overwrite=True)
+    self.assertEqual({f.name:f.read_bytes() for f in dest.iterdir()},before)
+    original=D.shutil.copyfileobj;count=[]
+    def interrupted(source,output,*args,**kwargs):
+     if Path(output.name).parent==dest:
+      count.append(output.name)
+      if len(count)==2:raise OSError('publication interrupted')
+     return original(source,output,*args,**kwargs)
+    with patch.object(D.shutil,'copyfileobj',side_effect=interrupted):
+     with self.assertRaises(OSError):E.export(p,td,'Rollback',formats=['png','strip'],create_folder=False,directions=directions,overwrite=True)
+    self.assertEqual(len(count),2);self.assertEqual({f.name:f.read_bytes() for f in dest.iterdir()},before)
+
+ def test_retro_animation_holds_local_cels_without_mutating_motion(self):
+  import retro_animation as RA,render_options as O
+  p=E.new_project('stand');p.update(seconds=1,fps=12)
+  original=copy.deepcopy(p);a=E.poses(p)
+  self.assertIs(RA.stylize(a,p),a);self.assertFalse(O.normalized({'retro_animation':'yes'})['retro_animation'])
+  p['render']['retro_animation']=True;b=E.poses(p);again=E.poses(p)
+  self.assertEqual(len(a),len(b));self.assertEqual(p,{**original,'render':{**original['render'],'retro_animation':True}})
+  images=[[E.rgba(f,proj['render']) for f in seq] for seq,proj in ((a,original),(b,p))]
+  changes=lambda ims:sum(np.any(im!=ims[i-1],axis=2).sum() for i,im in enumerate(ims))
+  self.assertLess(changes(images[1]),changes(images[0]))
+  self.assertLess(len({im.tobytes() for im in images[1]}),len({im.tobytes() for im in images[0]}))
+  for x,y in zip(b,again):
+   for key in ('dy','legL','head','armR'):np.testing.assert_array_equal(x[key],y[key])
+  # A small head motion can be held while a large independent hand action moves.
+  seq=[E.norm({'head':i*.05,'armR':[i*12,20,0,0]}) for i in range(12)]
+  styled=RA.stylize(seq,p)
+  self.assertEqual(len({f['head'] for f in styled}),1)
+  self.assertGreater(len({tuple(f['armR']) for f in styled}),4)
+  self.assertGreater(max(f['armR'][0] for f in styled)-min(f['armR'][0] for f in styled),100)
+  self.assertEqual(seq[0]['head'],0.)
+
+ def test_retro_drawing_rhythm_preserves_apex_and_parent_regions(self):
+  import retro_animation as RA
+  p=E.new_project('stand');p.update(seconds=1,fps=24,render={'retro_animation':True})
+  seq=[E.norm({'armR':[i*5,0,0,0],'chest_yaw':.1*np.sin(i),'legL':[i*4,0,0,0]}) for i in range(24)]
+  styled=RA.stylize(seq,p)
+  self.assertLessEqual(len({tuple(f['armR']) for f in styled}),8)
+  self.assertEqual(len({f['chest_yaw'] for f in styled}),1) # legs cannot force chest redraws
+  p['playback']='once';seq=[E.norm({'armR':[0,0,0,0]}) for _ in range(24)];seq[11]['armR']=[130,20,0,0]
+  styled=RA.stylize(seq,p);self.assertEqual(styled[11]['armR'],seq[11]['armR'])
+
+ def test_retro_pixel_phase_keeps_translated_patterns_and_joint_groups(self):
+  import retro_animation as RA
+  p=E.new_project('stand');p['pose']=E.norm({'dx':0,'dy':0});pose=E.poses(p)[0]
+  anchors=RA.pixel_anchors(pose,S.assets(p))
+  np.testing.assert_array_equal(anchors['upperArmL'],anchors['lowerArmL'])
+  np.testing.assert_array_equal(anchors['thighR'],anchors['shinR'])
+  settings={**p['render'],'retro_animation':True,'outline':False,'gaps':False}
+  a=E.rgba(pose,settings);q={**pose,'dx':1.};b=E.rgba(q,settings)
+  np.testing.assert_array_equal(a[:,:-1],b[:,1:])
+  # Pixel-grid phase correction must also keep protected UV overlays attached.
+  resource=M.load_resource('examples/models/CustomModel.json');p.update(model=resource['model'],assets3d=resource.get('assets3d'))
+  pose=E.poses(p)[0];a=E.rgba(pose,settings);b=E.rgba({**pose,'dx':1.},settings)
+  np.testing.assert_array_equal(a[:,:-1],b[:,1:])
+
+ def test_retro_contacts_endpoints_loop_and_hair_are_coherent(self):
+  import retro_animation as RA,hair
+  p=E.new_project('jump');p.update(seconds=.5,render={'retro_animation':True})
+  a=E.poses({**p,'render':{}});b=E.poses(p)
+  for i in (0,len(a)-1):
+   for k in ('dy','legL','legR','armR','head'):np.testing.assert_array_equal(a[i][k],b[i][k])
+  self.assertEqual([f.get('_ground') for f in a],[f.get('_ground') for f in b])
+  for pose in b:
+   if pose.get('_ground'):self.assertLess(abs(S.ground_y(pose,('thighL','shinL','thighR','shinR'))-E._ground_level(json.dumps(M.normalize(),sort_keys=True))),.01)
+  # Adjacent loop ends may share a cel, but contact boundaries never do.
+  values=np.array([[[0.]],[[2.]],[[.1]]]);contacts=[(True,)]*3
+  cells=RA._cells(values,True,contacts);self.assertIn([2,0],cells)
+  cells=RA._cells(values,True,[(True,),(True,),(False,)]);self.assertNotIn([2,0],cells)
+  p=E.new_project('stand');p.update(seconds=.5,model=M.normalize(),render={'retro_animation':True})
+  hair.rebuild(p['model'],{'style':'twins'});p['layers']=[E.entry('hair')]
+  seq=E.poses(p);self.assertTrue(all(np.isfinite(f['hair_ponyL']).all() for f in seq))
+
+ def test_retro_preview_save_export_and_random_seek_match(self):
+  from PIL import Image
+  import preview_worker as PW
+  p=E.new_project('stand');p.update(seconds=.5,fps=8,render={'retro_animation':True,'canvas_width':96,'canvas_height':96,'lighting':True,'self_shadow':True})
+  seq,images=PW.compile_preview(p)
+  with tempfile.TemporaryDirectory() as td:
+   path=Path(td)/'retro.json';E.save(p,path);restored=E.load(path)
+   self.assertTrue(restored['render']['retro_animation'])
+   E.export(restored,td,'Retro',formats=['png'],create_folder=False,directions=4)
+   files=list(Path(td).rglob('*.png'));self.assertEqual(len(files),len(seq)*4)
+   for i in reversed(range(len(seq))):
+    for v,cam in enumerate(PW.VIEWS):np.testing.assert_array_equal(images[v,i],E.rgba(seq[i],p['render'],cam))
+   rendered={E.rgba(f,p['render'],cam).tobytes() for f in seq for cam in ((0,0),(90,0),(180,0),(270,0))}
+   self.assertTrue(all(np.array(Image.open(f).convert('RGBA')).tobytes() in rendered for f in files))
+
  def test_hair_styles_preserve_character_art_and_have_distinct_chains(self):
   import hair
   resource=M.load_resource('examples/models/CustomModel.json');original=copy.deepcopy(resource)
@@ -147,6 +280,23 @@ class ExtensionTests(unittest.TestCase):
   self.assertEqual(editor.draft,M.normalize(editor.draft));HA.delete(editor,cap);self.assertEqual(len(HA.items(editor)),4)
   before=hair.channel(hair.resolve(HA.items(editor),midleft));HA.set_value(editor,midleft,'role','ponyL');self.assertEqual(hair.channel(hair.resolve(HA.items(editor),midleft)),before);self.assertEqual(hair.role(hair.resolve(HA.items(editor),midright)),'ponyR')
   HA.add(editor,'ponyL');self.assertEqual(len({hair.name(p) for p in HA.items(editor)}),len(HA.items(editor)))
+
+ def test_zigzag_tail_is_closed_paintable_and_supports_fk(self):
+  import tails,collections
+  item=tails.normalize(dict(id='tail1',preset='zigzag_tail',width=22.));mesh,bounds=tails.mesh(item);edges=collections.Counter()
+  for _,triangle in mesh:
+   self.assertGreater(np.linalg.norm(np.cross(triangle[1]-triangle[0],triangle[2]-triangle[0])),1e-8)
+   vertices=[tuple(np.round(p,6)) for p in triangle]
+   for a,b in zip(vertices,vertices[1:]+vertices[:1]):edges[tuple(sorted((a,b)))]+=1
+  self.assertTrue(all(count==2 for count in edges.values()));raw=np.concatenate([v for _,v in mesh]);bent=tails.skin(raw,item,[10,15,0,5,0,0,0,0,0]);self.assertTrue(np.isfinite(bent).all());self.assertFalse(np.allclose(raw,bent))
+
+ def test_rounded_mascot_keeps_legacy_profile_and_models_round_side_volume(self):
+  import plush
+  old=M.normalize({'structure':'plush'});explicit=M.normalize({'structure':'plush','body':{'profile':'bag'}})
+  self.assertEqual(old,explicit);np.testing.assert_array_equal(np.concatenate([v for _,v in plush.mesh(old)[0]]),np.concatenate([v for _,v in plush.mesh(explicit)[0]]))
+  rounded=M.normalize({'structure':'plush','body':{'profile':'rounded','depth':22.}});b=rounded['body']
+  self.assertGreater(plush.profile(b,.8)[1],plush.profile(b,.65)[1]);self.assertGreater(plush.profile(b,.34)[1],plush.profile(b,.65)[1])
+  self.assertEqual(M.normalize(rounded),rounded)
 
  def test_painted_lighting_ignores_triangle_facets(self):
   import pixel_lighting as L

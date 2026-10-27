@@ -7,6 +7,8 @@ whole body parts, layer another motion, then export sprites. No keyframe editing
 is required. The interface supports English (default), Simplified Chinese and
 Japanese, with scalable pixel controls.
 
+macOS (experimental source launcher): `sh ./FellowStudio3D.sh` with python.org Python 3.12+. First launch installs dependencies locally. [Setup and validation limits](docs/MACOS.md). Windows portable packages cannot run on Mac.
+
 ## User guides / 使用说明 / 使い方
 
 [English](docs/GUIDE.en.md) · [简体中文](docs/GUIDE.zh-CN.md) · [日本語](docs/GUIDE.ja.md)
@@ -22,6 +24,10 @@ width/height (32–256 px), stepped pixel lighting and optional model self shado
 with light direction/elevation, strength and two colors. Expanding the canvas
 preserves model/UV pixel scale; settings are saved with the project. Existing
 projects retain the unlit 64×64 default.
+
+The local development build adds a global **Retro animation** switch under **Animation style**: reuse small local pose changes while keeping active limbs moving. Preview and export share the same cels, with unchanged frame count and duration. [Design and limitations (Chinese)](docs/RETRO-ANIMATION.zh-CN.md).
+
+The current UI organizes modeling into peer Shape/Hair/Ears/Tail/Props tabs, groups display settings above the preview, and remembers export choices for the app session. Existing exports can be replaced after confirmation with failure rollback. [UI framework and audit (Chinese)](docs/UI-DESIGN.zh-CN.md).
 
 For offline reading, open `docs/GUIDE.en.html`, `docs/GUIDE.zh-CN.html` or
 `docs/GUIDE.ja.html`. In the app, click **User guide** or press **F1** to open the

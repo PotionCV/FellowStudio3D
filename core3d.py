@@ -321,6 +321,13 @@ def raster(triangles,textures,cam,settings,selected=None,connections=None,stable
  world=np.stack([t[2] for t in triangles]);uv=np.stack([t[3] for t in triangles]);parts=np.array([part_names.index(t[0]) for t in triangles])
  q=project(world.reshape(-1,3),*cam).reshape(-1,3,3)
  if pixel_shift is not None:q[:,:,:2]+=pixel_shift
+ part_shifts={}
+ for part,point in settings.get('_pixel_anchors',{}).items():
+  if part not in part_names:continue
+  center=project(np.array([point]),*cam)[0,:2]
+  if pixel_shift is not None:center+=pixel_shift
+  shift=np.floor(center)+.5-center;part_shifts[part]=shift
+  q[parts==part_names.index(part),:,:2]+=shift
  head_shift=np.zeros(2)
  if stable_head is not None:
   center=project(np.array([stable_head]),*cam)[0]
@@ -334,6 +341,7 @@ def raster(triangles,textures,cam,settings,selected=None,connections=None,stable
   def project_frame(frame):
    origin,rotation=frame;points=project(np.array([origin,*[origin+rotation[:,axis] for axis in range(3)]]),*cam)
    if pixel_shift is not None:points[:,:2]+=pixel_shift
+   if part in part_shifts:points[:,:2]+=part_shifts[part]
    if part in head_parts:points[:,:2]+=head_shift
    return {'origin':points[0],'matrix':(points[1:]-points[0]).T}
   frames[part]={**data,**project_frame(data['frame'])}
