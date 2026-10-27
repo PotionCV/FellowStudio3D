@@ -55,6 +55,10 @@ class PlatformTests(unittest.TestCase):
         self.assertLess(preview_fitted_scale(1.2,200,500,1280,720),1.2)
         self.assertLess(preview_fitted_scale(1.2,500,100,1280,720),1.2)
         self.assertEqual(preview_fitted_scale(.75,1,1,820,560),.75)
+        for window in ((1280,800),(1440,900),(1920,1080)):
+            for canvas in ((1,1),(600,400)):
+                self.assertEqual(preview_fitted_scale(1.5,*canvas,*window),1.5)
+        self.assertLess(preview_fitted_scale(1.5,600,90,1440,900),1.5)
 
     def test_pixel_font_matches_mac_typographic_and_localized_names(self):
         for name in P.PIXEL_FAMILIES:

@@ -576,7 +576,7 @@ class ExtensionTests(unittest.TestCase):
     for a,b in ((0,1),(1,2),(2,0)):edges[tuple(sorted((tuple(triangle[a]),tuple(triangle[b]))))]+=1
    self.assertEqual(set(edges.values()),{2});np.testing.assert_allclose(bounds[1]-bounds[0],H.dimensions(item))
   self.assertEqual(len(M.normalize(model)['attachments']),7)
-  for invalid in ({'id':'prop0'},{'id':'prop1','parent':'head'},{'id':'prop1','pitch':True},{'id':'prop1','x':float('nan')}):
+  for invalid in ({'id':'prop0'},{'id':'prop1','parent':'unknown'},{'id':'prop1','pitch':True},{'id':'prop1','x':float('nan')}):
    with self.assertRaises(ValueError):H.normalize(invalid)
   with self.assertRaises(ValueError):A.normalize([model['attachments'][-1]]*2)
 
@@ -764,7 +764,7 @@ class ExtensionTests(unittest.TestCase):
     vertices=[tuple(np.round(q,9)) for q in points]
     for i,j in ((0,1),(1,2),(2,0)):edges[tuple(sorted((vertices[i],vertices[j])))]+=1
    self.assertTrue(edges);self.assertEqual(set(edges.values()),{2})
-  for bad in ({'id':'tail0'},{'id':'tail1','parent':'head'},{'id':'tail1','length':float('nan')},{'id':'tail1','wag':True}):
+  for bad in ({'id':'tail0'},{'id':'tail1','parent':'unknown'},{'id':'tail1','length':float('nan')},{'id':'tail1','wag':True}):
    with self.assertRaises(ValueError):A.normalize([bad])
   with self.assertRaises(ValueError):A.normalize([T.normalize({'id':'tail1'}),T.normalize({'id':'tail1'})])
 

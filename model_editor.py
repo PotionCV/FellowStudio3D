@@ -28,8 +28,10 @@ class ModelEditor(tk.Toplevel):
     ear_mode=property(lambda s:s._mode('ears'),lambda s,v:s._set_mode('ears',v))
     prop_mode=property(lambda s:s._mode('props'),lambda s,v:s._set_mode('props',v))
     def __init__(self,owner):
-        super().__init__(owner);self.owner=owner;self.ui_scale=owner.ui_scale;self.ui_font=owner.ui_font;self.caption_font=owner.caption_font
-        self.title(tr('角色模型'));self.transient(owner);self.configure(bg=BG);self.minsize(1000,660)
+        super().__init__(owner);self.owner=owner;self.ui_scale=owner.ui_scale;self.ui_font=owner.ui_font.copy();self.caption_font=owner.caption_font.copy()
+        try:self.attributes('-alpha',0.)
+        except tk.TclError:pass
+        self.title(tr('角色模型'));self.transient(owner);self.configure(bg=BG);self.minsize(min(1000,self.winfo_screenwidth()-60),min(660,self.winfo_screenheight()-90))
         w=min(self.winfo_screenwidth()-60,max(1200,round(1400*self.ui_scale)));h=min(self.winfo_screenheight()-90,max(760,round(850*self.ui_scale)))
         self.geometry(f'{w}x{h}+{max(20,owner.winfo_rootx()+(owner.winfo_width()-w)//2)}+{max(20,owner.winfo_rooty()+(owner.winfo_height()-h)//2)}')
         self.source=copy.deepcopy(owner.project);self.draft=MD.normalize(self.source.get('model'));self.model_category='shape';self.part='torso';self.focus=owner.focus_view
@@ -47,6 +49,11 @@ class ModelEditor(tk.Toplevel):
         self._build();self.show_params();self.request_preview();self.protocol('WM_DELETE_WINDOW',self.cancel);self.bind('<MouseWheel>',self.wheel)
         self.play_job=None;self.grab_set();self.later(0,self.draw)
         self.preview_control=multiprocessing.Value('q',0);self.preview_progress=multiprocessing.Queue()
+        self.later(0,self.show_settled_layout)
+    def show_settled_layout(self):
+        self.update_idletasks();self.update_idletasks()
+        try:self.attributes('-alpha',1.)
+        except tk.TclError:pass
     def later(self,ms,fn):
         holder=[]
         def run():
@@ -136,12 +143,6 @@ class ModelEditor(tk.Toplevel):
                 tail_editor.mount(self)
             else:
                 import hand_prop_editor
-                if self.part not in ('armL','armR'):self.part='armR'
-                choices={tr('左手'):'armL',tr('右手'):'armR'}
-                value=tk.StringVar(master=self,value=next(k for k,v in choices.items() if v==self.part))
-                UI.Label(self.params,text='所属手',anchor='w').pack(fill='x',padx=12,pady=(8,2))
-                def choose(label):self.part=choices[label];self.show_params()
-                PixelOption(self.params,value,*choices,command=choose).pack(fill='x',padx=12,pady=4)
                 hand_prop_editor.mount(self)
             return
         if self.part in E.LIMBS:
@@ -204,6 +205,9 @@ class ModelEditor(tk.Toplevel):
         self.start_latest()
     def preview_project(self):
         project=copy.deepcopy(self.source);project['model']=MD.normalize(self.draft)
+        density=MD.pixel_density(project['model'])
+        if density>MD.pixel_density(self.source.get('model')):
+            project.setdefault('render',{}).update(canvas_width=max(64*density,O.size(project.get('render'))[0]),canvas_height=max(64*density,O.size(project.get('render'))[1]))
         if self.draft_assets is not None:project['assets3d']=copy.deepcopy(self.draft_assets)
         return project
     def start_latest(self):
@@ -255,10 +259,16 @@ class ModelEditor(tk.Toplevel):
         return button
     def compare_before(self,value):
         self.before_mode=value;self.draw()
+    def display_settings(self):
+        settings=dict(self.source.get('render') or {})
+        image=next(iter(self.raw.values()),None)
+        if image is not None:settings.update(canvas_width=image.shape[1],canvas_height=image.shape[0])
+        return settings
+
     def draw_scene(self):
         self.resize_job=None
         if not self.seq or self.closed:return
-        w,h=self.canvas.winfo_width(),self.canvas.winfo_height();count=1 if self.single_view.get() else 2;settings=self.source.get('render');cw,ch=O.size(settings);size,cell_height=O.fit(w/count,h/count,settings)
+        w,h=self.canvas.winfo_width(),self.canvas.winfo_height();count=1 if self.single_view.get() else 2;settings=self.display_settings();cw,ch=O.size(settings);size,cell_height=O.fit(w/count,h/count,settings)
         x=(w-size*count)//2;y=(h-cell_height*count)//2;self.cells=[];self.cell_views=[];self.refs=[];self.canvas.delete('all')
         for position,v in enumerate((self.focus,) if self.single_view.get() else range(4)):
             yaw,pitch=VIEWS[v]
@@ -282,7 +292,7 @@ class ModelEditor(tk.Toplevel):
         self.scrub.set(self.frame/max(1,len(self.seq)-1)*1000)
     def pick(self,event):
         if self.playing:return
-        settings=self.source.get('render');cw,ch=O.size(settings)
+        settings=self.display_settings();cw,ch=O.size(settings)
         for v,(x,y,size) in zip(self.cell_views,self.cells):
             if x<=event.x<x+size and y<=event.y<y+size*ch/cw:
                 self.focus=v;pose=dict(self.seq[self.frame],yaw=self.seq[self.frame]['yaw']+VIEWS[v][0],pitch=self.seq[self.frame]['pitch']+VIEWS[v][1]);j=O.joints(pose,settings)
@@ -335,6 +345,8 @@ class ModelEditor(tk.Toplevel):
         if self.replace_assets:
             import rounded_scene as S
             self.owner.project['assets3d']=S.assets(self.preview_project())
+        if MD.pixel_density(model)>MD.pixel_density(self.source.get('model')):
+            self.owner.project['render']=copy.deepcopy(self.preview_project()['render'])
         self.owner.changed();self.destroy()
     def cancel(self):self.destroy()
     def destroy(self):

@@ -1,6 +1,7 @@
 """Compact ear controls inside the model editor's head section."""
 import tkinter as tk
 import attachments as A
+import attachment_binding as B
 import localized_ui as UI
 from pixel_ui import PixelButton,PixelOption,PixelCheck,PixelScale,FlowBar
 from i18n import tr
@@ -21,6 +22,7 @@ def mount(editor):
  def choose(label):editor.attachment_id=keys[label];editor.show_params()
  PixelOption(box,value,*keys,command=choose).pack(fill='x',pady=6)
  item=A.record(editor.draft,selected);other=selected[:-1]+('R' if selected.endswith('L') else 'L')
+ B.mount(box,editor,item,lambda parent:change_binding(editor,parent))
  linked=tk.BooleanVar(master=editor,value=item['linked'])
  if any(p['id']==other for p in items):
   PixelCheck(box,text='左右联动',variable=linked,command=lambda:set_link(editor,linked.get())).pack(fill='x',pady=4)
@@ -32,8 +34,9 @@ def mount(editor):
  def toggle():editor.attachment_details=not details;editor.show_params()
  PixelButton(box,text='收起耳朵参数' if details else '编辑耳朵参数',command=toggle).pack(fill='x',pady=4)
  if details:
-  UI.Label(box,text='位置按头部比例；尺寸按原始像素。耳朵固定跟随头部。',wrap=True,anchor='w',justify='left').pack(fill='x',pady=6)
+  UI.Label(box,text='位置按头部比例；尺寸按原始像素。' if item['parent']=='head' else '位置相对所选骨骼，使用原始像素单位。',wrap=True,anchor='w',justify='left').pack(fill='x',pady=6)
   for key,label,lo,hi,step in A.SPECS:
+   if item['parent']!='head' and key in ('x','y','z'):lo,hi=-24,24
    row=tk.Frame(box);row.pack(fill='x',pady=(6,0));row.columnconfigure(0,weight=1)
    UI.Label(row,text=label,wrap=True,anchor='w').grid(row=0,column=0,sticky='ew')
    out=tk.StringVar(master=editor,value=f'{item[key]:g}')
@@ -59,6 +62,7 @@ def mirror(editor):
   sync_assets(editor)
  else:
   for field in ('preset','shape',*(s[0] for s in A.SPECS)):other[field]=source[field]
+ other['parent']=B.mirrored(source['parent'])
  editor.show_params();editor.request_preview()
 
 def add(editor,preset):
@@ -81,6 +85,7 @@ def set_link(editor,enabled):
   if p['id'] in (item['id'],other):
    if enabled:
     for key in ('preset','shape',*(s[0] for s in A.SPECS)):p[key]=item[key]
+    p['parent']=item['parent'] if p['id']==item['id'] else B.mirrored(item['parent'])
    p['linked']=enabled
  editor.show_params();editor.request_preview()
 
@@ -88,4 +93,12 @@ def remove(editor,pair):
  key=editor.attachment_id
  editor.draft['attachments']=[p for p in editor.draft['attachments'] if not (p['id']==key or pair and p['id'][:-1]==key[:-1])]
  if not editor.draft['attachments']:editor.draft.pop('attachments')
+ sync_assets(editor);editor.show_params();editor.request_preview()
+
+
+def change_binding(editor,parent):
+ item=A.record(editor.draft,editor.attachment_id);B.rebind(item,parent)
+ if item['linked']:
+  other=next((p for p in editor.draft['attachments'] if p['id']==item['id'][:-1]+('R' if item['id'].endswith('L') else 'L')),None)
+  if other is not None:B.rebind(other,B.mirrored(parent))
  sync_assets(editor);editor.show_params();editor.request_preview()

@@ -21,6 +21,9 @@ class App(tk.Tk):
         from platform_support import register_fonts,pixel_font_family
         register_fonts(E.ROOT)
         super().__init__();self.state_path=Path(state);self.title('FellowStudio · 动作工坊');self.configure(bg=BG)
+        self._startup_layout=True;self._layout_fitting=False
+        try:self.attributes('-alpha',0.)
+        except tk.TclError:pass
         self.option_add('*Font',('Microsoft YaHei UI',10));self.option_add('*Background',PANEL);self.option_add('*Foreground',INK)
         pixel_family=pixel_font_family(font.families(self),font.nametofont('TkDefaultFont',root=self).actual('family'))
         self.project=E.new_project('stand');self.load_error=''
@@ -69,14 +72,19 @@ class App(tk.Tk):
         if sys.platform=='darwin':
             self.bind('<Command-z>',lambda e:self.undo());self.bind('<Command-Shift-z>',lambda e:self.undo(True));self.bind('<Command-s>',lambda e:self.save_as())
         self.protocol('WM_DELETE_WINDOW',self.close);self.after(200,self.render)
-        self.after(350,self.fit_preview_space)
+        self.after_idle(self.finish_startup_layout)
         if self.load_error:self.status.set('未覆盖原配方：'+self.load_error)
 
-    def make_project(self,kind='stand'):
+    def make_project(self,kind='stand',keep_character=True):
         project=E.new_project(kind)
         if hasattr(self,'parts'):project['render']=self.current_display()
-        if self.project.get('model') is not None:project['model']=copy.deepcopy(self.project['model'])
-        if 'camera_y' in self.project:project['camera_y']=self.project['camera_y']
+        if keep_character:
+            for key in ('model','assets3d','camera_y'):
+                if key in self.project:project[key]=copy.deepcopy(self.project[key])
+        else:
+            # New starts a default character; changing an action keeps its appearance.
+            for key in ('canvas_width','canvas_height'):
+                project['render'][key]=O.DEFAULTS[key]
         project['auto_name_key']=E.ACTIONS[kind]
         return project
 
@@ -348,7 +356,12 @@ class App(tk.Tk):
         if self.resize_job:self.after_cancel(self.resize_job)
         self.resize_job=self.after(350,self.finish_resize)
     def fit_preview_space(self):
-        if not self.winfo_ismapped():return
+        if not self.winfo_ismapped() or self._layout_fitting:return
+        if self._startup_layout:return
+        # A modal editor owns its layout. Do not resize its parent/shared controls
+        # while opening a dialog or selecting an item in it.
+        grab=self.grab_current()
+        if grab is not None and grab is not self:return
         from ui_layout import preview_fitted_scale
         remaining=self._auto_fit_ready-time.monotonic()
         if remaining>0:
@@ -356,17 +369,37 @@ class App(tk.Tk):
             self.resize_job=self.after(max(1,round(remaining*1000)),self.finish_resize)
             return
         width,height=self.canvas.winfo_width(),self.canvas.winfo_height()
-        scale=preview_fitted_scale(self.ui_scale,width,height,self.winfo_width(),self.winfo_height(),self._auto_preview_fit)
-        if scale>=self.ui_scale:self._auto_preview_fit=False;return
-        self._auto_preview_fit=True
-        self.ui_scale=scale
-        self.ui_font.configure(size=-round(24*scale));self.caption_font.configure(size=-round(18*scale))
-        self.refresh_control_styles()
-        self.fit_panels(self.panes.winfo_width())
-        # Reflow may take more than one idle pass. Continue even if a starved
-        # canvas stays at one pixel and therefore emits no Configure event.
-        if self.resize_job:self.after_cancel(self.resize_job)
-        self.resize_job=self.after(180,self.finish_resize)
+        scale=preview_fitted_scale(self.ui_scale,width,height,self.winfo_width(),self.winfo_height(),False)
+        if scale>=self.ui_scale:return
+        # Resolve the emergency fallback in one layout transaction. The former
+        # timer chain visibly shrank the entire UI by .1 every 180 milliseconds.
+        self._layout_fitting=True
+        alpha=None
+        try:
+            try:alpha=self.attributes('-alpha');self.attributes('-alpha',0.)
+            except tk.TclError:pass
+            for _ in range(9):
+                self.ui_scale=scale
+                self.ui_font.configure(size=-round(24*scale));self.caption_font.configure(size=-round(18*scale))
+                self.refresh_control_styles();self.fit_panels(self.panes.winfo_width())
+                self.update_idletasks();self.update_idletasks()
+                next_scale=preview_fitted_scale(scale,self.canvas.winfo_width(),self.canvas.winfo_height(),self.winfo_width(),self.winfo_height(),True)
+                if next_scale>=scale:break
+                scale=next_scale
+            self._auto_preview_fit=False
+        finally:
+            self._layout_fitting=False
+            if alpha is not None:self.attributes('-alpha',alpha)
+
+    def finish_startup_layout(self):
+        try:
+            self.update_idletasks();self.fit_panels(self.panes.winfo_width());self.update_idletasks()
+            self._startup_layout=False;self._auto_fit_ready=0
+            self.fit_preview_space();self.update_idletasks()
+        finally:
+            self._startup_layout=False
+            try:self.attributes('-alpha',1.)
+            except tk.TclError:pass
 
     def finish_resize(self):
         self.resize_job=None;self.resizing=False
@@ -684,7 +717,7 @@ class App(tk.Tk):
         pose=self.view_pose(view);model=pose.get('_model') or {}
         item=next((p for p in model.get('attachments',[]) if p.get('kind')=='tail'),None)
         dx,dy=O.offset(self.active_project.get('render'))
-        return [(x+dx,y+dy) for x,y in (E.R._project(pose,p) for p in tails.joints(item,model,pose))] if item else []
+        return [O.point(E.R._project(pose,p),pose,self.active_project.get('render')) for p in tails.joints(item,model,pose)] if item else []
     def start_drag(self,event):
         if self.compare:return
         settings=self.active_project.get('render');cw,ch=O.size(settings)
@@ -717,23 +750,23 @@ class App(tk.Tk):
     def move_drag(self,event):
         if not self.drag:return
         if self.drag[0]=='hair':
-            _,index,view,size,channel=self.drag;ox,oy,original=self.drag_origin;prefix=channel+'_'+('root','middle','tip')[index];control=self.project['controls'].setdefault('hair',{});sensitivity=180/size*O.size(self.active_project.get('render'))[0]/64;axis='roll' if view==1 else 'yaw'
+            _,index,view,size,channel=self.drag;ox,oy,original=self.drag_origin;prefix=channel+'_'+('root','middle','tip')[index];control=self.project['controls'].setdefault('hair',{});sensitivity=180/size*O.size(self.active_project.get('render'))[0]/64/__import__('model_data').pixel_density(self.project.get('model'));axis='roll' if view==1 else 'yaw'
             control[prefix+'_'+axis]=max(-90,min(90,original.get(prefix+'_'+axis,0)+(event.x-ox)*sensitivity));control[prefix+'_pitch']=max(-90,min(90,original.get(prefix+'_pitch',0)-(event.y-oy)*sensitivity));self.update_drag_preview();self.schedule_save();return
         if self.drag[0]=='tail':
             _,index,view,size=self.drag;ox,oy,original=self.drag_origin;prefix=('root','middle','tip')[index]
             control=self.project['controls'].setdefault('tail',{});axis='roll' if view==1 else 'yaw'
-            sensitivity=180/size*O.size(self.active_project.get('render'))[0]/64
+            sensitivity=180/size*O.size(self.active_project.get('render'))[0]/64/__import__('model_data').pixel_density(self.project.get('model'))
             control[prefix+'_'+axis]=max(-120,min(120,original.get(prefix+'_'+axis,0)+(event.x-ox)*sensitivity))
             control[prefix+'_pitch']=max(-120,min(120,original.get(prefix+'_pitch',0)-(event.y-oy)*sensitivity))
             self.update_drag_preview();self.schedule_save();return
-        v,key,joint,start=self.drag;x,y,size=self.cells[v];cw=O.size(self.active_project.get('render'))[0];target=O.target(((event.x-x)*cw/size,(event.y-y)*cw/size),self.active_project.get('render'))
+        v,key,joint,start=self.drag;x,y,size=self.cells[v];cw=O.size(self.active_project.get('render'))[0];target=O.target(((event.x-x)*cw/size,(event.y-y)*cw/size),self.active_project.get('render'),start)
         p=self.view_pose(v)
         c=self.project['controls'].setdefault(key,{})
         if key in ('torso','head'):
             ox,oy,original=self.drag_origin
             if key=='torso' and joint=='root':
-                c['height']=max(-8,min(8,original.get('height',0)+(event.y-oy)*cw/size))
-                c['shift']=max(-12,min(12,original.get('shift',0)+(event.x-ox)*cw/size))
+                c['height']=max(-8,min(8,original.get('height',0)+(event.y-oy)*cw/size/__import__('model_data').pixel_density(self.project.get('model'))))
+                c['shift']=max(-12,min(12,original.get('shift',0)+(event.x-ox)*cw/size/__import__('model_data').pixel_density(self.project.get('model'))))
             else:
                 solution=E.R.aim_body(p,key,target)
                 mapping={'lean':'lean','rot':'tilt'} if key=='torso' else {'head_pitch':'nod','head':'tilt'}
@@ -776,7 +809,7 @@ class App(tk.Tk):
         if not self.seq:return
         self.stop();self.frame=min(len(self.seq)-1,int(float(v)/1000*len(self.seq)));self.render()
     def new(self):
-        self.snapshot();self.stop();self.project=self.make_project();self.frame=0;self.sync();self.changed()
+        self.snapshot();self.stop();self.project=self.make_project(keep_character=False);self.frame=0;self.sync();self.changed()
     def open(self):
         path=filedialog.askopenfilename(parent=self,initialdir=E.ROOT/'examples',filetypes=[(tr('动作配方'),'*.json')])
         if not path:return

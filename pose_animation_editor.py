@@ -221,7 +221,7 @@ class PoseAnimationEditor(ModelEditor):
  def move_pose(self,event):
   if not self.drag_pose:return
   import render_options as O
-  view,key,joint,p,(x,y,size)=self.drag_pose;cw=O.size(self.source.get('render'))[0];target=O.target(((event.x-x)*cw/size,(event.y-y)*cw/size),self.source.get('render'))
+  view,key,joint,p,(x,y,size)=self.drag_pose;cw=O.size(self.display_settings())[0];target=O.target(((event.x-x)*cw/size,(event.y-y)*cw/size),self.display_settings(),p)
   p[key]=self.cards[self.card_index]['pose'][key]
   self.cards[self.card_index]['pose'][key]=list(E.R.ik(p,key,target,joint=joint,free=(0,2) if joint=='mid' else (0,1,2,3)))
   if getattr(self,'pose_pair_link',False):self.mirror_selected_pose(refresh=False)

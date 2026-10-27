@@ -1,6 +1,7 @@
 """Tail controls on an independent model category."""
 import tkinter as tk
 import tails,attachments as A
+import attachment_binding as B
 import localized_ui as UI
 from i18n import tr
 from pixel_ui import PixelButton,PixelOption,PixelScale,FlowBar
@@ -40,7 +41,9 @@ def mount(editor):
  def choose(value):editor.tail_id=keys[value];editor.show_params()
  if len(items)>1:PixelOption(box,selected,*keys,command=choose).pack(fill='x',pady=6)
  UI.Label(box,text='动画与松软在主窗口的尾巴控制中调整。',wrap=True,anchor='w',justify='left',font=editor.owner.caption_font).pack(fill='x',pady=6)
- item=A.record(editor.draft,editor.tail_id);details=getattr(editor,'tail_details',False)
+ item=A.record(editor.draft,editor.tail_id)
+ B.mount(box,editor,item,lambda parent:change_binding(editor,parent))
+ details=getattr(editor,'tail_details',False)
  UI.Label(box,text='当前部件',anchor='w').pack(fill='x',pady=(8,2))
  if len(items)==1:UI.Label(box,text=A.name(editor.tail_id,editor.draft),anchor='w').pack(fill='x',pady=4)
  shape=tk.StringVar(master=editor,value=tr(tails.LABELS[item['preset']]))
@@ -59,7 +62,12 @@ def mount(editor):
  def toggle():editor.tail_details=not details;editor.show_params()
  PixelButton(box,text='收起尾巴细节' if details else '尾巴位置与细节',command=toggle).pack(fill='x',pady=6)
  def reset():
-  item.update(tails.normalize({'id':item['id'],'preset':item['preset']}));editor.show_params();editor.request_preview()
+  item.update(tails.normalize({'id':item['id'],'preset':item['preset'],'parent':item['parent']}));editor.show_params();editor.request_preview()
  bar=FlowBar(box,compact=True);bar.pack(fill='x',pady=6)
  PixelButton(bar,text='重置尾巴',command=reset,compact=True).pack(side='left')
  PixelButton(bar,text='删除尾巴',command=lambda:remove(editor),compact=True).pack(side='left')
+
+
+def change_binding(editor,parent):
+ B.rebind(A.record(editor.draft,editor.tail_id),parent)
+ sync(editor);editor.show_params();editor.request_preview()

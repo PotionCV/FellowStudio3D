@@ -37,10 +37,23 @@ def fit(width,height,settings=None):
     factor=max(1,math.floor(ratio)) if ratio>=1 else 1/math.ceil(1/ratio)
     return max(1,round(w*factor)),max(1,round(h*factor))
 
+def point(point,pose,settings=None):
+    """Map base rig pixels to native canvas pixels without changing IK units."""
+    import model_data as M
+    density=M.pixel_density(pose.get('_model'));dx,dy=offset(settings)
+    camera=math.floor(pose.get('_camera_y',0)+.5);x,y=point
+    if density==1:return x+dx,y+dy
+    return 31.5+(x-31.5)*density+dx,55.5+(y-55.5-camera)*density+camera+dy
+
+
 def joints(pose,settings=None):
     import rig
-    dx,dy=offset(settings)
-    return {k:{name:(x+dx,y+dy) for name,(x,y) in chain.items()} for k,chain in rig.joints(pose).items()}
+    return {k:{name:point(value,pose,settings) for name,value in chain.items()} for k,chain in rig.joints(pose).items()}
 
-def target(point,settings=None):
-    dx,dy=offset(settings);return point[0]-dx,point[1]-dy
+
+def target(value,settings=None,pose=None):
+    import model_data as M
+    pose=pose or {};density=M.pixel_density(pose.get('_model'));dx,dy=offset(settings)
+    camera=math.floor(pose.get('_camera_y',0)+.5);x,y=value
+    if density==1:return x-dx,y-dy
+    return 31.5+(x-dx-31.5)/density,55.5+(y-dy-55.5-camera)/density+camera

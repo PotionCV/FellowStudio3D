@@ -19,6 +19,10 @@ def preview_fitted_scale(scale, width, height, window_width, window_height, reco
     Enter only below 240x140 logical pixels. Once entered, recover to 280x180
     before stopping, so one borderline pixel does not retrigger shrinking.
     """
+    # One-pixel construction measurements are not evidence that a normal
+    # desktop window lacks space. A genuinely short, settled viewport still
+    # needs the fallback regardless of OS or screen resolution.
+    if window_width>=1280 and window_height>=800 and min(width,height)<=1:return scale
     target_width,target_height=(280,180) if recovering else (240,140)
     if width>=target_width and height>=target_height:return scale
     return max(.75,round(scale-.1,2))

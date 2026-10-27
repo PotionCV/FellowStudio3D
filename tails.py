@@ -1,5 +1,6 @@
 """Closed, curved tail attachments with deterministic clip-synchronous wagging."""
 import math,re
+import attachment_binding as B
 from functools import lru_cache
 import numpy as np
 
@@ -12,14 +13,16 @@ LABELS={'long_tail':'长尾','fluffy_tail':'蓬松尾','bob_tail':'短圆尾','z
 SPECS=(('length','尾巴长度（px）',3,26,.5),('width','尾巴粗细（px）',.5,24,.25),
  ('curl','尾巴弯曲（度）',-150,150,1),('tip','尾尖粗细',0,1,.05),('wag','摆尾幅度（度）',-60,60,1),
  ('thickness','尾巴厚度（px）',.5,12,.25),('lean','尾巴抬起（度）',-160,60,1),
- ('x','尾根左右（px）',-10,10,.25),('y','尾根上下（px）',-8,12,.25),('z','尾根前后（px）',-8,8,.25),
+ ('x','尾根左右（px）',-24,24,.25),('y','尾根上下（px）',-24,24,.25),('z','尾根前后（px）',-24,24,.25),
  ('outward','尾巴朝向（度）',-90,90,1),('cycles','每轮摆尾次数',1,4,1))
 
 def normalize(source):
  key=source.get('id','');preset=source.get('preset','long_tail')
  if not isinstance(key,str) or not re.fullmatch(r'tail[1-9][0-9]{0,5}',key):raise ValueError('Invalid tail ID')
- if preset not in PRESETS or source.get('parent','pelvis')!='pelvis':raise ValueError('Invalid tail preset or parent')
- item=dict(PRESETS[preset],tip=0.,id=key,parent='pelvis',kind='tail',preset=preset)
+ parent=B.validate(source.get('parent','pelvis'))
+ if preset not in PRESETS:raise ValueError('Invalid tail preset')
+ item=dict(PRESETS[preset],tip=0.,id=key,parent=parent,kind='tail',preset=preset)
+ if parent!='pelvis':item.update(x=0.,y=0.,z=0.)
  if source.get('shape',item['shape']) not in ('tube','brush','bob','zigzag'):raise ValueError('Invalid tail shape')
  item['shape']=source.get('shape',item['shape'])
  for field,_,lo,hi,_ in SPECS:
@@ -44,6 +47,9 @@ def frame(item,model,pose):
  from core3d import rx,ry,rz
  phase=(pose.get('_motion_phase',0.)*item['cycles']%1.)*math.tau
  swing=item['outward']+(item['wag']*math.sin(phase) if 'tail' not in pose else 0.)
+ if item['parent']!='pelvis':
+  origin,rotation=B.frame(item['parent'],model,pose)
+  return origin+rotation@np.array((item['x'],item['y'],item['z'])),rotation@ry(swing)@rx(item['lean'])
  if model.get('structure')=='plush':
   import plush as P
   b=model['body'];t=.22+item['y']/b['height'];depth=P.profile(b,float(np.clip(t,0,1)))[1]

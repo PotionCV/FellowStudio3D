@@ -33,11 +33,11 @@ The character catalog now has three distinct starting models: default, painted a
 
 **Tail joints and animation**: the model editor sets shape. After Apply, choose Tail in body controls and select root, middle or tip to edit pitch/yaw/roll, or drag joint handles in the four views. Add a Tail motion layer for sway and tip follow-through with mix, timing, fades and blend modes. Pose cards also store all three joints. This uses three-joint FK and continuous skinning. Physics below the controls offers root/middle/tip softness and bounce. Softness defaults to zero; try 0.2/0.45/0.65. These settings are saved with animations and simulated consistently in preview and export. Collision is not simulated.
 
-**Held objects** start from Box, Cylinder, Sphere or Cone. Define their purpose through shape and painting instead of selecting weapons. Change shape, dimensions and grip while retaining independent UVs and pixel groups. Legacy weapon models remain readable but are no longer defaults or catalog characters.
+**Objects** start from Box, Cylinder, Sphere or Cone. Define their purpose through shape and painting instead of selecting weapons. Change shape, dimensions and local position/angles while retaining independent UVs and pixel groups. Legacy weapon models remain readable but are no longer defaults or catalog characters.
 
 The workspace separates project/file actions, creation tools, animation on the left, preview in the center and parameters for the selected object on the right. **Display options…** belongs to the preview; **Retro animation** belongs to **Animation style**. Layers can move up/down with boundary actions disabled and selection retained.
 
-The model editor has peer **Shape / Hair / Ears / Tail / Props** tabs for both body structures. Body/part selection belongs only to Shape; Props selects the owning hand. Link sides and Mirror to other side are separate shape operations; a missing paired ear or lock can be added. Pose cards offer optional local side linking as well. Shape symmetry does not replace texture sharing.
+The model editor has peer **Shape / Hair / Ears / Tail / Props** tabs for both body structures. Body/part selection belongs only to Shape; Props, ears and tails can follow a selected bone; props are listed regardless of their target. Link sides and Mirror to other side are separate shape operations; a missing paired ear or lock can be added. Pose cards offer optional local side linking as well. Shape symmetry does not replace texture sharing.
 
 ## 2. Poses and animation without keyframes
 
@@ -207,3 +207,11 @@ Hair bodies have five outlines and independent proportions, hairline, coverage a
 Hairstyle templates are collapsed under a separate button. Select one of five templates and explicitly choose Replace with template to generate components once. This replaces current hair; cancel the model editor to discard changes, or undo after Apply.
 
 Use Body controls → Hair for bone dragging, softness and rebound, or add Hair sway and pose cards. Shoulder/back collisions are not simulated. All attachments share a limit of 32. Tail → Tip thickness produces rounded cat-tail ends; zero retains the old shape.
+
+## Attach parts to bones
+
+In Character model, use the Items, Ears or Tail tab and choose Follow bone. Targets include head, neck, chest, back, pelvis, upper/lower limbs, hands and feet. Back is a socket behind the chest and follows the chest bone.
+
+Changing the target resets local position while keeping shape, textures and tail animation. Expand position controls to adjust local offsets and angles. Items remain listed regardless of their target. Linked ears mirror left/right bone targets.
+
+Mount an item on Back to carry it, or mount a tail there and adjust its tilt, curl and tip width to make a ribbon using the existing three-joint animation and softness controls. This does not add cloth collision; check intersections in your animation.

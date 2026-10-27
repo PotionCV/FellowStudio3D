@@ -37,4 +37,4 @@ def points(app,view):
     item=selected(app,model)
     if item is None:return []
     dx,dy=O.offset(app.active_project.get('render'));head=S.geometry(pose)[-1]
-    return [(x+dx,y+dy) for x,y in (E.R._project(pose,p) for p in hair.joints(item,model,head,pose))]
+    return [O.point(E.R._project(pose,p),pose,app.active_project.get('render')) for p in hair.joints(item,model,head,pose)]

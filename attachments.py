@@ -3,6 +3,7 @@ import math,re
 from functools import lru_cache
 import numpy as np
 import sculpt
+import attachment_binding as B
 
 PRESETS={
  'human':dict(shape='round',x=1.,y=-.35,z=0.,width=4.,height=5.,thickness=2.5,tip=.65,outward=0.,lean=0.,twist=0.),
@@ -19,6 +20,9 @@ def normalize(records):
  for source in records:
   if not isinstance(source,dict):raise ValueError('Invalid attachment')
   key=source.get('id','');preset=source.get('preset','cat')
+  # Local projects from the discarded clothing experiment may still be open
+  # in an older process. Ignore only those retired records on the next load.
+  if source.get('kind')=='garment' and isinstance(key,str) and re.fullmatch(r'garment[1-9][0-9]{0,5}',key):continue
   if isinstance(key,str) and key.startswith('hair'):
    import hair
    item=hair.normalize(source)
@@ -35,8 +39,10 @@ def normalize(records):
    if key in seen:raise ValueError('Invalid or duplicate attachment ID')
    seen.add(key);result.append(item);continue
   if not re.fullmatch(r'ear[1-9][0-9]{0,5}[LR]',key) or key in seen:raise ValueError('Invalid or duplicate attachment ID')
-  if preset not in PRESETS or source.get('parent','head')!='head':raise ValueError('Invalid attachment preset or parent')
-  item=dict(PRESETS[preset],id=key,parent='head',kind='ear',preset=preset,linked=True)
+  parent=B.validate(source.get('parent','head'))
+  if preset not in PRESETS:raise ValueError('Invalid attachment preset')
+  item=dict(PRESETS[preset],id=key,parent=parent,kind='ear',preset=preset,linked=True)
+  if parent!='head':item.update(x=0.,y=0.,z=0.)
   if source.get('shape',item['shape']) not in ('round','pointed'):raise ValueError('Invalid ear shape')
   item['shape']=source.get('shape',item['shape'])
   if not isinstance(source.get('linked',True),bool):raise ValueError('Invalid attachment link')
@@ -44,6 +50,7 @@ def normalize(records):
   for field,_,lo,hi,_ in SPECS:
    value=source.get(field,item[field])
    if isinstance(value,bool) or not isinstance(value,(int,float)) or not math.isfinite(value):raise ValueError('Invalid attachment number: '+field)
+   if parent!='head' and field in ('x','y','z'):lo,hi=-24,24
    item[field]=max(lo,min(hi,float(value)))
   seen.add(key);result.append(item)
  return result
@@ -64,7 +71,7 @@ def name(key,model):
   return hair.name(item)
  if item.get('kind')=='prop':
   import hand_props
-  return f"{tr(hand_props.LABELS.get(item['preset'],'旧版物品'))} {key[4:]} · {tr('左侧' if item['parent']=='armL' else '右侧')}"
+  return f"{tr(hand_props.LABELS.get(item['preset'],'旧版物品'))} {key[4:]} · {tr(B.LABELS[item['parent']])}"
  if item.get('kind')=='tail':
   import tails
   return f"{tr(tails.LABELS[item['preset']])} {key[4:]}"
@@ -103,6 +110,12 @@ def frame(item,model,head,pose=None):
  if item.get('kind')=='tail':
   import tails
   return tails.frame(item,model,pose or {'_model':model})
+ if item['parent']!='head':
+  from core3d import rx,ry,rz
+  origin,rotation=B.frame(item['parent'],model,pose or {'_model':model})
+  sign=-1 if item['id'].endswith('L') else 1
+  anchor=np.array((sign*item['x'],item['y'],item['z']))
+  return origin+rotation@anchor,rotation@rz(-sign*item['outward'])@rx(item['lean'])@ry(sign*item['twist'])
  if model.get('structure')=='plush' and pose is not None:
   import plush
   return plush.attachment_frame(item,model,pose)

@@ -1,5 +1,6 @@
 """Closed, paintable hand props attached to a continuous anatomical wrist frame."""
 import math,re
+import attachment_binding as B
 from functools import lru_cache
 import numpy as np
 
@@ -14,13 +15,14 @@ LABELS={'box':'长方体','cylinder':'圆柱体','sphere':'球体','cone':'圆�
 SPECS=(('length','道具长度（px）',4,32,.5),('width','道具宽度（px）',1,18,.25),
  ('pitch','握持俯仰（度）',-180,180,1),('thickness','道具厚度（px）',.5,8,.25),
  ('yaw','握持转向（度）',-180,180,1),('roll','握持侧倾（度）',-180,180,1),
- ('x','握点左右（px）',-8,8,.25),('y','握点上下（px）',-8,8,.25),('z','握点前后（px）',-8,8,.25))
+ ('x','握点左右（px）',-24,24,.25),('y','握点上下（px）',-24,24,.25),('z','握点前后（px）',-24,24,.25))
 
 def normalize(source):
  key=source.get('id','');preset=source.get('preset','box');parent=source.get('parent','armR')
  if not isinstance(key,str) or not re.fullmatch(r'prop[1-9][0-9]{0,5}',key):raise ValueError('Invalid hand prop ID')
  presets={**LEGACY_PRESETS,**PRESETS}
- if preset not in presets or parent not in ('armL','armR'):raise ValueError('Invalid hand prop preset or hand')
+ B.validate(parent)
+ if preset not in presets:raise ValueError('Invalid prop preset')
  item=dict(yaw=0.,roll=0.,x=0.,y=0.,z=0.,**presets[preset],id=key,parent=parent,kind='prop',preset=preset,shape=preset)
  if source.get('shape',preset)!=preset:raise ValueError('Invalid hand prop shape')
  for field,_,lo,hi,_ in SPECS:
@@ -40,15 +42,10 @@ def dimensions(item):return item['width'],item['length'],item['thickness']
 def surface(item):return {key:item[key] for key in ('shape','length','width','thickness')}
 
 def frame(item,model,pose):
- import rounded_scene as S
  from core3d import rx,ry,rz
- _,_,chains,_,_,_=S.geometry(pose);arm=item['parent']
- lat,bend,sag,fold=(tuple(pose.get(arm,(0,0)))+(0,0,0,0))[:4]
- # Euler rotations follow the authored limb angles without the axial flip of
- # constructing a frame from an arbitrary world-space reference vector.
- wrist=S.root_rotation(pose)@rx(pose.get('lean',0))@ry(pose.get('chest_yaw',0))@rz(lat+bend)@rx(-sag-fold)
- origin=chains[arm][-1]+wrist@np.array((item['x'],item['y'],item['z']))
- return origin,wrist@ry(item['yaw'])@rx(item['pitch'])@rz(item['roll'])
+ origin,rotation=B.frame(item['parent'],model,pose)
+ origin=origin+rotation@np.array((item['x'],item['y'],item['z']))
+ return origin,rotation@ry(item['yaw'])@rx(item['pitch'])@rz(item['roll'])
 
 def polygon(shape,w,h):
  if shape=='box':points=[(-.5,-.5),(.5,-.5),(.5,.5),(-.5,.5)]

@@ -20,6 +20,10 @@ def normalize(value=None):
     result=copy.deepcopy(DEFAULT)
     if value is None:return result
     if not isinstance(value,dict):raise ValueError('Invalid model resource')
+    if 'pixel_density' in value:
+        density=value['pixel_density']
+        if isinstance(density,bool) or density not in (1,2,3):raise ValueError('Invalid model pixel density')
+        if density!=1:result['pixel_density']=int(density)
     # Resources made before torso thickness retain their original geometry/UVs.
     if 'torso' in value and isinstance(value['torso'],dict) and 'thickness' not in value['torso']:
         result['torso']['thickness']=1.
@@ -78,3 +82,7 @@ def load_resource(path):
     return result
 
 def load(path):return load_resource(path)['model']
+
+
+def pixel_density(model=None):
+    return (model or {}).get("pixel_density",1)

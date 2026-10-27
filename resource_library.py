@@ -137,6 +137,9 @@ def search(resources,kind,query='',category='全部'):
 
 def apply_model(current,path):
  resource=MD.load_resource(path);result=copy.deepcopy(current)
+ density=MD.pixel_density(resource['model'])
+ if density>1:
+  result.setdefault('render',{}).update(canvas_width=max(64*density,result.get('render',{}).get('canvas_width',64)),canvas_height=max(64*density,result.get('render',{}).get('canvas_height',64)))
  result['model']=resource['model']
  # No embedded paint means the new model uses its defaults. Never borrow the
  # previous character's face/paint/attachment IDs by accident.

@@ -12,7 +12,7 @@ a{color:var(--accent);text-underline-offset:3px}a:hover{color:#a55e0d}a:focus-vi
 p{margin:14px 0}li{margin:9px 0}code{background:#e8ddc9;border:1px solid var(--line);padding:1px 5px;font-size:.9em;overflow-wrap:anywhere}strong{font-weight:750}
 @media(max-width:800px){.layout{display:block;padding:12px}nav{position:static;max-height:none;margin-bottom:16px}main{padding:20px}h1{font-size:26px}}
 @media print{header,nav{display:none}.layout{display:block;padding:0}body,main{background:white}main{border:0;padding:0}a{color:inherit}}
-</style></head><body><header>FellowStudio3D · 使用说明</header><div class="layout"><nav aria-label="使用说明"><a href="#section-1">1. 启动与试用角色</a><a href="#section-2">2. 不用关键帧的姿势和动画</a><a href="#section-3">3. 头部、躯干、IK与物理跟随</a><a href="#section-4">4. 视角与像素显示</a><a href="#section-5">5. 调整角色模型</a><a href="#section-6">6. 绘画与替换贴图</a><a href="#section-7">7. 保护小图案的像素排列</a><a href="#section-8">8. 导出序列帧</a><a href="#section-9">9. 保存、分享与恢复</a><a href="#section-10">10. 常见问题</a><a href="#section-11">头发造型与动画</a></nav><main><h1 id="guide-title">FellowStudio3D 使用说明</h1>
+</style></head><body><header>FellowStudio3D · 使用说明</header><div class="layout"><nav aria-label="使用说明"><a href="#section-1">1. 启动与试用角色</a><a href="#section-2">2. 不用关键帧的姿势和动画</a><a href="#section-3">3. 头部、躯干、IK与物理跟随</a><a href="#section-4">4. 视角与像素显示</a><a href="#section-5">5. 调整角色模型</a><a href="#section-6">6. 绘画与替换贴图</a><a href="#section-7">7. 保护小图案的像素排列</a><a href="#section-8">8. 导出序列帧</a><a href="#section-9">9. 保存、分享与恢复</a><a href="#section-10">10. 常见问题</a><a href="#section-11">头发造型与动画</a><a href="#section-12">部件跟随骨骼</a></nav><main><h1 id="guide-title">FellowStudio3D 使用说明</h1>
 <p><a href="GUIDE.en.html">English</a> · <a href="GUIDE.zh-CN.html">简体中文</a> · <a href="GUIDE.ja.html">日本語</a> · <a href="../README.md">项目 README</a></p>
 <h2 id="section-1">1. 启动与试用角色</h2>
 <p>完整解压 Windows 便携包，双击 <strong>FellowStudio3D.exe</strong>。不需要安装 Python。EXE、runtime 和其他文件必须放在一起；BAT 是备用启动入口。这个便携包适用于 Windows，不能直接在 macOS 上运行。</p>
@@ -33,9 +33,9 @@ p{margin:14px 0}li{margin:9px 0}code{background:#e8ddc9;border:1px solid var(--l
 <p>角色库收敛为默认模型、彩绘模型和一体布偶三种起点；重复的尾巴、装备、表情变体已撤下。熊本熊和猫咪的完整绘画模型显示在“我的角色”，使用原始贴图。本地个人体验包包含这两个角色，公共包不包含。</p>
 <p><strong>动画存储与迁移</strong>：主窗口“动画工具… → 保存动画…”只保存基础动作、叠加层、姿势卡、尾巴通道、控制器与物理配置，默认放在本机 <code>user_data/motions</code>。资源库的“我的动画”会列出它们；在另一角色上选择后应用，会保留目标角色的模型、贴图和显示设置。保存整套项目仍使用顶部“保存”。</p>
 <p><strong>尾巴骨骼与动画</strong>：模型窗口只管尾巴外形。应用模型后，在主窗口“整体控制 → 尾巴”选择尾根／尾中／尾尖，分别控制上下、左右和扭转，也可拖动四视图中的关节圆点。添加“尾巴摆动”动作层可调摆幅和尾尖跟随，沿用影响比例、时段、淡入淡出与融合方式；姿势卡也能编辑三节尾巴。尾巴使用三关节FK和连续蒙皮；下方物理跟随提供尾根松软、尾中松软、尾尖松软及回弹。默认均为0，可先试0.2／0.45／0.65。设置随动画保存，预览与导出一致；不含碰撞。</p>
-<p><strong>手持物品</strong>以长方体、圆柱体、球体、圆锥体为起点，自己定义杯子、包裹、工具等用途，不限定为武器。可更换形状，独立调整尺寸与握持位置，保留独立UV与像素保护。旧剑盾模型仅兼容读取，不再作为默认形状或角色案例。</p>
+<p><strong>物品</strong>以长方体、圆柱体、球体、圆锥体为起点，自己定义杯子、包裹、工具等用途，不限定为武器。可更换形状，独立调整尺寸与局部位置／角度，保留独立UV与像素保护。旧剑盾模型仅兼容读取，不再作为默认形状或角色案例。</p>
 <p>主窗口按项目／创作入口、左侧动画、中间预览和右侧当前对象参数组织。显示开关在预览上方的<strong>显示选项…</strong>，复古效果在左侧<strong>动画表现</strong>。动作层可上移／下移，选择会保留，边界按钮自动禁用。</p>
-<p>模型窗口使用<strong>外形／头发／耳朵／尾巴／物品</strong>五个同级页签；身体结构和身体部位只在外形页出现。物品先选所属手，尾巴不再附在躯干底部。四肢与发束提供左右联动、单次对称；耳朵和发束缺失另一侧可补齐。对称不替代贴图共享设置。</p>
+<p>模型窗口使用<strong>外形／头发／耳朵／尾巴／物品</strong>五个同级页签；身体结构和身体部位只在外形页出现。物品、耳朵和尾巴可选择跟随骨骼，物品不再按所属手筛选。四肢与发束提供左右联动、单次对称；耳朵和发束缺失另一侧可补齐。对称不替代贴图共享设置。</p>
 <h2 id="section-2">2. 不用关键帧的姿势和动画</h2>
 <p>先在左侧选择<strong>基础动作</strong>或预设姿势，点击编辑基础动作，调整步幅、摆臂和其他参数。动画时长、帧率和循环次数共同决定输出序列。</p>
 <p>选择身体部位，可以整体调整它在动画中的姿势。先选双臂、双腿做整体调整，再选单侧微调。<strong>摆动幅度</strong>围绕动作的平均姿势调整，不是简单地把所有角度乘大。</p>
@@ -137,4 +137,8 @@ p{margin:14px 0}li{margin:9px 0}code{background:#e8ddc9;border:1px solid var(--l
 <p>模型窗口以外形、头发、耳朵、尾巴、物品五个同级页签组织，布偶与分体角色一致。头发页按“添加部件 → 已添加部件 → 当前部件参数”编辑，可单独添加头发主体、左右刘海、左右中发束、后发、左右马尾和自由发束，再复制、镜像或删除。列表只显示实际部件；旧通用发束可在细节中修改类型，保持造型和骨骼。</p>
 <p>主体提供五种轮廓、宽高厚、发际线、覆盖和顶部轮廓。每束保留14项参数、独立UV和三节骨骼；成对部件可左右同步，补加另一侧会继承镜像造型。原脸部和身体贴图保留。</p>
 <p>“发型模板…”收起后不占层级；选择五种模板之一，再点“替换为模板”一次生成部件。模板替换当前头发，模型编辑可取消，应用后可撤销。</p>
-<p>动画在整体控制 → 头发，支持骨骼拖动、松软回弹、头发飘动叠加和姿势卡。没有肩背碰撞，长发需检查穿插；附属部件合计最多32。详见<a href="HAIR.zh-CN.md">头发部件说明</a>。尾巴的“尾尖粗细”可做圆钝猫尾，0保留旧形状。</p></main></div></body></html>
+<p>动画在整体控制 → 头发，支持骨骼拖动、松软回弹、头发飘动叠加和姿势卡。没有肩背碰撞，长发需检查穿插；附属部件合计最多32。详见<a href="HAIR.zh-CN.md">头发部件说明</a>。尾巴的“尾尖粗细”可做圆钝猫尾，0保留旧形状。</p>
+<h2 id="section-12">部件跟随骨骼</h2>
+<p>在“角色模型”的“物品”“耳朵”“尾巴”页，选择部件后设置“跟随骨骼”。支持头部、颈部、胸口、背部、骨盆、上臂／前臂／手、大腿／小腿／脚。背部是随胸口运动的背面挂点。</p>
+<p>切换骨骼会复位局部位置，形状、贴图和尾巴动画保留；再展开位置参数调整偏移和角度。物品页列出全部物品，不按左右手隐藏。耳朵启用左右联动时，绑定左侧骨骼会对应绑定右侧。</p>
+<p>例如，物品选择“背部”即可随背负位置运动；尾巴也可以选“背部”，调整抬起、弯曲和尾尖粗细后使用三段动画／松软制作飘带。此功能不提供布料碰撞，仍需要检查动作中的穿插。</p></main></div></body></html>

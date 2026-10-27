@@ -152,7 +152,8 @@ def part_dimensions(model):
  if P.active(pose['_model']):
   dims.pop('head');dims.pop('torso');dims['body']=P.dimensions(pose['_model'])
  dims.update({item['id']:A.dimensions(item) for item in pose['_model'].get('attachments',[])})
- return dims
+ density=MD.pixel_density(pose['_model'])
+ return {part:tuple(v*density for v in dim) for part,dim in dims.items()} if density!=1 else dims
 
 def torso_rotation(pose,fraction):
  yaw=pose.get('pelvis_yaw',0)*(1-fraction)+pose.get('chest_yaw',0)*fraction
@@ -375,6 +376,8 @@ def protection_context(pose,bundle):
 def render(pose,settings=None,cam=(0,0)):
  import render_options as O,pixel_lighting as L
  j,triangles,bundle=pose_meshes(pose);yaw=pose.get('yaw',0)+cam[0];pitch=pose.get('pitch',0)+cam[1]
+ density=MD.pixel_density(bundle['model'])
+ if density!=1:triangles=[(part,face,world*density,uv) for part,face,world,uv in triangles]
  # Backface rejection halves raster work without changing the depth test.
  view=np.array((math.sin(-math.radians(yaw))*math.cos(math.radians(pitch)),math.sin(math.radians(pitch)),math.cos(math.radians(yaw))*math.cos(math.radians(pitch))))
  worlds=np.stack([tri[2] for tri in triangles]);normal=np.cross(worlds[:,1]-worlds[:,0],worlds[:,2]-worlds[:,0]);visible=[triangles[i] for i in np.flatnonzero(normal@view>1e-8)]
@@ -382,7 +385,7 @@ def render(pose,settings=None,cam=(0,0)):
  s=O.normalized({'parts':True,'textures':True,'outline':True,'gaps':True,'perfect':True,**(settings or {})})
  if s['retro_animation']:
   import retro_animation
-  s['_pixel_anchors']=retro_animation.pixel_anchors(pose,bundle)
+  s['_pixel_anchors']={part:np.asarray(point)*density for part,point in retro_animation.pixel_anchors(pose,bundle).items()}
  painted={part:resource for part,resource in bundle['textures'].items() if s['textures'] and resource.get('png')}
  textures={part:np.array(U.texture_image(bundle,part)) if part in painted else np.array([[(*U.color(part),255) if s['parts'] else (255,255,255,255)]],dtype=np.uint8) for part in U.parts(bundle)}
  names=U.parts(bundle);connections=[];g=F.model_geometry(pose)
@@ -393,9 +396,18 @@ def render(pose,settings=None,cam=(0,0)):
    connections.append((names.index(first),names.index(second),j[kind+side]['mid'],radius))
    if g['limbs'][kind+side]['bridge']:
     connections.append((names.index('body' if P.active(bundle['model']) else 'torso'),names.index(first),j[kind+side]['root'],g['limbs'][kind+side]['radii'][0]+.5))
- movement=np.array((pose.get('dx',0.),-pose.get('dy',0.)+pose.get('_breath_dy',0.),pose.get('dz',0.)))
+ if density!=1:
+  sockets=[np.asarray(point)*density for point in sockets]
+  connections=[(a,b,np.asarray(point)*density,radius*density) for a,b,point,radius in connections]
+ context=protection_context(pose,bundle) if painted else None
+ if density!=1 and context:
+  for data in context.values():
+   def scaled(frame):return np.asarray(frame[0])*density,np.asarray(frame[1])*density
+   data['frame']=scaled(data['frame'])
+   if 'group_frames' in data:data['group_frames']=[scaled(frame) for frame in data['group_frames']]
+ movement=np.array((pose.get('dx',0.),-pose.get('dy',0.)+pose.get('_breath_dy',0.),pose.get('dz',0.)))*density
  projected_move=project(np.array([movement,np.zeros(3)]),yaw,pitch)
  delta=projected_move[0,:2]-projected_move[1,:2]
  pixel_shift=np.floor(delta+.5)-delta+np.array(O.offset(s))+np.array((0.,math.floor(pose.get('_camera_y',0)+.5)))
- image=raster(visible,textures,(yaw,pitch),dict(s,colors=s['parts'] or bool(painted),material_colors=True,_parts=U.parts(bundle),_head_children=tuple(item['id'] for item in bundle['model'].get('attachments',[]) if item.get('parent','head')=='head'),onepx=True),sockets,connections,stable_head=None if P.active(bundle['model']) else j['head']['tip'],pixel_shift=pixel_shift,protection=painted,protection_context=protection_context(pose,bundle) if painted else None,lighting=L.context(triangles,textures,s,(yaw,pitch)))[0]
+ image=raster(visible,textures,(yaw,pitch),dict(s,colors=s['parts'] or bool(painted),material_colors=True,_parts=U.parts(bundle),_head_children=tuple(item['id'] for item in bundle['model'].get('attachments',[]) if item.get('parent','head')=='head'),onepx=True),sockets,connections,stable_head=None if P.active(bundle['model']) else np.asarray(j['head']['tip'])*density,pixel_shift=pixel_shift,protection=painted,protection_context=context,lighting=L.context(triangles,textures,s,(yaw,pitch)))[0]
  return image[:,::-1].copy() if pose.get('flip') else image

@@ -43,10 +43,6 @@ class App(UI.App):
   if path.is_file():webbrowser.open(path.as_uri())
   else:self.status.set(str(path))
   return 'break'
- def make_project(self,kind='stand'):
-  p=super().make_project(kind)
-  if self.project.get('assets3d') is not None:p['assets3d']=copy.deepcopy(self.project['assets3d'])
-  return p
  def edit_textures(self):
   if self.texture_editor is not None and self.texture_editor.winfo_exists():self.texture_editor.lift();return
   self.stop();self.render()

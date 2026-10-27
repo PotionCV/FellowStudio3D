@@ -3,6 +3,64 @@ from pathlib import Path
 import app,engine as E,uv_assets as U
 from pixel_ui import PixelButton
 class UITests(unittest.TestCase):
+ def test_attachment_binding_editor_stages_mirrors_and_preserves_uv(self):
+  import copy,hand_prop_editor as HP,tail_editor as TE,attachment_editor as AE,attachments as A
+  a=self.a;before=copy.deepcopy(a.project);a.edit_model();e=a.model_editor;e.select_category('props')
+  HP.add(e,'box');prop=e.prop_id
+  png=e.draft_assets['textures'][prop]['png'];HP.change_binding(e,'back');a.update()
+  self.assertEqual(A.record(e.draft,prop)['parent'],'back')
+  self.assertEqual(e.draft_assets['textures'][prop]['png'],png)
+  e.select_category('tail');TE.add(e);TE.change_binding(e,'torso')
+  self.assertEqual(A.record(e.draft,e.tail_id)['parent'],'torso')
+  e.select_category('ears');AE.add(e,'cat');AE.change_binding(e,'upperArmL')
+  left=A.record(e.draft,e.attachment_id);right=A.record(e.draft,left['id'][:-1]+'R')
+  self.assertEqual(left['parent'],'upperArmL');self.assertEqual(right['parent'],'upperArmR')
+  self.assertEqual(a.project,before);e.cancel();self.assertEqual(a.project,before)
+  a.edit_model();e=a.model_editor;e.select_category('props');HP.add(e,'box');HP.change_binding(e,'back');e.apply();a.update()
+  self.assertEqual(a.project['model']['attachments'][0]['parent'],'back')
+  a.edit_model();e=a.model_editor;e.select_category('props');a.update()
+  self.assertEqual(e.prop_id,a.project['model']['attachments'][0]['id']);e.cancel()
+  a.undo();self.assertEqual(a.project,before)
+
+ def test_large_window_and_modal_editor_do_not_shrink_shared_ui(self):
+  from unittest.mock import patch
+  a=self.a;a.geometry('1440x900');a.update();a._auto_fit_ready=0;scale=a.ui_scale
+  with patch.object(a.canvas,'winfo_width',return_value=1),patch.object(a.canvas,'winfo_height',return_value=1),patch.object(a,'winfo_width',return_value=1440),patch.object(a,'winfo_height',return_value=900):
+   for _ in range(5):a.fit_preview_space()
+  self.assertEqual(a.ui_scale,scale)
+  a.edit_model();e=a.model_editor;a.update();self.assertNotEqual(str(e.ui_font),str(a.ui_font))
+  self.assertEqual(float(e.attributes('-alpha')),1.)
+  font_size=e.ui_font.actual('size')
+  with patch.object(a.canvas,'winfo_height',return_value=1):a.fit_preview_space()
+  self.assertEqual(a.ui_scale,scale);self.assertEqual(e.ui_font.actual('size'),font_size);e.cancel()
+
+ def test_new_resets_imported_character_and_undo_restores_it(self):
+  import copy,model_data as M,rounded_scene as S
+  from PIL import Image
+  a=self.a;a.project['model']=M.normalize({'pixel_density':2,'head':{'size':1.2}})
+  a.project['assets3d']=S.assets(a.project)
+  resource=a.project['assets3d']['textures']['head'];resource['png']=U.encode(Image.new('RGBA',resource['layout']['size'],'#cc7744'))
+  a.project['render'].update(canvas_width=128,canvas_height=160);a.project['camera_y']=7
+  a.project['controls']={'head':{'tilt':15}};a.sync();before=copy.deepcopy(a.project)
+  a.new()
+  self.assertEqual(M.normalize(a.project.get('model')),M.normalize())
+  self.assertNotIn('assets3d',a.project);self.assertNotIn('camera_y',a.project)
+  self.assertEqual((a.project['render']['canvas_width'],a.project['render']['canvas_height']),(64,64))
+  self.assertFalse(any(a.project['controls'].values()));self.assertEqual(a.project['base']['kind'],'stand')
+  fresh=copy.deepcopy(a.project);a.undo();self.assertEqual(a.project,before)
+  a.undo(True);self.assertEqual(a.project,fresh)
+
+ def test_changing_base_action_keeps_character_textures_and_canvas(self):
+  import copy,model_data as M,rounded_scene as S
+  from PIL import Image
+  a=self.a;a.project['model']=M.normalize({'pixel_density':2})
+  a.project['assets3d']=S.assets(a.project)
+  resource=a.project['assets3d']['textures']['head'];resource['png']=U.encode(Image.new('RGBA',resource['layout']['size'],'#cc7744'))
+  a.project['render'].update(canvas_width=128,canvas_height=160);a.project['camera_y']=7;a.sync()
+  before=copy.deepcopy(a.project);a.change_base(E.ACTIONS['walk'])
+  for key in ('model','assets3d','render','camera_y'):self.assertEqual(a.project[key],before[key])
+  self.assertEqual(a.project['base']['kind'],'walk')
+
  def test_mac_dropdown_is_modeless_and_runs_action_after_close(self):
   import tkinter as tk,types,pixel_ui
   from unittest.mock import patch

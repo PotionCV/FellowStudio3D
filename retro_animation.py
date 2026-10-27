@@ -158,7 +158,7 @@ def stylize(seq,project):
     for kind,group in _groups(seq):
         channels=[(k,w) for k,w in group if w>0 and all(k in p for p in seq)]
         if not channels:continue
-        values=_signature(seq,channels,kind)
+        values=_signature(seq,channels,kind)*M.pixel_density(project.get('model'))
         if not np.isfinite(values).all():continue
         for indices in _cells(values,loop,contacts):
             v=values[indices];center=v.mean(axis=0)
