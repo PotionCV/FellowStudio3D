@@ -11,7 +11,7 @@ Start with a motion, make it your own, and export sprites — no animation exper
 
 **[Download on itch.io](https://potionc.itch.io/fellowstudio3d)** · **[Quick start](#quick-start)** · **[User guides](#learn-more)**
 
-Windows portable · macOS experimental · English / 简体中文 / 日本語
+Windows portable · macOS experimental · English / Simplified Chinese / Japanese
 
 <img src="docs/media/walk-run.gif" alt="Walking and running characters shown from multiple views" width="800">
 
@@ -25,7 +25,7 @@ Pick a base motion, drag a hand or foot, blend another action, and watch all fou
 views update together. Change proportions, paint your own textures, and reuse
 the same animation with another character.
 
-选择角色 → 摆姿势与组合动作 → 绘制贴图 → 导出像素序列帧。
+Choose a character → Pose and combine motions → Paint textures → Export pixel frames.
 
 ![Animation workspace with four views, motion layers and body controls](docs/media/workspace.png)
 
@@ -115,13 +115,13 @@ motion without character appearance, ready to apply to another model.
 
 ## Learn more
 
-**User guides:** [English](docs/GUIDE.en.md) · [简体中文](docs/GUIDE.zh-CN.md) · [日本語](docs/GUIDE.ja.md)
+**User guides:** [English](docs/GUIDE.en.md) · [Simplified Chinese](docs/GUIDE.zh-CN.md) · [Japanese](docs/GUIDE.ja.md)
 
 The app's **User guide** button / **F1** opens an offline HTML manual.
 
 | Topic | Read more |
 | --- | --- |
-| Current capabilities | [Feature inventory / 功能清单](docs/FEATURES.zh-CN.md) |
+| Current capabilities | [Feature inventory (Chinese)](docs/FEATURES.zh-CN.md) |
 | Hair and components | [Hair workflow](docs/HAIR.zh-CN.md) |
 | Sprite atlas integration | [Directional atlas format](docs/DIRECTIONAL-ATLASES.md) |
 | Retro animation | [Approach and limits](docs/RETRO-ANIMATION.zh-CN.md) |
