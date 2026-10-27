@@ -1,9 +1,20 @@
 """Coalesced, progressive preview. Export continues to use exact engine.poses."""
 import engine as E
 import rounded_scene as S
+import queue,time
 VIEWS=((0,0),(90,0),(45,0),(45,30))
 _control=None
 _progress=None
+
+def drain_progress(progress,revision,limit=4,budget=.008):
+ """Bound work on Tk's thread even if workers have filled the progress queue."""
+ started=time.perf_counter();partial=None;merged={}
+ for _ in range(limit):
+  if time.perf_counter()-started>=budget:break
+  try:version,seq,images,physical=progress.get_nowait()
+  except queue.Empty:break
+  if version==revision:partial=seq;merged.update(images)
+ return partial,merged
 def init_progress(control,progress):
  global _control,_progress
  _control=control;_progress=progress

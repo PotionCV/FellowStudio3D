@@ -9,7 +9,7 @@ import render_options as O
 import model_data as MD
 import sculpt
 import plush,plush_editor
-from preview_worker import compile_preview,init_progress,progressive_preview,frame_images
+from preview_worker import compile_preview,init_progress,progressive_preview,frame_images,drain_progress
 from pixel_ui import PixelButton,PixelOption,PixelScale,PixelCheck,ScrollPanel,FlowBar
 import localized_ui as UI
 from i18n import tr
@@ -215,13 +215,7 @@ class ModelEditor(tk.Toplevel):
     def poll(self):
         if not self.running:return
         version,future=self.running
-        partial=None;merged={}
-        try:
-            while True:
-                revision,seq,raw,physical=self.preview_progress.get_nowait()
-                if revision==self.revision:
-                    partial=seq;merged.update(raw)
-        except queue.Empty:pass
+        partial,merged=drain_progress(self.preview_progress,self.revision)
         if partial is not None:self.receive_preview(partial,merged);self.frame%=len(partial);self.draw()
         if not future.done():self.poll_job=self.later(25,self.poll);return
         self.running=None

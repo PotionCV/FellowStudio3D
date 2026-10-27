@@ -25,7 +25,10 @@ if ! "$ENV_DIR/bin/python" -c 'import numpy, PIL, tkinterdnd2' >/dev/null 2>&1; 
     "$ENV_DIR/bin/python" -m pip install -r "$APP_DIR/requirements.txt"
 fi
 if [ "${1:-}" = '--check' ]; then
-    "$ENV_DIR/bin/python" -c 'import platform, tkinter, numpy, PIL; print(platform.platform()); print("Python", platform.python_version(), "Tk", tkinter.TkVersion, "NumPy", numpy.__version__, "Pillow", PIL.__version__); w=tkinter.Tk(); w.withdraw(); w.update(); w.destroy(); print("Tk window check passed")'
+    "$ENV_DIR/bin/python" -c 'import platform, tkinter, numpy, PIL; print(platform.platform()); print("Python", platform.python_version(), "Tk API", tkinter.TkVersion, "NumPy", numpy.__version__, "Pillow", PIL.__version__); w=tkinter.Tk(); w.withdraw(); w.update(); print("Tcl", w.tk.call("info", "patchlevel"), "Tk runtime", w.tk.call("package", "provide", "Tk")); w.destroy(); print("Tk window check passed")'
     exit 0
+fi
+if [ "${1:-}" = '--check-fonts' ]; then
+    exec "$ENV_DIR/bin/python" "$APP_DIR/platform_support.py"
 fi
 exec "$ENV_DIR/bin/python" "$APP_DIR/launch.py"

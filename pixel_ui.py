@@ -1,5 +1,6 @@
 """Pixel-grid controls. All geometry follows the application's UI scale."""
 import tkinter as tk
+import sys
 from i18n import tr
 FIELD='#e5d6bd';PANEL='#f8f0df';INK='#493c32';ACC='#e7a34c';EDGE='#aa957d';LIGHT='#fff9eb';SHADOW='#8d7257'
 def wrap_text(text,font,width):
@@ -105,26 +106,67 @@ class PixelOption(PixelBase):
         self.trace=variable.trace_add('write',lambda *_:self.draw());self.bind('<Configure>',lambda e:self.draw())
         self.bind('<Button-1>',self.post);self.bind('<space>',self.post);self.bind('<Return>',self.post);self.bind('<Destroy>',self.cleanup,add='+');self.draw()
     def cleanup(self,e):
-        if e.widget is self:self.var.trace_remove('write',self.trace)
+        if e.widget is self:
+            if getattr(self,'popup_job',None):self.after_cancel(self.popup_job);self.popup_job=None
+            if getattr(self,'close_popup',None):self.close_popup()
+            self.var.trace_remove('write',self.trace)
     def pick(self,value):
         self.var.set(value)
         if self.command:self.command(value)
     def post(self,e=None):
         self.focus_set()
         if hasattr(self,'popup') and self.popup.winfo_exists():return
-        self.old_grab=self.grab_current();popup=tk.Toplevel(self);self.popup=popup;popup.overrideredirect(True);popup.configure(bg=INK)
+        if sys.platform=='darwin':
+            if not getattr(self,'popup_job',None):self.popup_job=self.after_idle(self.open_popup)
+        else:self.open_popup()
+    def open_popup(self):
+        self.popup_job=None
+        if hasattr(self,'popup') and self.popup.winfo_exists():return
+        mac=sys.platform=='darwin';owner=self.winfo_toplevel()
+        self.old_grab=self.grab_current();popup=tk.Toplevel(self);self.popup=popup;popup.configure(bg=INK)
+        if mac:
+            # Aqua's override-redirect + immediate grab/focus path can wedge
+            # input. Use a modeless transient picker with normal window chrome.
+            popup.transient(owner);popup.title(tr(self.var.get()));popup.resizable(False,False)
+        else:popup.overrideredirect(True)
         width=max(self.winfo_width(),self.winfo_reqwidth());height=min(self.px(420),len(self.values)*self.px(50)+self.px(12),self.winfo_screenheight()-40)
         x=min(self.winfo_rootx(),self.winfo_screenwidth()-width);y=min(self.winfo_rooty()+self.winfo_height(),self.winfo_screenheight()-height-20)
         popup.geometry(f'{width}x{height}+{x}+{max(0,y)}')
         panel=ScrollPanel(popup);panel.pack(fill='both',expand=True,padx=self.px(4),pady=self.px(4))
+        outside_binding=None;focus_job=None;closed=False
         def close():
+            nonlocal closed,focus_job
+            if closed:return
+            closed=True
+            if focus_job:self.after_cancel(focus_job);focus_job=None
+            if outside_binding and owner.winfo_exists():owner.unbind('<ButtonPress-1>',outside_binding)
             popup.destroy()
-            if self.old_grab is not None and self.old_grab.winfo_exists():self.old_grab.grab_set()
+            self.close_popup=None
+            if not mac and self.old_grab is not None and self.old_grab.winfo_exists():self.old_grab.grab_set()
         self.close_popup=close
-        def pick(v):close();self.pick(v)
+        def pick(v):
+            close()
+            if mac:self.after_idle(lambda:self.pick(v))
+            else:self.pick(v)
         for value in self.values:PixelButton(panel.content,text=value,command=lambda v=value:pick(v),accent=value==self.var.get()).pack(fill='x',pady=self.px(2))
         popup.bind('<Escape>',lambda e:close());popup.bind('<ButtonPress-1>',lambda e:close() if e.x_root<x or e.x_root>x+width or e.y_root<y or e.y_root>y+height else None)
-        popup.bind('<MouseWheel>',panel.wheel);popup.grab_set();popup.focus_set()
+        popup.bind('<MouseWheel>',panel.wheel);popup.protocol('WM_DELETE_WINDOW',close)
+        if mac:
+            outside_binding=owner.bind('<ButtonPress-1>',lambda e:close(),add='+')
+            def check_focus():
+                nonlocal focus_job
+                focus_job=None
+                if closed:return
+                focused=popup.focus_get()
+                if focused is None or focused.winfo_toplevel()!=popup:close()
+            def focus_out(e):
+                nonlocal focus_job
+                if closed:return
+                if focus_job:self.after_cancel(focus_job)
+                focus_job=self.after(100,check_focus)
+            popup.bind('<FocusOut>',focus_out)
+            popup.focus_set()
+        else:popup.grab_set();popup.focus_set()
     def draw(self):
         import tkinter.font as ft
         f=ft.Font(font=self.ui_font());w=max(f.measure(tr(v)) for v in self.values)+self.px(64);h=max(self.px(48),f.metrics('linespace')+self.px(22))
@@ -220,6 +262,9 @@ class FlowBar(tk.Frame):
             if child.winfo_manager()=='pack':
                 info=child.pack_info();self.sides[child]=info.get('side','left');self.specs[child]=info;child.pack_forget()
                 child.bind('<Configure>',self.schedule,add='+')
+        signature=(width,self.ui_scale,tuple((str(w),w.winfo_reqwidth(),w.winfo_reqheight(),self.sides.get(w),self.specs.get(w,{}).get('expand')) for w in children))
+        if signature==getattr(self,'layout_signature',None):return
+        self.layout_signature=signature
         left=[w for w in children if self.sides.get(w)=='left'];right=list(reversed([w for w in children if self.sides.get(w)=='right']))
         gap=max(4,round(6*self.ui_scale))
         pinned=self.pin_right and sum(w.winfo_reqwidth()+gap for w in right)<=width

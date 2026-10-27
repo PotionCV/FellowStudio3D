@@ -3,6 +3,47 @@ from pathlib import Path
 import app,engine as E,uv_assets as U
 from pixel_ui import PixelButton
 class UITests(unittest.TestCase):
+ def test_mac_dropdown_is_modeless_and_runs_action_after_close(self):
+  import tkinter as tk,types,pixel_ui
+  from unittest.mock import patch
+  a=self.a;value=tk.StringVar(master=a,value='One');calls=[]
+  option=pixel_ui.PixelOption(a,value,'One','Two',command=lambda v:calls.append(v));option.pack();a.update()
+  with patch.object(pixel_ui,'sys',types.SimpleNamespace(platform='darwin')),patch.object(tk.Toplevel,'grab_set') as grab:
+   for _ in range(5):
+    option.post();a.update();popup=option.popup
+    self.assertFalse(popup.overrideredirect());self.assertIsNone(popup.grab_current())
+    panel=next(w for w in popup.winfo_children() if isinstance(w,pixel_ui.ScrollPanel))
+    button=next(w for w in panel.content.winfo_children() if isinstance(w,PixelButton) and w.text=='Two')
+    count=len(calls);button.command();self.assertFalse(popup.winfo_exists());self.assertEqual(len(calls),count)
+    a.update();self.assertEqual(calls[-1],'Two')
+   grab.assert_not_called()
+   option.post();option.destroy();a.update()  # Pending open is cancelled on teardown.
+
+ def test_layout_settles_and_repeated_panel_fit_does_not_reconfigure(self):
+  from unittest.mock import patch
+  from pixel_ui import FlowBar
+  a=self.a;a.geometry('1024x640');a.update();a.adapt_layout(1024,640);a.update()
+  with patch.object(a.panes,'paneconfigure',wraps=a.panes.paneconfigure) as configure:
+   for _ in range(20):a.fit_panels(a.panes.winfo_width())
+   self.assertEqual(configure.call_count,0)
+  bar=next(w for w in a.winfo_children() if isinstance(w,FlowBar))
+  with patch.object(bar,'reflow',wraps=bar.reflow) as reflow:
+   for _ in range(10):bar.schedule();a.update()
+   self.assertLessEqual(reflow.call_count,12)
+
+ def test_small_windows_adapt_without_changing_project_or_saved_scale(self):
+  import copy,json
+  a=self.a;project=copy.deepcopy(a.project);a.preferred_ui_scale=1.5
+  for width,height in ((820,560),(1024,640),(1280,720),(1440,900)):
+   a.geometry(f'{width}x{height}');a.update();a.adapt_layout(width,height);a.update()
+   self.assertGreaterEqual(a.canvas.winfo_width(),300)
+   self.assertGreaterEqual(a.canvas.winfo_height(),180)
+   self.assertLessEqual(a.ui_scale,1.5)
+  a.save_preferences();prefs=json.loads(a.preferences_path.read_text(encoding='utf-8'))
+  self.assertEqual(prefs['scale'],1.5);self.assertEqual(a.project,project)
+  a.adapt_layout(1024,640);a.zoom(-.25)
+  self.assertEqual(a.preferred_ui_scale,a.ui_scale)
+
  def test_framework_categories_display_restoration_and_layer_order(self):
   import copy
   a=self.a;a.toggle_display_options();a.update();self.assertTrue(a.display_options.winfo_ismapped())

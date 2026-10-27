@@ -1,7 +1,7 @@
 """FellowStudio3D keeps FellowStudio's interaction and tuned motion recipes."""
 import copy,ctypes,multiprocessing,queue
 from concurrent.futures import ProcessPoolExecutor
-from preview_worker import init_progress,progressive_preview,frame_images
+from preview_worker import init_progress,progressive_preview,frame_images,drain_progress
 from pathlib import Path
 import engine as E
 import studio_ui as UI
@@ -29,6 +29,8 @@ class App(UI.App):
   from platform_support import set_icon
   set_icon(self,E.ROOT)
   self.bind('<F1>',self.open_guide)
+  from runtime_diagnostics import install
+  self.watchdog=install(self)
  def _build(self):
   super()._build()
   model=next(w for shell in self.winfo_children() for w in shell.winfo_children() if isinstance(w,PixelButton) and w.text=='角色模型')
@@ -91,12 +93,7 @@ class App(UI.App):
  def poll_preview(self):
   if self.future_job is None:return
   revision,project,future=self.future_job
-  partial=None;merged={}
-  try:
-   while True:
-    version,seq,images,physical=self.preview_progress.get_nowait()
-    if version==self.revision:partial=seq;merged.update(images)
-  except queue.Empty:pass
+  partial,merged=drain_progress(self.preview_progress,self.revision)
   if partial is not None:self.accept_preview(partial,merged,project)
   if not future.done():self.after(15,self.poll_preview);return
   self.future_job=None
@@ -106,6 +103,7 @@ class App(UI.App):
   except Exception as ex:self.status.set('预览更新失败：'+str(ex))
   self.submit_latest()
  def close(self):
+  if getattr(self,'watchdog',None):self.watchdog.close()
   self.preview_control.value=-1
   super().close()
 if __name__=='__main__':

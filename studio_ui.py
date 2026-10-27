@@ -17,12 +17,12 @@ STATE=E.ROOT/'studio_v2.json'
 
 class App(tk.Tk):
     def __init__(self,state=STATE,preferences=None):
-        super().__init__();self.state_path=Path(state);self.title('FellowStudio · 动作工坊');self.minsize(1100,720);self.configure(bg=BG)
-        self.option_add('*Font',('Microsoft YaHei UI',10));self.option_add('*Background',PANEL);self.option_add('*Foreground',INK)
-        from platform_support import register_fonts
+        # Register before Tk initializes its native font manager/cache.
+        from platform_support import register_fonts,pixel_font_family
         register_fonts(E.ROOT)
-        pixel_family='精品点阵体9×9 1.9 R'
-        if pixel_family not in font.families():pixel_family=font.nametofont('TkDefaultFont').actual('family')
+        super().__init__();self.state_path=Path(state);self.title('FellowStudio · 动作工坊');self.configure(bg=BG)
+        self.option_add('*Font',('Microsoft YaHei UI',10));self.option_add('*Background',PANEL);self.option_add('*Foreground',INK)
+        pixel_family=pixel_font_family(font.families(self),font.nametofont('TkDefaultFont',root=self).actual('family'))
         self.project=E.new_project('stand');self.load_error=''
         if self.state_path.exists():
             try:self.project=E.load(self.state_path)
@@ -33,6 +33,12 @@ class App(tk.Tk):
         if not isinstance(prefs,dict):prefs={}
         try:self.ui_scale=max(.75,min(2.,float(prefs.get('scale',1.5))))
         except (ValueError,TypeError):self.ui_scale=1.5
+        if not math.isfinite(self.ui_scale):self.ui_scale=1.5
+        self.preferred_ui_scale=self.ui_scale
+        from ui_layout import fitted_scale
+        width,height=self.fit_window()
+        self.ui_scale=fitted_scale(self.preferred_ui_scale,width,height)
+        self.adapt_job=None;self._adapt_size=(width,height)
         self.export_directory=str(prefs.get('export_directory') or E.ROOT)
         self.paint_directory=str(prefs.get('painting_directory') or '')
         bindings=prefs.get('painting_bindings',{})
@@ -56,10 +62,10 @@ class App(tk.Tk):
         self.caption_font=font.Font(family=pixel_family,size=-round(18*self.ui_scale))
         self.executor=None;self.future_job=None;self.latest_request=None;self.revision=0;self.raw_images={};self.resize_job=None;self.resizing=False;self.focus_view=0;self.active_project=copy.deepcopy(self.project)
         self.model_editor=None
-        self.fit_window()
         self.history=[];self.future=[];self.frame=0;self.playing=False;self.play_job=None;self.epoch=0;self.pending=None;self.save_job=None
         self.selection=('body','arms');self.seq=[];self.photos={};self.cells=[];self.refs=[];self.drag=None;self.drag_physics=None;self.compare=False
         self._build();self.restore_panel_widths();self.refresh_lists();self.show_params();self.refresh_control_styles();self.rebuild()
+        self.bind('<Configure>',self.queue_adapt_layout,add='+')
         self.bind('<Control-z>',lambda e:self.undo());self.bind('<Control-y>',lambda e:self.undo(True));self.bind('<Control-s>',lambda e:self.save_as())
         if sys.platform=='darwin':
             self.bind('<Command-z>',lambda e:self.undo());self.bind('<Command-Shift-z>',lambda e:self.undo(True));self.bind('<Command-s>',lambda e:self.save_as())
@@ -178,12 +184,31 @@ class App(tk.Tk):
 
     def zoom(self,delta):
         self.ui_scale=max(.75,min(2.0,self.ui_scale+delta))
+        self.preferred_ui_scale=self.ui_scale
+        self._adapt_size=(self.winfo_width(),self.winfo_height())
         self.ui_font.configure(size=-round(24*self.ui_scale))
         self.caption_font.configure(size=-round(18*self.ui_scale))
         self.save_preferences()
         self.restore_panel_widths()
         self.refresh_control_styles()
         self.render()
+
+    def queue_adapt_layout(self,event):
+        if event.widget is not self:return
+        size=(event.width,event.height)
+        if min(size)<100 or size==self._adapt_size:return
+        if self.adapt_job:self.after_cancel(self.adapt_job)
+        self.adapt_job=self.after(180,lambda:self.adapt_layout(*size))
+
+    def adapt_layout(self,width,height):
+        from ui_layout import fitted_scale
+        self.adapt_job=None;self._adapt_size=(width,height)
+        scale=fitted_scale(self.preferred_ui_scale,width,height)
+        if abs(scale-self.ui_scale)>.01:
+            self.ui_scale=scale
+            self.ui_font.configure(size=-round(24*scale));self.caption_font.configure(size=-round(18*scale))
+            self.refresh_control_styles()
+        self.fit_panels(self.panes.winfo_width())
 
     def restore_panel_widths(self):
         if not hasattr(self,'panes'):return
@@ -192,18 +217,18 @@ class App(tk.Tk):
         self.after_idle(lambda:self.fit_panels(self.panes.winfo_width()))
     def fit_panels(self,width):
         if not hasattr(self,'right') or width<600:return
-        requested=[round(x*self.ui_scale) for x in self.panel_widths]
-        budget=max(440,int(width*.54)-50)
-        factor=min(1,budget/max(1,sum(requested)))
-        self.panes.paneconfigure(self.left,width=max(200,round(requested[0]*factor)))
-        self.panes.paneconfigure(self.right,width=max(240,round(requested[1]*factor)))
+        from ui_layout import panel_sizes
+        left,right,left_min,right_min=panel_sizes(width,self.ui_scale,self.panel_widths)
+        for pane,size,minimum in ((self.left,left,left_min),(self.right,right,right_min)):
+            if (int(self.panes.panecget(pane,'width')),int(self.panes.panecget(pane,'minsize')))!=(size,minimum):
+                self.panes.paneconfigure(pane,width=size,minsize=minimum)
     def remember_panel_widths(self):
         if not self.left.winfo_exists():return
         self.panel_widths=[self.left.winfo_width()/self.ui_scale,self.right.winfo_width()/self.ui_scale];self.save_preferences()
 
     def save_preferences(self):
         self.preferences_path.parent.mkdir(parents=True,exist_ok=True)
-        tmp=self.preferences_path.with_suffix('.tmp');tmp.write_text(json.dumps({'scale':self.ui_scale,'export_directory':self.export_directory,'painting_directory':self.paint_directory,'painting_bindings':self.paint_bindings,'language':self.language,'panels':self.panel_widths,'render':self.current_display()}),encoding='utf-8');tmp.replace(self.preferences_path)
+        tmp=self.preferences_path.with_suffix('.tmp');tmp.write_text(json.dumps({'scale':self.preferred_ui_scale,'export_directory':self.export_directory,'painting_directory':self.paint_directory,'painting_bindings':self.paint_bindings,'language':self.language,'panels':self.panel_widths,'render':self.current_display()}),encoding='utf-8');tmp.replace(self.preferences_path)
     def refresh_control_styles(self):
         def visit(widget):
             if hasattr(widget,'refresh_style'):widget.refresh_style()
@@ -318,7 +343,10 @@ class App(tk.Tk):
             x,y,w,h=rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top
         except (AttributeError,OSError):x,y,w,h=0,0,self.winfo_screenwidth(),self.winfo_screenheight()
         width=min(w-24,max(1400,round(w*.92)));height=min(h-50,max(900,round(h*.9)))
+        if sys.platform=='darwin':height=min(height,h-110)  # Menu bar, title bar and Dock.
+        self.minsize(min(820,width),min(560,height))
         self.geometry(f'{width}x{height}+{x+(w-width)//2}+{y+max(0,(h-height-32)//2)}')
+        return width,height
     def resize_preview(self,event):
         self.resizing=True
         if self.resize_job:self.after_cancel(self.resize_job)

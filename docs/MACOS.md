@@ -34,6 +34,13 @@ accepts Command-C/V for image copy/paste. Fonts are registered only for the
 current process, with a system-font fallback. PNG drag/drop is optional;
 use the file picker if unavailable.
 
+The pixel font is registered before Tk opens its first window. Both English
+(`BoutiqueBitmap9x9 1.9`) and localized family names are recognized. If you still
+see a system font, run `sh ./FellowStudio3D.sh --check-fonts` and include its output
+in a bug report. A manual fallback is to open `Boutique9.ttf` in Font Book, install
+it for your user, then fully quit and relaunch the tool; automatic registration
+does not install fonts on your system.
+
 **Validation boundary:** developed on Windows. Script syntax, adapter tests,
 source packaging and Windows regressions are checked; Intel/Apple Silicon Mac
 launching, native fonts, drag/drop and clipboard interoperability still need
@@ -48,3 +55,39 @@ Python 3.12+，在完整源码目录运行 `sh ./FellowStudio3D.sh`；首次启�
 日本語：実験的な macOS ソース起動です。python.org の Python 3.12 以降を
 インストールし、ソースフォルダーで `sh ./FellowStudio3D.sh` を実行してください。
 初回はネット接続が必要です。実機の Mac では未検証です。
+
+## Small displays and window resizing
+
+The main window fits its initial size to the screen. UI scale is reduced when
+needed using Tk logical screen/window dimensions, so Retina physical pixel counts
+do not make the controls too large. Side panels also shrink to preserve a usable
+central preview. Resizing is debounced and restores the preferred scale when space
+allows. A− / A＋ still adjusts scale manually; automatic fitting does not overwrite
+the saved preference or change exported sprite dimensions. Mac menu/Dock clearance
+is conservative; unusual Dock positions or multi-monitor setups may need manual
+window positioning. Native Mac behavior remains unverified on our Windows host.
+
+## Dropdown hangs and diagnostics
+
+On macOS, option lists now open as ordinary transient picker windows, without
+an override-redirect window or a new input grab. Selection work is deferred until
+the picker has closed. Escape, the close button or clicking the parent dismisses
+it. Windows keeps its existing borderless dropdown. Preview progress is consumed
+in small batches and repeated identical layout requests are skipped.
+
+This is a targeted mitigation, not a claim that a Mac freeze was reproduced or
+fixed on hardware. Run `sh ./FellowStudio3D.sh --check` to report the actual Python,
+macOS and Tcl/Tk runtime versions. On macOS the app creates
+`user_data/runtime-diagnostics.log` (or the configured/fallback data folder).
+If its event loop stops responding for 15 seconds, that file records Python thread
+stacks automatically. Wait about 20 seconds before force-quitting. On restart,
+the previous session's log is retained as `runtime-diagnostics.previous.log`.
+These diagnostics contain runtime details and stack/file locations, not a project
+snapshot. Callback exceptions are also recorded.
+
+Separately, old Tk releases have a documented native-menu hang on macOS 27.
+The CPython maintainers report fixed Tk builds in the python.org macOS installers
+for Python 3.13.17 and 3.14.9 (and later releases in those series). See the
+[official issue](https://github.com/python/cpython/issues/158053).
+That system-menu issue is not established as the cause of this app's custom
+picker freeze; update advice depends on the actual installed runtime.
