@@ -1,11 +1,4 @@
 """Layout budgets in Tk logical pixels (never physical Retina pixels)."""
-import math
-
-
-def fitted_scale(preferred, width, height):
-    limit=min((width-48)/960,(height-96)/560)
-    limit=math.floor((limit+1e-6)*20)/20
-    return max(.75,min(2.,preferred,limit))
 
 
 def panel_sizes(width, scale, preferred):
@@ -20,14 +13,12 @@ def panel_sizes(width, scale, preferred):
     return left_min+round(demand[0]*factor),right_min+round(demand[1]*factor),left_min,right_min
 
 
-def preview_fitted_scale(scale, width, height, window_width, window_height):
-    """Reduce only after measuring the settled canvas, including wrapped toolbars.
+def preview_fitted_scale(scale, width, height, window_width, window_height, recovering=False):
+    """Emergency fallback, measured after layout; no window-size scale cap.
 
-    Keep a useful preview on small displays without replacing the user's
-    preferred scale. Small steps allow controls to reflow before measuring again.
+    Enter only below 240x140 logical pixels. Once entered, recover to 280x180
+    before stopping, so one borderline pixel does not retrigger shrinking.
     """
-    target_width=min(480,max(280,window_width*.36))
-    target_height=min(360,max(220,window_height*.38))
-    if width>=target_width and height>=target_height:
-        return scale
+    target_width,target_height=(280,180) if recovering else (240,140)
+    if width>=target_width and height>=target_height:return scale
     return max(.75,round(scale-.1,2))

@@ -35,9 +35,8 @@ class App(tk.Tk):
         except (ValueError,TypeError):self.ui_scale=1.5
         if not math.isfinite(self.ui_scale):self.ui_scale=1.5
         self.preferred_ui_scale=self.ui_scale
-        from ui_layout import fitted_scale
         width,height=self.fit_window()
-        self.ui_scale=fitted_scale(self.preferred_ui_scale,width,height)
+        self._auto_fit_ready=time.monotonic()+1.0;self._auto_preview_fit=False
         self.adapt_job=None;self._adapt_size=(width,height)
         self.export_directory=str(prefs.get('export_directory') or E.ROOT)
         self.paint_directory=str(prefs.get('painting_directory') or '')
@@ -202,14 +201,10 @@ class App(tk.Tk):
         self.adapt_job=self.after(180,lambda:self.adapt_layout(*size))
 
     def adapt_layout(self,width,height):
-        from ui_layout import fitted_scale
         self.adapt_job=None;self._adapt_size=(width,height)
-        scale=fitted_scale(self.preferred_ui_scale,width,height)
-        if abs(scale-self.ui_scale)>.01:
-            self.ui_scale=scale
-            self.ui_font.configure(size=-round(24*scale));self.caption_font.configure(size=-round(18*scale))
-            self.refresh_control_styles()
         self.fit_panels(self.panes.winfo_width())
+        if self.resize_job:self.after_cancel(self.resize_job)
+        self.resize_job=self.after(350,self.finish_resize)
 
     def restore_panel_widths(self):
         if not hasattr(self,'panes'):return
@@ -351,12 +346,19 @@ class App(tk.Tk):
     def resize_preview(self,event):
         self.resizing=True
         if self.resize_job:self.after_cancel(self.resize_job)
-        self.resize_job=self.after(130,self.finish_resize)
+        self.resize_job=self.after(350,self.finish_resize)
     def fit_preview_space(self):
         if not self.winfo_ismapped():return
         from ui_layout import preview_fitted_scale
-        scale=preview_fitted_scale(self.ui_scale,self.canvas.winfo_width(),self.canvas.winfo_height(),self.winfo_width(),self.winfo_height())
-        if scale>=self.ui_scale:return
+        remaining=self._auto_fit_ready-time.monotonic()
+        if remaining>0:
+            if self.resize_job:self.after_cancel(self.resize_job)
+            self.resize_job=self.after(max(1,round(remaining*1000)),self.finish_resize)
+            return
+        width,height=self.canvas.winfo_width(),self.canvas.winfo_height()
+        scale=preview_fitted_scale(self.ui_scale,width,height,self.winfo_width(),self.winfo_height(),self._auto_preview_fit)
+        if scale>=self.ui_scale:self._auto_preview_fit=False;return
+        self._auto_preview_fit=True
         self.ui_scale=scale
         self.ui_font.configure(size=-round(24*scale));self.caption_font.configure(size=-round(18*scale))
         self.refresh_control_styles()

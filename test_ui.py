@@ -31,11 +31,19 @@ class UITests(unittest.TestCase):
    for _ in range(10):bar.schedule();a.update()
    self.assertLessEqual(reflow.call_count,12)
 
+ def test_default_large_scale_is_not_capped_by_window_dimensions(self):
+  a=self.a
+  self.assertEqual(a.preferred_ui_scale,1.5)
+  self.assertEqual(a.ui_scale,1.5)
+  a.adapt_layout(1280,720)
+  self.assertEqual(a.ui_scale,1.5)
+
  def test_small_windows_adapt_without_changing_project_or_saved_scale(self):
   import copy,json
   a=self.a;project=copy.deepcopy(a.project);a.preferred_ui_scale=1.5
   for width,height in ((820,560),(1024,640),(1280,720),(1440,900)):
-   a.geometry(f'{width}x{height}');a.update();a.adapt_layout(width,height);a.update()
+   a.geometry(f'{width}x{height}');a.update();a.adapt_layout(width,height);a._auto_fit_ready=0
+   for _ in range(12):a.finish_resize();a.update()
    self.assertGreaterEqual(a.canvas.winfo_width(),300)
    self.assertGreaterEqual(a.canvas.winfo_height(),180)
    self.assertLessEqual(a.ui_scale,1.5)

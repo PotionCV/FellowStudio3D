@@ -35,15 +35,12 @@ class PlatformTests(unittest.TestCase):
                 self.assertEqual((Path(folder)/'runtime-diagnostics.previous.log').read_text(encoding='utf-8'),text)
 
     def test_layout_caps_scale_and_reserves_preview_space(self):
-        from ui_layout import fitted_scale,panel_sizes
+        from ui_layout import panel_sizes
         for width,height in ((820,560),(1024,640),(1280,720),(1440,900),(1920,1080)):
-            scale=fitted_scale(1.5,width,height)
+            scale=1.5
             self.assertGreaterEqual(scale,.75);self.assertLessEqual(scale,1.5)
             left,right,_,_=panel_sizes(width,scale,[900,900])
             self.assertGreaterEqual(width-left-right-64,280)
-        self.assertLess(fitted_scale(1.5,1280,720),1.5)
-        self.assertEqual(fitted_scale(.8,1920,1080),.8)
-        self.assertEqual(fitted_scale(1.5,1920,1080),1.5)
 
     def test_measured_preview_shrinks_until_usable_without_oscillation(self):
         from ui_layout import preview_fitted_scale
@@ -52,6 +49,9 @@ class PlatformTests(unittest.TestCase):
             scale=preview_fitted_scale(scale,400,100,1280,720)
         self.assertEqual(scale,.75)
         self.assertEqual(preview_fitted_scale(1.2,500,360,1280,720),1.2)
+        self.assertEqual(preview_fitted_scale(1.5,300,200,1280,720),1.5)
+        self.assertEqual(preview_fitted_scale(1.5,250,150,1280,720),1.5)
+        self.assertLess(preview_fitted_scale(1.5,250,150,1280,720,True),1.5)
         self.assertLess(preview_fitted_scale(1.2,200,500,1280,720),1.2)
         self.assertLess(preview_fitted_scale(1.2,500,100,1280,720),1.2)
         self.assertEqual(preview_fitted_scale(.75,1,1,820,560),.75)

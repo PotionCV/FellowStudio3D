@@ -58,14 +58,14 @@ Python 3.12+，在完整源码目录运行 `sh ./FellowStudio3D.sh`；首次启�
 
 ## Small displays and window resizing
 
-The main window fits its initial size to the screen. UI scale is reduced when
-needed using Tk logical screen/window dimensions, so Retina physical pixel counts
-do not make the controls too large. Side panels also shrink to preserve a usable
-central preview. Resizing is debounced and restores the preferred scale when space
-allows. A− / A＋ still adjusts scale manually; automatic fitting does not overwrite
-the saved preference or change exported sprite dimensions. Mac menu/Dock clearance
-is conservative; unusual Dock positions or multi-monitor setups may need manual
-window positioning. Native Mac behavior remains unverified on our Windows host.
+The window fits the screen, but controls start at the saved manual scale
+(default 1.5). Window dimensions alone never shrink the UI. After startup layout
+has settled, automatic fitting is only activated if the actual preview falls
+below 240 logical pixels wide or 140 high. Once triggered, it reduces scale in
+small steps until the preview reaches 280x180, or the 0.75 scale floor is reached.
+Side panels still fit available width. A− / A＋ remains available. Automatic
+fitting never overwrites the saved scale or changes exported sprite dimensions.
+Mac behavior still requires real-device validation.
 
 ## Dropdown hangs and diagnostics
 
